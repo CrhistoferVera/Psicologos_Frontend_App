@@ -1,4 +1,4 @@
-import ScreenHeader from "@/components/Menu/ScreenHeader";
+import ScreenHeader from "@/src/components/Menu/ScreenHeader";
 import { useCreditRate } from "@/src/hooks/useCreditRate";
 import { LinearGradient } from "expo-linear-gradient";
 import {

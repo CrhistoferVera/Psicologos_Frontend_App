@@ -3,27 +3,27 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Alert, BackHandler, View } from "react-native";
 import { AuthProvider } from "../src/context/AuthContext";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { usePreventScreenCapture } from "expo-screen-capture";
-import { ActiveChatProvider } from '../src/context/ActiveChatContext';
+import { ActiveChatProvider } from "../src/context/ActiveChatContext";
 import Toast from "react-native-toast-message";
-import { toastConfig } from '../src/components/ToastConfig';
+import { toastConfig } from "../src/components/ToastConfig";
 import { useEffect } from "react";
 import VersionGuard from "../src/components/VersionGuard";
+import { appTheme } from "../src/theme/appTheme";
 
 function BackHandlerGuard() {
   useEffect(() => {
-    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
       Alert.alert(
-        '¿Salir de Pachamama?',
-        '¿Seguro que quieres salir de la aplicación?',
+        "¿Salir de la app?",
+        "¿Seguro que quieres salir de la aplicación?",
         [
-          { text: 'Cancelar', style: 'cancel', onPress: () => {} },
-          { text: 'Salir', style: 'destructive', onPress: () => BackHandler.exitApp() },
+          { text: "Cancelar", style: "cancel", onPress: () => {} },
+          { text: "Salir", style: "destructive", onPress: () => BackHandler.exitApp() },
         ],
-        { cancelable: true }
+        { cancelable: true },
       );
-      return true; // bloquea el comportamiento por defecto
+      return true;
     });
     return () => subscription.remove();
   }, []);
@@ -31,15 +31,14 @@ function BackHandlerGuard() {
 }
 
 export default function Layout() {
-  const insets = useSafeAreaInsets();
   usePreventScreenCapture();
   return (
     <VersionGuard>
       <AuthProvider>
         <ActiveChatProvider>
           <BackHandlerGuard />
-          <View className="flex-1 bg-black" style={{ backgroundColor: 'black' }}>
-            <StatusBar style="light" />
+          <View className="flex-1" style={{ backgroundColor: appTheme.colors.background }}>
+            <StatusBar style="dark" />
             <Stack screenOptions={{ headerShown: false }} />
             <Toast config={toastConfig} />
           </View>
@@ -48,3 +47,4 @@ export default function Layout() {
     </VersionGuard>
   );
 }
+

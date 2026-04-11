@@ -1,4 +1,4 @@
-import ScreenHeader from '@/components/Menu/ScreenHeader';
+import ScreenHeader from '@/src/components/Menu/ScreenHeader';
 import { useAuth } from '@/src/context/AuthContext';
 import { anfitrionaChatScreenRef } from '@/src/services/notifications';
 import { getChats, type Chat } from '@/src/api/messages';

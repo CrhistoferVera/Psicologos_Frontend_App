@@ -8,8 +8,8 @@ import {
   Pressable,
 } from "react-native";
 import { router } from "expo-router";
-import TextField from "../../components/TextField";
-import PrimaryButton from "../../components/PrimaryButton";
+import TextField from "../../src/components/TextField";
+import PrimaryButton from "../../src/components/PrimaryButton";
 import { completeRegistration } from "../../src/services/auth";
 import { useAuth } from "../../src/context/AuthContext";
 import { getTempToken, removeTempToken } from "../../src/storage/authStorage";

@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import {
   View,
   Text,
@@ -9,9 +9,9 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Link, router } from "expo-router";
-import Screen from "../../components/Screen";
-import TextField from "../../components/TextField";
-import PrimaryButton from "../../components/PrimaryButton";
+import Screen from "../../src/components/Screen";
+import TextField from "../../src/components/TextField";
+import PrimaryButton from "../../src/components/PrimaryButton";
 import { loginWithEmail } from "../../src/services/auth";
 import { useAuth } from "../../src/context/AuthContext";
 
@@ -27,13 +27,13 @@ export default function LoginHostess() {
     const trimmedPassword = password.trim();
 
     if (!trimmedEmail || !trimmedPassword) {
-      setError("Ingresa tu correo y contraseña.");
+      setError("Ingresa tu correo y contrase�a.");
       return;
     }
 
     const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail);
     if (!isEmail) {
-      setError("Ingresa un correo válido.");
+      setError("Ingresa un correo v�lido.");
       return;
     }
 
@@ -51,7 +51,7 @@ export default function LoginHostess() {
       router.replace("/(anfitriona)");
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "No se pudo iniciar sesión.";
+        err instanceof Error ? err.message : "No se pudo iniciar sesi�n.";
       setError(message);
     } finally {
       setLoading(false);
@@ -93,7 +93,7 @@ export default function LoginHostess() {
           />
 
           <TextField
-            label="Contraseña"
+            label="Contrase�a"
             placeholder="********"
             value={password}
             onChangeText={setPassword}
@@ -106,7 +106,7 @@ export default function LoginHostess() {
           ) : null}
 
           <PrimaryButton
-            title={loading ? "Ingresando..." : "Iniciar sesión"}
+            title={loading ? "Ingresando..." : "Iniciar sesi�n"}
             onPress={handleSend}
             disabled={loading}
           />
@@ -116,8 +116,8 @@ export default function LoginHostess() {
             href={'(auth)/register-anfitriona'}
           >
             <Text className="text-white/60 text-lg mt-3 text-center">
-              ¿No tienes cuenta?{" "}
-              <Text className="underline font-semibold">Regístrate aquí</Text>
+              �No tienes cuenta?{" "}
+              <Text className="underline font-semibold">Reg�strate aqu�</Text>
             </Text>
           </Link>
 
@@ -126,7 +126,7 @@ export default function LoginHostess() {
             className="mt-4"
           >
             <Text className="text-white/60 text-center underline">
-              ¿Olvidaste tu contraseña?
+              �Olvidaste tu contrase�a?
             </Text>
           </Pressable>
 

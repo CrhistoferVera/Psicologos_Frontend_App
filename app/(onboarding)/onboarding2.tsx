@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import OnboardingFrame from "../../components/OnboardingFrame";
+import OnboardingFrame from "../../src/components/OnboardingFrame";
 import { ShieldCheck } from "lucide-react-native";
 
 export default function Onboarding2() {

@@ -8,7 +8,7 @@ import {
   type Message,
 } from '@/src/api/messages';
 import { apiGetUserWallet } from '@/src/api/userClient';
-import { useSocket } from '@/hooks/useSocket';
+import { useSocket } from '@/src/hooks/useSocket';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';

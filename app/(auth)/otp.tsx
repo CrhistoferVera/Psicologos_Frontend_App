@@ -11,8 +11,8 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import Screen from "../../components/Screen";
-import PrimaryButton from "../../components/PrimaryButton";
+import Screen from "../../src/components/Screen";
+import PrimaryButton from "../../src/components/PrimaryButton";
 import { sendOtp, verifyOtp } from "../../src/services/auth";
 import { apiSendOtp, apiVerifyOtp } from "../../src/api/registerAnfitriona";
 import { useAuth } from "../../src/context/AuthContext";
@@ -52,7 +52,7 @@ export default function Otp() {
 
   const handleVerify = async () => {
     if (roleValue === "hostess") {
-      router.replace("/(app)/home-hostess");
+      router.replace("/(anfitriona)");
       return;
     }
 

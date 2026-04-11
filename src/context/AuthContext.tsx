@@ -120,9 +120,9 @@ Ejemplos de uso (resumen):
   const { user, isHydrated } = useAuth();
   useEffect(() => {
     if (!isHydrated || !user) return;
-    if (user.role === "ADMIN") router.replace("/(app)/home-admin");
-    if (user.role === "ANFITRIONA") router.replace("/(app)/home-hostess");
-    if (user.role === "USER") router.replace("/(app)/home-client");
+    if (user.role === "ADMIN") router.replace("/admin");
+    if (user.role === "ANFITRIONA") router.replace("/(anfitriona)");
+    if (user.role === "USER") router.replace("/(cliente)");
   }, [isHydrated, user]);
 
 2) Leer datos del usuario (id, rol, etc) una vez hidratado:

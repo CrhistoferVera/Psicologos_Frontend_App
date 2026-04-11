@@ -1,6 +1,6 @@
 import { useAuth } from '@/src/context/AuthContext';
-import { useCallSocket, type CallType } from '@/hooks/useCallSocket';
-import { useAgoraCall } from '@/hooks/useAgoraCall';
+import { useCallSocket, type CallType } from '@/src/hooks/useCallSocket';
+import { useAgoraCall } from '@/src/hooks/useAgoraCall';
 import { apiGetMyWallet } from '@/src/api/userClient';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';

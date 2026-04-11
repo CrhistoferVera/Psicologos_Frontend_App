@@ -1,7 +1,7 @@
 import React from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import type { HostessForm, IdentityFile } from "../types/hostess";
-import PrimaryButton from "@/components/PrimaryButton";
+import PrimaryButton from "@/src/components/PrimaryButton";
 import HeaderBack from "./HeaderBack";
 
 type HostessFormProps = {

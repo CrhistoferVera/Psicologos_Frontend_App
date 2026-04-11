@@ -17,7 +17,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import ScreenHeader from '@/components/Menu/ScreenHeader';
+import ScreenHeader from '@/src/components/Menu/ScreenHeader';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const noImage = require('../../assets/no_image.jpg');

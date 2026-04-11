@@ -1,7 +1,7 @@
-import ScreenHeader from "@/components/Menu/ScreenHeader";
-import PostCard from "@/components/cliente/PostCard";
-import ClienteCreditsHeaderTitle from "@/components/cliente/home/ClienteCreditsHeaderTitle";
-import RechargeHeaderButton from "@/components/cliente/home/RechargeHeaderButton";
+import ScreenHeader from "@/src/components/Menu/ScreenHeader";
+import PostCard from "@/src/components/cliente/PostCard";
+import ClienteCreditsHeaderTitle from "@/src/components/cliente/home/ClienteCreditsHeaderTitle";
+import RechargeHeaderButton from "@/src/components/cliente/home/RechargeHeaderButton";
 import { getPublicHostesses } from "@/src/services/hostesses";
 import { apiGetSavedAnfitrionas } from "@/src/api/savedAnfitriona";
 import { apiGetMyWallet } from "@/src/api/userClient";

@@ -8,9 +8,9 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import Screen from "../../components/Screen";
-import TextField from "../../components/TextField";
-import PrimaryButton from "../../components/PrimaryButton";
+import Screen from "../../src/components/Screen";
+import TextField from "../../src/components/TextField";
+import PrimaryButton from "../../src/components/PrimaryButton";
 import { loginWithEmail } from "../../src/services/auth";
 import { useAuth } from "../../src/context/AuthContext";
 import { registerForPushNotifications } from "../../src/services/notifications";

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Alert, Modal, Text, View } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
-import Screen from "@/components/Screen";
+import Screen from "@/src/components/Screen";
 import { useAuth } from "../../src/context/AuthContext";
 import { createAnfitriona } from "../../src/services/anfitrionas";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";

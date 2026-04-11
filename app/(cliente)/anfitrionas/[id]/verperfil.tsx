@@ -1,5 +1,5 @@
-import HighlightStoriesRow from "@/components/cliente/profile/HighlightStoriesRow";
-import IntroCard from "@/components/cliente/profile/IntroCard";
+import HighlightStoriesRow from "@/src/components/cliente/profile/HighlightStoriesRow";
+import IntroCard from "@/src/components/cliente/profile/IntroCard";
 import { getPublicHostessProfile } from "@/src/services/hostesses";
 import { apiGetPublicServicePrices, type ServicePrice } from "@/src/api/servicePrices";
 import { apiGetStoriesFeed } from "@/src/api/anfitrionaHistory";

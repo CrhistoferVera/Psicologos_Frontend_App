@@ -1,6 +1,6 @@
 import React from 'react';
 import { View } from 'react-native';
-import BottomNav from '../components/BottonNav';
+import AdminBottomNav from '../components/admin/AdminBottomNav';
 
 
 interface Props {
@@ -15,7 +15,7 @@ export default function MainLayout({ children }: Props) {
                 {children}
             </View>
 
-            <BottomNav />
+            <AdminBottomNav />
         </View>
     );
 };

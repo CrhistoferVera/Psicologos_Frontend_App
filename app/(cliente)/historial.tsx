@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, FlatList, ActivityIndicator, RefreshControl } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import ScreenHeader from "@/components/Menu/ScreenHeader";
+import ScreenHeader from "@/src/components/Menu/ScreenHeader";
 import { apiGetExpenseHistory } from "@/src/api/userProfile"; // Ajusta la ruta según tu proyecto
 import { ExpenseHistoryItem } from "@/src/types/userProfile";
 

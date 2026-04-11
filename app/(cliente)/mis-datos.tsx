@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity } from "react-native";
-import ScreenHeader from "@/components/Menu/ScreenHeader";
+import ScreenHeader from "@/src/components/Menu/ScreenHeader";
 import { useAuth } from "@/src/context/AuthContext";
 import { useRouter } from "expo-router";
 import { Bookmark, ChevronRight } from "lucide-react-native";

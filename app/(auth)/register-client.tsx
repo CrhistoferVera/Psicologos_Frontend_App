@@ -11,8 +11,8 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import Screen from "../../components/Screen";
-import PrimaryButton from "../../components/PrimaryButton";
+import Screen from "../../src/components/Screen";
+import PrimaryButton from "../../src/components/PrimaryButton";
 import { sendOtp } from "../../src/services/auth";
 import { COUNTRIES_LATAM, type CountryLatam } from "../../src/constants/countriesLatam";
 

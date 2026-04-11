@@ -1,4 +1,4 @@
-import ScreenHeader from "@/components/Menu/ScreenHeader";
+import ScreenHeader from "@/src/components/Menu/ScreenHeader";
 import { apiGetWithdrawalRequests, WithdrawalRequest } from "@/src/api/wallet";
 import { useEffect, useState } from "react";
 import {

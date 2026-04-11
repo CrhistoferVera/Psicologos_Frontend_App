@@ -1,6 +1,6 @@
 import { Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
-import Screen from "../../components/Screen";
+import Screen from "../../src/components/Screen";
 import { Ionicons } from "@expo/vector-icons";
 
 type ActionButtonProps = {

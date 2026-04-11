@@ -1,4 +1,4 @@
-import ScreenHeader from "@/components/Menu/ScreenHeader";
+import ScreenHeader from "@/src/components/Menu/ScreenHeader";
 import { View, Text } from "react-native";
 import ConfirmarPagoScreen from '@/src/screens/user/client/ConfirmarPagosScreen';
 

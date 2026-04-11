@@ -1,9 +1,9 @@
 import { Stack, usePathname, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Modal, Text, TouchableOpacity, View } from "react-native";
-import BottomNav from "@/components/Menu/BottomNav";
+import BottomNav from "@/src/components/Menu/BottomNav";
 import { useAuth } from "@/src/context/AuthContext";
-import { useCallSocket, type IncomingCallData } from "@/hooks/useCallSocket";
+import { useCallSocket, type IncomingCallData } from "@/src/hooks/useCallSocket";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { onCallKeepAnswer, onCallKeepEnd, removeCallKeepListeners, endCallKeep } from "@/src/services/callkeep";

@@ -5,9 +5,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import ProfileHeader from '@/components/cliente/profile/ProfileHeader';
-import GallerySection from '@/components/cliente/profile/GallerySection';
-import IntroCard from '@/components/cliente/profile/IntroCard';
+import ProfileHeader from '@/src/components/cliente/profile/ProfileHeader';
+import GallerySection from '@/src/components/cliente/profile/GallerySection';
+import IntroCard from '@/src/components/cliente/profile/IntroCard';
 import { apiGetMyProfile } from '@/src/api/anfitrionaProfile';
 import { apiGetMyGallery } from '@/src/api/anfitrionaGallery';
 import type { GalleryItemPublic } from '@/src/types/gallery';

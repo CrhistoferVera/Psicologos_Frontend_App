@@ -1,10 +1,10 @@
 import { Alert, ScrollView, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import ScreenHeader from "@/components/Menu/ScreenHeader";
-import ProfileSummary from "@/components/cliente/perfil/ProfileSummary";
-import ProfileMenuSection from "@/components/cliente/perfil/ProfileMenuSection";
-import LogoutButton from "@/components/cliente/perfil/LogoutButton";
+import ScreenHeader from "@/src/components/Menu/ScreenHeader";
+import ProfileSummary from "@/src/components/cliente/perfil/ProfileSummary";
+import ProfileMenuSection from "@/src/components/cliente/perfil/ProfileMenuSection";
+import LogoutButton from "@/src/components/cliente/perfil/LogoutButton";
 import { useAuth } from "@/src/context/AuthContext";
 import { useEffect, useState } from "react";
 import { Linking, AppState } from "react-native";

@@ -1,8 +1,8 @@
 import { Text, View } from "react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import PromoAccessCard from "@/components/auth/choose-access/PromoAccessCard";
-import SecondaryAccessLinks from "@/components/auth/choose-access/SecondaryAccessLinks";
+import PromoAccessCard from "@/src/components/auth/choose-access/PromoAccessCard";
+import SecondaryAccessLinks from "@/src/components/auth/choose-access/SecondaryAccessLinks";
 
 export default function ChooseAccess() {
   return (

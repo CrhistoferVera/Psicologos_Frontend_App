@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { View, Text, FlatList, ActivityIndicator, RefreshControl, Image, TouchableOpacity } from "react-native";
 import { Bookmark } from "lucide-react-native";
 import { useRouter } from "expo-router";
-import ScreenHeader from "@/components/Menu/ScreenHeader";
+import ScreenHeader from "@/src/components/Menu/ScreenHeader";
 import { apiGetSavedAnfitrionas, apiToggleSavedAnfitriona } from "@/src/api/savedAnfitriona";
 import { SavedAnfitriona } from "@/src/types/savedAnfitriona";
 import { MaterialCommunityIcons } from "@expo/vector-icons";

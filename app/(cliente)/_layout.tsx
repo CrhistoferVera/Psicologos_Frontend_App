@@ -1,6 +1,6 @@
 import { Stack, usePathname } from "expo-router";
 import { View } from "react-native";
-import BottomNav from "@/components/Menu/BottomNav";
+import BottomNav from "@/src/components/Menu/BottomNav";
 
 export default function ClienteLayout() {
   const pathname = usePathname();

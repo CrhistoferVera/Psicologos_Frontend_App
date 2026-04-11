@@ -1,4 +1,4 @@
-import ScreenHeader from "@/components/Menu/ScreenHeader";
+import ScreenHeader from "@/src/components/Menu/ScreenHeader";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, Text } from "react-native";
 import AnfitrionaDashboard from "@/src/screens/user/anfitriona/AnfitrionaDashboard";

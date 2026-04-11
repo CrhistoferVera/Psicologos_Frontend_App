@@ -2,10 +2,10 @@ import { useRef } from "react";
 import { View, Text, KeyboardAvoidingView, Platform, ScrollView, Pressable, TextInput } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import TextField from "../../components/TextField";
-import PrimaryButton from "../../components/PrimaryButton";
-import IdDocPicker from "../../components/auth/IdDocPicker";
-import TermsCheckbox from "../../components/auth/TermsCheckbox";
+import TextField from "../../src/components/TextField";
+import PrimaryButton from "../../src/components/PrimaryButton";
+import IdDocPicker from "../../src/components/auth/IdDocPicker";
+import TermsCheckbox from "../../src/components/auth/TermsCheckbox";
 import { useAnfitrioneRegister } from "../../src/hooks/useAnfitrioneRegister";
 
 export default function ProfileAnfitriona() {
