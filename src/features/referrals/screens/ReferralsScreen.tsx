@@ -4,12 +4,10 @@ import * as Clipboard from "expo-clipboard";
 import AppButton from "../../../components/ui/AppButton";
 import AppCard from "../../../components/ui/AppCard";
 import AppScreen from "../../../components/ui/AppScreen";
-import { useAuth } from "../../../context/AuthContext";
 import { appTheme } from "../../../theme/appTheme";
 import { getReferralSummary } from "../api/referralsApi";
 
 export default function ReferralsScreen() {
-  const { user } = useAuth();
   const [code, setCode] = useState("");
   const [invites, setInvites] = useState(0);
   const [bonus, setBonus] = useState(0);
@@ -21,26 +19,26 @@ export default function ReferralsScreen() {
       try {
         setLoading(true);
         setError(null);
-        const data = await getReferralSummary(user?.id);
+        const data = await getReferralSummary();
         setCode(data.code);
         setInvites(data.invitedCount);
         setBonus(data.bonusCredits);
       } catch {
-        setError("No se pudo cargar la informaci贸n de referidos.");
+        setError("No se pudo cargar la informaci髇 de referidos.");
       } finally {
         setLoading(false);
       }
     })();
-  }, [user?.id]);
+  }, []);
 
   async function handleCopy() {
     await Clipboard.setStringAsync(code);
-    Alert.alert("Copiado", "Tu c贸digo de referido fue copiado.");
+    Alert.alert("Copiado", "Tu c骴igo de referido fue copiado.");
   }
 
   async function handleShare() {
     await Share.share({
-      message: `脷nete a Pachamama Salud con mi c贸digo ${code} y empieza tu proceso con profesionales verificados.`,
+      message: `趎ete a PsyConnect con mi c骴igo ${code} y empieza tu proceso con profesionales verificados.`,
     });
   }
 
@@ -48,11 +46,11 @@ export default function ReferralsScreen() {
     <AppScreen scroll>
       <View style={styles.container}>
         <Text style={styles.title}>Referidos</Text>
-        <Text style={styles.subtitle}>Invita a tus contactos y recibe cr茅ditos promocionales.</Text>
+        <Text style={styles.subtitle}>Invita a tus contactos y recibe cr閐itos promocionales.</Text>
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         <AppCard>
-          <Text style={styles.cardLabel}>Tu c贸digo</Text>
+          <Text style={styles.cardLabel}>Tu c骴igo</Text>
           <Text style={styles.code}>{loading ? "Cargando..." : code}</Text>
           <View style={styles.actions}>
             <AppButton title="Copiar" variant="secondary" onPress={handleCopy} style={{ flex: 1 }} disabled={loading || !code} />
@@ -68,11 +66,9 @@ export default function ReferralsScreen() {
           </View>
           <View style={styles.row}>
             <Text style={styles.metricLabel}>Bonos acumulados</Text>
-            <Text style={[styles.metricValue, { color: appTheme.colors.success }]}>{bonus} cr茅ditos</Text>
+            <Text style={[styles.metricValue, { color: appTheme.colors.success }]}>{bonus} cr閐itos</Text>
           </View>
-          <Text style={styles.todoHint}>
-            TODO: conectar detalle de campa帽as y trazabilidad de referidos cuando el backend exponga el ledger completo.
-          </Text>
+          <Text style={styles.todoHint}>El historial detallado de referidos se visualiza en el panel admin.</Text>
         </AppCard>
       </View>
     </AppScreen>
@@ -139,4 +135,3 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 });
-

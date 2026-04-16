@@ -1,34 +1,67 @@
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "expo-router";
 import { StyleSheet, Text, View } from "react-native";
 import AppButton from "../../../components/ui/AppButton";
 import AppCard from "../../../components/ui/AppCard";
 import AppScreen from "../../../components/ui/AppScreen";
 import { appTheme } from "../../../theme/appTheme";
+import { getMyProfessionalReviewStatus } from "../api/professionalApi";
 
 export default function ProfessionalReviewStatusScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ name?: string | string[]; specialties?: string | string[] }>();
-  const name = Array.isArray(params.name) ? params.name[0] : params.name ?? "Profesional";
-  const specialties = Array.isArray(params.specialties) ? params.specialties[0] : params.specialties ?? "";
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<"PENDING" | "APPROVED" | "REJECTED">("PENDING");
+  const [notes, setNotes] = useState<string | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const review = await getMyProfessionalReviewStatus();
+        setStatus(review.status);
+        setNotes(review.notes ?? null);
+      } catch {
+        setError("No se pudo cargar el estado de revisión.");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const statusLabel = useMemo(() => {
+    if (status === "APPROVED") return "Aprobado";
+    if (status === "REJECTED") return "Rechazado";
+    return "Pendiente de aprobación";
+  }, [status]);
+
+  const statusColor = useMemo(() => {
+    if (status === "APPROVED") return appTheme.colors.success;
+    if (status === "REJECTED") return appTheme.colors.danger;
+    return "#B45309";
+  }, [status]);
 
   return (
     <AppScreen>
       <View style={styles.container}>
-        <Text style={styles.title}>Registro enviado</Text>
-        <Text style={styles.subtitle}>Tu perfil profesional quedo en revision. Ya puedes usar el panel y completar ajustes.</Text>
+        <Text style={styles.title}>Estado del registro profesional</Text>
+        <Text style={styles.subtitle}>Consulta el estado de revisión de tu perfil profesional.</Text>
+
+        {loading ? <Text style={styles.meta}>Cargando estado...</Text> : null}
+        {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <AppCard>
           <Text style={styles.cardTitle}>Estado actual</Text>
-          <Text style={styles.status}>Pendiente de aprobacion</Text>
-          <Text style={styles.meta}>Profesional: {name}</Text>
-          <Text style={styles.meta}>Especialidades: {specialties || "Se asignaran durante revision"}</Text>
+          <Text style={[styles.status, { color: statusColor }]}>{statusLabel}</Text>
+          {notes ? <Text style={styles.meta}>Observación: {notes}</Text> : null}
         </AppCard>
 
         <AppCard>
           <Text style={styles.cardTitle}>Siguientes pasos</Text>
-          <Text style={styles.meta}>1. Configura tu perfil y disponibilidad.</Text>
+          <Text style={styles.meta}>1. Completa tu perfil, especialidades y disponibilidad.</Text>
           <Text style={styles.meta}>2. Ajusta tus tarifas de chat, llamada y video.</Text>
-          <Text style={styles.meta}>3. Cuando el equipo apruebe tu cuenta, apareceras en el listado publico.</Text>
+          <Text style={styles.meta}>3. Cuando el equipo apruebe tu cuenta, aparecerás en el listado público.</Text>
         </AppCard>
 
         <AppButton title="Ir al dashboard profesional" onPress={() => router.replace("/(professional)/dashboard")} />
@@ -63,7 +96,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   status: {
-    color: appTheme.colors.success,
     fontFamily: appTheme.fonts.body,
     fontWeight: "700",
     fontSize: 14,
@@ -72,5 +104,10 @@ const styles = StyleSheet.create({
     color: appTheme.colors.textMuted,
     fontFamily: appTheme.fonts.body,
     fontSize: 13,
+  },
+  error: {
+    color: appTheme.colors.danger,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
   },
 });

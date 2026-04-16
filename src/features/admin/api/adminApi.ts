@@ -1,4 +1,4 @@
-import apiClient from "../../../api/client";
+﻿import apiClient from "../../../api/client";
 import type {
   AdminDepositRecord,
   AdminPaginated,
@@ -48,7 +48,7 @@ export async function getAdminProfessionals(
   const rawRows = Array.isArray(response.data?.data) ? response.data.data : [];
   const data = rawRows.map((row: any) => ({
     ...row,
-    professionalProfile: row?.professionalProfile ?? row?.anfitrionaProfile ?? null,
+    professionalProfile: row?.professionalProfile ?? null,
   })) as AdminProfessionalRecord[];
   return {
     data,
@@ -207,7 +207,100 @@ export async function grantPromotionalCredits(payload: { userId: string; amount:
   }
 }
 
-export async function getPublicSystemConfig() {
-  const response = await apiClient.get("/users/config");
-  return response.data;
+
+export type AdminReferralRecord = {
+  id: string;
+  status: "PENDING" | "QUALIFIED" | "REWARDED";
+  codeUsed: string;
+  rewardCredits: number;
+  createdAt: string;
+  qualifiedAt?: string | null;
+  rewardedAt?: string | null;
+  referrer: {
+    id: string;
+    fullName: string;
+    email: string | null;
+    referralCode: string | null;
+  };
+  referred: {
+    id: string;
+    fullName: string;
+    email: string | null;
+    createdAt: string;
+  };
+};
+
+export type AdminReferralsResponse = {
+  data: AdminReferralRecord[];
+  nextCursor: string | null;
+  summary: {
+    total: number;
+    pending: number;
+    qualified: number;
+    rewarded: number;
+    totalRewardCredits: number;
+  };
+};
+
+export async function getAdminReferrals(params?: {
+  status?: "PENDING" | "QUALIFIED" | "REWARDED";
+  search?: string;
+  cursor?: string;
+  limit?: number;
+}): Promise<AdminReferralsResponse> {
+  const response = await apiClient.get("/admin/referrals", {
+    params: {
+      status: params?.status,
+      search: params?.search,
+      cursor: params?.cursor,
+      limit: params?.limit ?? 30,
+    },
+  });
+
+  return {
+    data: Array.isArray(response.data?.data) ? response.data.data : [],
+    nextCursor: response.data?.nextCursor ?? null,
+    summary: {
+      total: Number(response.data?.summary?.total ?? 0),
+      pending: Number(response.data?.summary?.pending ?? 0),
+      qualified: Number(response.data?.summary?.qualified ?? 0),
+      rewarded: Number(response.data?.summary?.rewarded ?? 0),
+      totalRewardCredits: Number(response.data?.summary?.totalRewardCredits ?? 0),
+    },
+  };
 }
+
+export type AdminConfigPayload = {
+  platformFeePercent?: number;
+  creditToSolesRate?: number;
+  minAppVersion?: string;
+  referralRewardCredits?: number;
+  referralMinDepositAmount?: number;
+  referralEnabled?: boolean;
+  paymentsEnabled?: boolean;
+  withdrawalsEnabled?: boolean;
+};
+
+export async function getAdminConfig(): Promise<Required<AdminConfigPayload>> {
+  const response = await apiClient.get("/admin/config");
+  return {
+    platformFeePercent: Number(response.data?.platformFeePercent ?? 50),
+    creditToSolesRate: Number(response.data?.creditToSolesRate ?? 1),
+    minAppVersion: String(response.data?.minAppVersion ?? "1.0"),
+    referralRewardCredits: Number(response.data?.referralRewardCredits ?? 10),
+    referralMinDepositAmount: Number(response.data?.referralMinDepositAmount ?? 0),
+    referralEnabled: Boolean(response.data?.referralEnabled ?? true),
+    paymentsEnabled: Boolean(response.data?.paymentsEnabled ?? true),
+    withdrawalsEnabled: Boolean(response.data?.withdrawalsEnabled ?? true),
+  };
+}
+
+export async function updateAdminConfig(payload: AdminConfigPayload) {
+  try {
+    const response = await apiClient.patch("/admin/config", payload);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(normalizeError(error, "No se pudo guardar la configuración."));
+  }
+}
+

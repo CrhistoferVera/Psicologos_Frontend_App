@@ -1,4 +1,4 @@
-import apiClient from './client';
+﻿import apiClient from './client';
 
 export type ServiceType = 'MESSAGE' | 'MESSAGE_SEND' | 'CALL' | 'VIDEO_CALL';
 
@@ -11,19 +11,19 @@ export type ServicePrice = {
   updatedAt: string;
 };
 
-// GET /service-prices — obtiene todos los precios de la anfitriona
+// GET /service-prices â€” obtiene todos los precios de la profesional
 export const apiGetMyServicePrices = async (): Promise<ServicePrice[]> => {
   const response = await apiClient.get('/service-prices');
   return response.data;
 };
 
-// GET /service-prices/public/:userId — precios públicos de una anfitriona (sin auth)
-export const apiGetPublicServicePrices = async (anfitrionaUserId: string): Promise<ServicePrice[]> => {
-  const response = await apiClient.get(`/service-prices/public/${anfitrionaUserId}`);
+// GET /service-prices/public/:userId â€” precios pÃºblicos de una profesional (sin auth)
+export const apiGetPublicServicePrices = async (professionalUserId: string): Promise<ServicePrice[]> => {
+  const response = await apiClient.get(`/service-prices/public/${professionalUserId}`);
   return response.data;
 };
 
-// PUT /service-prices — crea o actualiza un precio
+// PUT /service-prices â€” crea o actualiza un precio
 export const apiUpsertServicePrice = async (
   serviceType: ServiceType,
   price: number,
@@ -31,3 +31,4 @@ export const apiUpsertServicePrice = async (
   const response = await apiClient.put('/service-prices', { serviceType, price });
   return response.data;
 };
+

@@ -13,6 +13,7 @@ import {
   completeProfessionalRegistration,
   getProfessionalSpecialtiesCatalog,
   sendProfessionalVerificationOtp,
+  updateMyProfessionalSpecialties,
   upsertProfessionalPrices,
   verifyProfessionalOtp,
 } from "../api/professionalApi";
@@ -44,7 +45,7 @@ export default function ProfessionalRegisterScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [bio, setBio] = useState("");
 
-  const [specialtiesCatalog, setSpecialtiesCatalog] = useState<string[]>([]);
+  const [specialtiesCatalog, setSpecialtiesCatalog] = useState<{ id: string; name: string }[]>([]);
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
   const [chatPrice, setChatPrice] = useState("20");
   const [callPrice, setCallPrice] = useState("35");
@@ -58,9 +59,14 @@ export default function ProfessionalRegisterScreen() {
       try {
         setCatalogLoading(true);
         const data = await getProfessionalSpecialtiesCatalog();
-        setSpecialtiesCatalog(data.slice(0, 24));
+        setSpecialtiesCatalog(data.slice(0, 48).map((item) => ({ id: item.id, name: item.name })));
       } catch {
-        setSpecialtiesCatalog(["Ansiedad", "Depresion", "Terapia de pareja", "Autoestima"]);
+        setSpecialtiesCatalog([
+          { id: "fallback-anxiety", name: "Ansiedad" },
+          { id: "fallback-depression", name: "Depresión" },
+          { id: "fallback-couple", name: "Terapia de pareja" },
+          { id: "fallback-self", name: "Autoestima" },
+        ]);
       } finally {
         setCatalogLoading(false);
       }
@@ -68,16 +74,23 @@ export default function ProfessionalRegisterScreen() {
   }, [step, specialtiesCatalog.length]);
 
   const currentStepTitle = useMemo(() => {
-    if (step === 1) return "Datos personales y verificacion";
+    if (step === 1) return "Datos personales y verificación";
     if (step === 2) return "Cuenta profesional";
     if (step === 3) return "Especialidades y tarifas";
     if (step === 4) return "Documentos";
     return "Revisar y enviar";
   }, [step]);
 
-  function toggleSpecialty(tag: string) {
+  const selectedSpecialtyNames = useMemo(
+    () => selectedSpecialties
+      .map((id) => specialtiesCatalog.find((item) => item.id === id)?.name)
+      .filter(Boolean) as string[],
+    [selectedSpecialties, specialtiesCatalog],
+  );
+
+  function toggleSpecialty(id: string) {
     setSelectedSpecialties((prev) =>
-      prev.includes(tag) ? prev.filter((item) => item !== tag) : [...prev, tag],
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
     );
   }
 
@@ -85,21 +98,21 @@ export default function ProfessionalRegisterScreen() {
     if (nextStep === 1) {
       if (!firstName.trim()) return "Completa tu nombre.";
       if (!lastName.trim()) return "Completa tu apellido.";
-      if (!phone.trim() || phone.trim().length < 8) return "Ingresa un telefono valido.";
+      if (!phone.trim() || phone.trim().length < 8) return "Ingresa un teléfono válido.";
       if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth.trim())) return "Usa fecha de nacimiento YYYY-MM-DD.";
-      if (!tempToken) return "Verifica tu telefono con OTP para continuar.";
+      if (!tempToken) return "Verifica tu teléfono con OTP para continuar.";
     }
     if (nextStep === 2) {
       if (!email.trim()) return "Ingresa un email.";
       if (!username.trim()) return "Ingresa un username profesional.";
       if (!cedula.trim()) return "Ingresa tu documento/carnet.";
-      if (password.length < 6) return "La contrasena debe tener al menos 6 caracteres.";
-      if (password !== confirmPassword) return "Las contrasenas no coinciden.";
+      if (password.length < 6) return "La contraseña debe tener al menos 6 caracteres.";
+      if (password !== confirmPassword) return "Las contraseñas no coinciden.";
     }
     if (nextStep === 3) {
       if (selectedSpecialties.length === 0) return "Selecciona al menos una especialidad.";
       if (Number(chatPrice || 0) < 0 || Number(callPrice || 0) < 0 || Number(videoPrice || 0) < 0) {
-        return "Las tarifas deben ser numeros validos.";
+        return "Las tarifas deben ser números válidos.";
       }
     }
     return null;
@@ -111,9 +124,9 @@ export default function ProfessionalRegisterScreen() {
       setError(null);
       await sendProfessionalVerificationOtp(phone.trim());
       setOtpSent(true);
-      Alert.alert("Codigo enviado", "Te enviamos un codigo OTP por WhatsApp.");
+      Alert.alert("Código enviado", "Te enviamos un código OTP por WhatsApp.");
     } catch (err: any) {
-      setError(err?.message ?? "No pudimos enviar el codigo OTP.");
+      setError(err?.message ?? "No pudimos enviar el código OTP.");
     } finally {
       setLoading(false);
     }
@@ -125,9 +138,9 @@ export default function ProfessionalRegisterScreen() {
       setError(null);
       const token = await verifyProfessionalOtp(phone.trim(), otpCode.trim());
       setTempToken(token);
-      Alert.alert("Telefono verificado", "Ya puedes continuar con el registro profesional.");
+      Alert.alert("Teléfono verificado", "Ya puedes continuar con el registro profesional.");
     } catch (err: any) {
-      setError(err?.message ?? "No pudimos verificar el codigo.");
+      setError(err?.message ?? "No pudimos verificar el código.");
     } finally {
       setLoading(false);
     }
@@ -176,7 +189,7 @@ export default function ProfessionalRegisterScreen() {
     }
 
     if (!tempToken) {
-      setError("No hay token de verificacion. Repite la verificacion OTP.");
+      setError("No hay token de verificación. Repite la verificación OTP.");
       setStep(1);
       return;
     }
@@ -201,23 +214,19 @@ export default function ProfessionalRegisterScreen() {
       await setSession(registration.access_token, registration.user);
 
       try {
-        await upsertProfessionalPrices({
-          chat: Number(chatPrice || 0),
-          call: Number(callPrice || 0),
-          video: Number(videoPrice || 0),
-        });
+        await Promise.all([
+          upsertProfessionalPrices({
+            chat: Number(chatPrice || 0),
+            call: Number(callPrice || 0),
+            video: Number(videoPrice || 0),
+          }),
+          updateMyProfessionalSpecialties(selectedSpecialties),
+        ]);
       } catch {
-        // Registration should continue even if price sync fails.
+        // Si falla esta sincronización, el registro base se mantiene y se podrá completar desde perfil.
       }
 
-      // TODO(backend): add self-service endpoint to persist professional specialties.
-      router.replace({
-        pathname: "/(public)/professional-review-status",
-        params: {
-          name: `${firstName.trim()} ${lastName.trim()}`,
-          specialties: selectedSpecialties.join(", "),
-        },
-      } as any);
+      router.replace("/(public)/professional-review-status");
     } catch (err: any) {
       const raw = err?.response?.data?.message ?? err?.message;
       const message = Array.isArray(raw) ? raw.join(", ") : raw || "No se pudo completar el registro profesional.";
@@ -237,7 +246,7 @@ export default function ProfessionalRegisterScreen() {
             <AppInput label="Nombre" value={firstName} onChangeText={setFirstName} placeholder="Camila" />
             <AppInput label="Apellido" value={lastName} onChangeText={setLastName} placeholder="Rojas" />
             <AppInput
-              label="Telefono"
+              label="Teléfono"
               value={phone}
               onChangeText={setPhone}
               placeholder="+59170000000"
@@ -264,14 +273,14 @@ export default function ProfessionalRegisterScreen() {
             {otpSent ? (
               <View style={styles.otpBox}>
                 <AppInput
-                  label="Codigo OTP"
+                  label="Código OTP"
                   value={otpCode}
                   onChangeText={setOtpCode}
                   placeholder="123456"
                   keyboardType="number-pad"
                 />
                 <AppButton
-                  title="Verificar codigo"
+                  title="Verificar código"
                   onPress={handleVerifyOtp}
                   disabled={otpCode.trim().length < 4 || loading}
                   loading={loading}
@@ -285,14 +294,14 @@ export default function ProfessionalRegisterScreen() {
           <View style={styles.form}>
             <AppInput label="Email" value={email} onChangeText={setEmail} placeholder="profesional@email.com" keyboardType="email-address" />
             <AppInput label="Username profesional" value={username} onChangeText={setUsername} placeholder="camila.psicologa" />
-            <AppInput label="Documento/Cedula" value={cedula} onChangeText={setCedula} placeholder="12345678" />
-            <AppInput label="Contrasena" value={password} onChangeText={setPassword} secureTextEntry />
-            <AppInput label="Confirmar contrasena" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
+            <AppInput label="Documento/Cédula" value={cedula} onChangeText={setCedula} placeholder="12345678" />
+            <AppInput label="Contraseña" value={password} onChangeText={setPassword} secureTextEntry />
+            <AppInput label="Confirmar contraseña" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
             <AppInput
               label="Bio profesional"
               value={bio}
               onChangeText={setBio}
-              placeholder="Psicologa clinica con enfoque cognitivo-conductual"
+              placeholder="Psicóloga clínica con enfoque cognitivo-conductual"
             />
           </View>
         ) : null}
@@ -300,15 +309,15 @@ export default function ProfessionalRegisterScreen() {
         {step === 3 ? (
           <View style={styles.form}>
             <Text style={styles.sectionTitle}>Especialidades</Text>
-            <Text style={styles.sectionHint}>Selecciona tus principales areas de atencion.</Text>
+            <Text style={styles.sectionHint}>Selecciona tus principales áreas de atención.</Text>
             {catalogLoading ? <Text style={styles.hint}>Cargando especialidades...</Text> : null}
             <View style={styles.tagsWrap}>
               {specialtiesCatalog.map((tag) => (
-                <AppChip key={tag} label={tag} active={selectedSpecialties.includes(tag)} onPress={() => toggleSpecialty(tag)} />
+                <AppChip key={tag.id} label={tag.name} active={selectedSpecialties.includes(tag.id)} onPress={() => toggleSpecialty(tag.id)} />
               ))}
             </View>
 
-            <Text style={styles.sectionTitle}>Tarifas base (creditos)</Text>
+            <Text style={styles.sectionTitle}>Tarifas base (créditos)</Text>
             <View style={styles.priceRow}>
               <AppInput label="Chat" value={chatPrice} onChangeText={setChatPrice} keyboardType="number-pad" />
               <AppInput label="Llamada" value={callPrice} onChangeText={setCallPrice} keyboardType="number-pad" />
@@ -320,26 +329,26 @@ export default function ProfessionalRegisterScreen() {
         {step === 4 ? (
           <View style={styles.form}>
             <Text style={styles.sectionTitle}>Documento de identidad</Text>
-            <Text style={styles.sectionHint}>Sube una imagen o PDF de tu documento para validacion.</Text>
+            <Text style={styles.sectionHint}>Sube una imagen o PDF de tu documento para validación.</Text>
             <Pressable style={styles.uploadCard} onPress={handlePickIdDoc}>
               <Text style={styles.uploadTitle}>{idDoc ? "Documento seleccionado" : "Seleccionar archivo"}</Text>
               <Text style={styles.uploadMeta}>{idDoc?.name ?? "Formato permitido: imagen o PDF"}</Text>
             </Pressable>
-            <Text style={styles.hint}>Puedes continuar sin archivo y completarlo despues en perfil.</Text>
+            <Text style={styles.hint}>Puedes continuar sin archivo y completarlo después en perfil.</Text>
           </View>
         ) : null}
 
         {step === 5 ? (
           <View style={styles.form}>
             <View style={styles.summaryCard}>
-              <Text style={styles.summaryTitle}>Resumen del envio</Text>
+              <Text style={styles.summaryTitle}>Resumen del envío</Text>
               <Text style={styles.summaryText}>Profesional: {firstName} {lastName}</Text>
               <Text style={styles.summaryText}>Username: {username}</Text>
-              <Text style={styles.summaryText}>Especialidades: {selectedSpecialties.join(", ") || "Sin seleccionar"}</Text>
+              <Text style={styles.summaryText}>Especialidades: {selectedSpecialtyNames.join(", ") || "Sin seleccionar"}</Text>
               <Text style={styles.summaryText}>Tarifas: Chat {chatPrice} / Llamada {callPrice} / Video {videoPrice}</Text>
               <Text style={styles.summaryText}>Documento: {idDoc ? "Adjunto" : "Pendiente"}</Text>
             </View>
-            <Text style={styles.hint}>Al enviar, tu perfil quedara en revision y podras usar el panel profesional.</Text>
+            <Text style={styles.hint}>Al enviar, tu perfil quedará en revisión y podrás usar el panel profesional.</Text>
           </View>
         ) : null}
 
@@ -355,7 +364,7 @@ export default function ProfessionalRegisterScreen() {
         </View>
 
         <Pressable onPress={() => router.replace("/(public)/auth")}>
-          <Text style={styles.loginLink}>Ya tengo una cuenta, iniciar sesion</Text>
+          <Text style={styles.loginLink}>Ya tengo una cuenta, iniciar sesión</Text>
         </Pressable>
       </View>
     </AppScreen>

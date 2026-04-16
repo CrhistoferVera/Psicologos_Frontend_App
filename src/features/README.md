@@ -1,4 +1,4 @@
-# Feature Structure (MVP Base)
+﻿# Feature Structure (MVP Base)
 
 This folder is the target home for the new psychologists MVP features.
 
@@ -11,5 +11,5 @@ This folder is the target home for the new psychologists MVP features.
 - `referrals/`: referral flows
 - `user-profile/`: profile/settings for end users
 
-Current legacy screens still live under `app/(cliente)` and `app/(anfitriona)`.
+Legacy route groups were removed; new development should stay under `app/(public)`, `app/(user)`, `app/(professional)` and `app/admin`.
 New work should prioritize feature modules here and route wiring in `app/`.

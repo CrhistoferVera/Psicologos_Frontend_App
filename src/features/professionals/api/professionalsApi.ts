@@ -1,35 +1,10 @@
-import apiClient from "../../../api/client";
+﻿import apiClient from "../../../api/client";
 import type { Professional, ProfessionalPriceMap } from "../types";
 
 type ListResponse = {
   data?: any[];
   total?: number;
 };
-
-const fallbackProfessionals: Professional[] = [
-  {
-    id: "mock-1",
-    name: "Dra. Camila Ríos",
-    username: "camilarios",
-    avatar: "",
-    bio: "Psicóloga clínica enfocada en ansiedad y gestión emocional.",
-    specialties: ["Ansiedad", "Autoestima"],
-    isOnline: true,
-    rating: 4.9,
-    prices: { chat: 25, call: 40, video: 55 },
-  },
-  {
-    id: "mock-2",
-    name: "Lic. José Méndez",
-    username: "josemendez",
-    avatar: "",
-    bio: "Especialista en terapia de pareja y comunicación saludable.",
-    specialties: ["Terapia de pareja", "Comunicación"],
-    isOnline: false,
-    rating: 4.7,
-    prices: { chat: 22, call: 35, video: 50 },
-  },
-];
 
 function parseSpecialties(raw: any): string[] {
   if (!raw) return [];
@@ -100,17 +75,16 @@ type GetProfessionalsOptions = {
 
 export async function getProfessionals(options: GetProfessionalsOptions = {}): Promise<Professional[]> {
   const { search, specialty, page = 1, limit = 20 } = options;
-  // Backend currently supports `specialty` filter at public professionals endpoint.
   const params: Record<string, unknown> = { page, limit };
   if (specialty && specialty.trim().length > 0 && specialty !== "Todos") {
     params.specialty = specialty.trim();
   }
 
-  const response =
-    (await tryGet<ListResponse>("/professionals/public", params)) ??
-    (await tryGet<ListResponse>("/anfitrionas/public", params));
+  const response = await tryGet<ListResponse>("/professionals/public", params);
 
-  if (!response) return fallbackProfessionals;
+  if (!response) {
+    return [];
+  }
 
   const list = Array.isArray(response?.data) ? response.data : Array.isArray(response as any) ? (response as any) : [];
   let normalized = list.map(mapRawProfessional).filter((item: Professional) => item.id);
@@ -126,15 +100,10 @@ export async function getProfessionals(options: GetProfessionalsOptions = {}): P
 }
 
 export async function getProfessionalById(id: string): Promise<Professional> {
-  const response =
-    (await tryGet<any>(`/professionals/public/${id}`)) ??
-    (await tryGet<any>(`/professionals/${id}`)) ??
-    (await tryGet<any>(`/anfitrionas/public/${id}`));
+  const response = await tryGet<any>(`/professionals/public/${id}`);
 
   if (!response) {
-    const fallback = fallbackProfessionals.find((item) => item.id === id);
-    if (fallback) return fallback;
-    return { ...fallbackProfessionals[0], id };
+    throw new Error("No se encontró el profesional solicitado.");
   }
 
   const professional = mapRawProfessional(response);
@@ -147,26 +116,20 @@ export async function getProfessionalById(id: string): Promise<Professional> {
 }
 
 export async function getSpecialtiesCatalog(): Promise<string[]> {
-  const specialtiesResponse =
-    // TODO: expose a dedicated public specialties endpoint in backend.
-    (await tryGet<any[]>("/specialties/public")) ??
-    (await tryGet<any[]>("/specialties"));
+  const specialtiesResponse = await tryGet<any>("/specialties/public");
 
   const raw =
     Array.isArray((specialtiesResponse as any)?.data)
       ? (specialtiesResponse as any).data
       : specialtiesResponse;
 
-  if (raw && Array.isArray(raw) && raw.length > 0) {
-    const names = raw
-      .map((item) => (typeof item === "string" ? item : item?.name ?? item?.label))
-      .filter(Boolean) as string[];
-    return Array.from(new Set(names));
-  }
+  if (!raw || !Array.isArray(raw)) return [];
 
-  const fromProfessionals = await getProfessionals();
-  const combined = fromProfessionals.flatMap((item) => item.specialties);
-  const unique = Array.from(new Set(combined));
-  return unique.length > 0 ? unique : ["Ansiedad", "Depresión", "Terapia de pareja", "Autoestima"];
+  const names = raw
+    .map((item) => (typeof item === "string" ? item : item?.name ?? item?.label))
+    .filter(Boolean) as string[];
+
+  return Array.from(new Set(names));
 }
+
 

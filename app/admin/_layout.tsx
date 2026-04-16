@@ -1,37 +1,38 @@
-import { Redirect, Stack, usePathname, useRouter } from "expo-router";
+﻿import { Redirect, Stack, usePathname, useRouter } from "expo-router";
 import { View } from "react-native";
 import { useAuth } from "../../src/context/AuthContext";
 import AdminLayout from "../../src/features/admin/components/AdminLayout";
 import { appTheme } from "../../src/theme/appTheme";
 
-const routeMeta: Record<string, { title: string; subtitle: string }> = {
+const routeMeta: Record<string, { title: string; subtitle: string; showPeriodTabs?: boolean }> = {
   "/admin/overview": {
-    title: "Admin Overview",
-    subtitle: "Vista ejecutiva de negocio, operacion y pendientes.",
+    title: "Dashboard principal",
+    subtitle: "Abril 2026 · Datos en tiempo real",
+    showPeriodTabs: true,
   },
   "/admin/users": {
-    title: "Admin Users",
-    subtitle: "Gestion de clientes, estado de cuentas y creditos.",
+    title: "Gestión de Usuarios",
+    subtitle: "Total de cuentas registradas y estado operativo",
   },
   "/admin/professionals": {
-    title: "Admin Professionals",
-    subtitle: "Revision, aprobacion y gestion de especialidades.",
+    title: "Gestión de Profesionales",
+    subtitle: "Revisión, aprobación y seguimiento de profesionales",
   },
   "/admin/finance": {
-    title: "Admin Finance",
-    subtitle: "Depositos, retiros y resumen financiero del sistema.",
+    title: "Finanzas",
+    subtitle: "Ingresos, retiros y movimientos de caja",
   },
   "/admin/referrals": {
-    title: "Admin Referrals",
-    subtitle: "Programa de referidos, estados y recompensas.",
+    title: "Referidos",
+    subtitle: "Programa, recompensas y trazabilidad",
   },
   "/admin/sections": {
-    title: "Admin Sections",
-    subtitle: "Catalogo de especialidades y estructura de categorias.",
+    title: "Secciones y Subsecciones",
+    subtitle: "Taxonomía de especialidades de la plataforma",
   },
   "/admin/config": {
-    title: "Admin Config",
-    subtitle: "Parametros del sistema, reglas y creditos promocionales.",
+    title: "Configuración",
+    subtitle: "Parámetros del sistema y créditos promocionales",
   },
 };
 
@@ -55,7 +56,7 @@ export default function AdminRoutesLayout() {
   const meta = routeMeta[pathname] ?? routeMeta["/admin/overview"];
 
   return (
-    <AdminLayout title={meta.title} subtitle={meta.subtitle} onRefresh={() => router.replace(pathname as any)}>
+    <AdminLayout title={meta.title} subtitle={meta.subtitle} showPeriodTabs={meta.showPeriodTabs} onRefresh={() => router.replace(pathname as any)}>
       <Stack
         screenOptions={{
           headerShown: false,

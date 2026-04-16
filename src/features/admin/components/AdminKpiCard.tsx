@@ -1,3 +1,4 @@
+﻿import { ArrowUp } from "lucide-react-native";
 import { StyleSheet, Text, View } from "react-native";
 import AppCard from "../../../components/ui/AppCard";
 import { appTheme } from "../../../theme/appTheme";
@@ -9,15 +10,29 @@ type Props = {
   tone?: "neutral" | "positive" | "warning";
 };
 
+const toneMap: Record<NonNullable<Props["tone"]>, { value: string; delta: string; iconBg: string; icon: string }> = {
+  neutral: { value: "#1F3656", delta: "#5E7695", iconBg: "#EAF1FB", icon: "📊" },
+  positive: { value: appTheme.colors.success, delta: appTheme.colors.success, iconBg: "#EAF7F0", icon: "💰" },
+  warning: { value: "#D97706", delta: "#D97706", iconBg: "#FFF5E7", icon: "🎁" },
+};
+
 export default function AdminKpiCard({ label, value, delta, tone = "neutral" }: Props) {
-  const toneColor =
-    tone === "positive" ? appTheme.colors.success : tone === "warning" ? "#B45309" : appTheme.colors.text;
+  const palette = toneMap[tone];
 
   return (
     <AppCard style={styles.card}>
+      <View style={styles.topRow}>
+        <View style={[styles.iconWrap, { backgroundColor: palette.iconBg }]}>
+          <Text style={styles.iconText}>{palette.icon}</Text>
+        </View>
+        <View style={styles.trendWrap}>
+          <ArrowUp size={13} color={appTheme.colors.success} />
+        </View>
+      </View>
+
+      <Text style={[styles.value, { color: palette.value }]}>{value}</Text>
       <Text style={styles.label}>{label}</Text>
-      <Text style={[styles.value, { color: toneColor }]}>{value}</Text>
-      {delta ? <Text style={[styles.delta, { color: toneColor }]}>{delta}</Text> : <View style={{ height: 18 }} />}
+      <Text style={[styles.delta, { color: delta ? palette.delta : "#8AA0BA" }]}>{delta ?? "Sin variación"}</Text>
     </AppCard>
   );
 }
@@ -25,23 +40,51 @@ export default function AdminKpiCard({ label, value, delta, tone = "neutral" }: 
 const styles = StyleSheet.create({
   card: {
     flex: 1,
-    minWidth: 180,
-    minHeight: 112,
+    minWidth: 260,
+    minHeight: 165,
+    borderRadius: 20,
+    gap: 8,
+  },
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  iconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconText: {
+    fontSize: 17,
+  },
+  trendWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#D8E4EF",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F8FCFF",
   },
   label: {
-    color: appTheme.colors.textMuted,
+    color: "#5F7898",
     fontFamily: appTheme.fonts.body,
-    fontSize: 12,
+    fontSize: 14,
+    lineHeight: 20,
   },
   value: {
     fontFamily: appTheme.fonts.heading,
-    fontSize: 28,
+    fontSize: 34,
     fontWeight: "700",
-    lineHeight: 34,
+    lineHeight: 40,
   },
   delta: {
     fontFamily: appTheme.fonts.body,
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 13,
+    fontWeight: "600",
   },
 });

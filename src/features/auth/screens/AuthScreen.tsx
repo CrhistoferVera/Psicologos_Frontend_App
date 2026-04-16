@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
@@ -99,7 +99,7 @@ export default function AuthScreen() {
           {mode === "login" ? (
             <>
               <View style={styles.fieldWrap}>
-                <Text style={styles.label}>Correo electrónico</Text>
+                <Text style={styles.label}>Correo electrÃ³nico</Text>
                 <TextInput
                   value={email}
                   onChangeText={setEmail}
@@ -117,7 +117,7 @@ export default function AuthScreen() {
                   <TextInput
                     value={password}
                     onChangeText={setPassword}
-                    placeholder="••••••••"
+                    placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                     placeholderTextColor="#7287A2"
                     secureTextEntry={!showPassword}
                     autoCapitalize="none"
@@ -129,7 +129,7 @@ export default function AuthScreen() {
                 </View>
               </View>
 
-              <Pressable style={styles.forgotWrap} onPress={() => router.push("/(auth)/forgot-password" as any)}>
+              <Pressable style={styles.forgotWrap} onPress={() => Alert.alert("Próximamente", "La recuperación de contraseña se habilitará pronto.")}>
                 <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
               </Pressable>
 
@@ -155,7 +155,7 @@ export default function AuthScreen() {
           ) : (
             <>
               <View style={styles.fieldWrap}>
-                <Text style={styles.label}>Número de teléfono</Text>
+                <Text style={styles.label}>NÃºmero de teléfono</Text>
                 <TextInput
                   value={phone}
                   onChangeText={setPhone}
@@ -399,3 +399,5 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 });
+
+

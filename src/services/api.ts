@@ -1,42 +1,40 @@
-import type { AxiosRequestConfig } from "axios";
-import apiClient from "../api/client";
+﻿import { API_URL } from "../config";
+import { getAccessToken } from "../storage/authStorage";
 
-export async function apiFetch<T>(
-  path: string,
-  options: RequestInit = {},
-): Promise<T> {
-  // Deprecated compatibility wrapper:
-  // callers can keep using apiFetch while the app converges to src/api/* modules.
-  const method = options.method ?? "GET";
-  const config: AxiosRequestConfig = {
-    url: path.startsWith("/") ? path : `/${path}`,
-    method: method as AxiosRequestConfig["method"],
-    headers: options.headers as Record<string, string> | undefined,
-  };
+type ApiFetchOptions = RequestInit & {
+  skipAuth?: boolean;
+};
 
-  if (options.body != null) {
-    if (typeof options.body === "string") {
-      try {
-        config.data = JSON.parse(options.body);
-      } catch {
-        config.data = options.body;
-      }
-    } else {
-      config.data = options.body;
-    }
+export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
+  const { skipAuth = false, headers, ...rest } = options;
+  const token = skipAuth ? null : await getAccessToken();
+
+  const response = await fetch(`${API_URL}${path}`, {
+    ...rest,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(headers ?? {}),
+    },
+  });
+
+  let payload: any = null;
+  const contentType = response.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    payload = await response.json().catch(() => null);
+  } else {
+    const text = await response.text().catch(() => "");
+    payload = text || null;
   }
 
-  try {
-    const response = await apiClient.request<T>(config);
-    return response.data;
-  } catch (error: any) {
-    const rawMessage = error?.response?.data?.message ?? error?.response?.data?.error ?? error?.message;
-    let message = "Solicitud fallida";
-    if (Array.isArray(rawMessage)) {
-      message = rawMessage.join(", ");
-    } else if (typeof rawMessage === "string" && rawMessage.trim().length > 0) {
-      message = rawMessage;
-    }
+  if (!response.ok) {
+    const message =
+      (typeof payload?.message === "string" && payload.message) ||
+      (Array.isArray(payload?.message) ? payload.message.join(", ") : null) ||
+      (typeof payload === "string" && payload) ||
+      `HTTP ${response.status}`;
     throw new Error(message);
   }
+
+  return payload as T;
 }

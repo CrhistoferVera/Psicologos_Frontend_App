@@ -2,46 +2,27 @@ import { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import AppCard from "../../../components/ui/AppCard";
 import { appTheme } from "../../../theme/appTheme";
-import { getAdminStats, getPromotionalCreditGrants } from "../api/adminApi";
+import { getAdminReferrals, type AdminReferralRecord } from "../api/adminApi";
 import AdminDataTable from "../components/AdminDataTable";
 import AdminEmptyState from "../components/AdminEmptyState";
 import AdminKpiCard from "../components/AdminKpiCard";
 
-const fallbackReferrals = [
-  { id: "r1", code: "SALUD-AB12", referredUser: "Usuario demo", status: "PENDING", reward: 10, createdAt: new Date().toISOString() },
-  { id: "r2", code: "SALUD-CD34", referredUser: "Usuario demo 2", status: "COMPLETED", reward: 15, createdAt: new Date().toISOString() },
-];
-
 export default function AdminReferralsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [stats, setStats] = useState<any>(null);
-  const [rows, setRows] = useState<any[]>(fallbackReferrals);
+  const [rows, setRows] = useState<AdminReferralRecord[]>([]);
+  const [summary, setSummary] = useState({ total: 0, pending: 0, qualified: 0, rewarded: 0, totalRewardCredits: 0 });
 
   useEffect(() => {
     void (async () => {
       try {
         setLoading(true);
         setError(null);
-        const [statsData, grants] = await Promise.all([getAdminStats(), getPromotionalCreditGrants(100)]);
-        setStats(statsData);
-
-        const inferred = grants
-          .filter((item: any) => (item.reason ?? "").toLowerCase().includes("refer"))
-          .map((item: any) => ({
-            id: item.id,
-            code: "N/A",
-            referredUser: [item.recipient?.firstName, item.recipient?.lastName].filter(Boolean).join(" ") || item.recipient?.email || "Usuario",
-            status: "COMPLETED",
-            reward: Number(item.amount ?? 0),
-            createdAt: item.createdAt,
-          }));
-
-        if (inferred.length > 0) {
-          setRows(inferred);
-        }
+        const referrals = await getAdminReferrals({ limit: 100 });
+        setRows(referrals.data);
+        setSummary(referrals.summary);
       } catch {
-        setError("No se pudo cargar datos de referidos. Mostrando fallback MVP.");
+        setError("No se pudo cargar datos de referidos.");
       } finally {
         setLoading(false);
       }
@@ -49,12 +30,14 @@ export default function AdminReferralsScreen() {
   }, []);
 
   const metrics = useMemo(() => {
-    const total = rows.length;
-    const completed = rows.filter((item) => item.status === "COMPLETED").length;
-    const pending = rows.filter((item) => item.status !== "COMPLETED").length;
-    const rewards = rows.reduce((acc, item) => acc + Number(item.reward ?? 0), 0);
-    return { total, completed, pending, rewards };
-  }, [rows]);
+    return {
+      total: Number(summary.total ?? 0),
+      pending: Number(summary.pending ?? 0),
+      qualified: Number(summary.qualified ?? 0),
+      rewarded: Number(summary.rewarded ?? 0),
+      rewards: Number(summary.totalRewardCredits ?? 0),
+    };
+  }, [summary]);
 
   return (
     <View style={styles.page}>
@@ -63,35 +46,62 @@ export default function AdminReferralsScreen() {
 
       <View style={styles.kpiGrid}>
         <AdminKpiCard label="Referidos totales" value={String(metrics.total)} />
-        <AdminKpiCard label="Completados" value={String(metrics.completed)} tone="positive" />
         <AdminKpiCard label="Pendientes" value={String(metrics.pending)} tone="warning" />
-        <AdminKpiCard label="Recompensas" value={`${metrics.rewards.toFixed(2)} cr`} />
+        <AdminKpiCard label="Calificados" value={String(metrics.qualified)} tone="neutral" />
+        <AdminKpiCard label="Recompensados" value={String(metrics.rewarded)} tone="positive" />
+        <AdminKpiCard label="Créditos entregados" value={`${metrics.rewards.toFixed(2)} cr`} />
       </View>
 
       <AppCard>
-        <Text style={styles.cardTitle}>Configuracion del programa</Text>
-        <Text style={styles.cardLine}>Reward base sugerido: 10 creditos</Text>
-        <Text style={styles.cardLine}>Estado del programa: Activo</Text>
-        <Text style={styles.cardHint}>TODO: conectar endpoint /referrals admin para reglas, tasas y trazabilidad real.</Text>
+        <Text style={styles.cardTitle}>Programa de referidos</Text>
+        <Text style={styles.cardLine}>Estados: pendiente, calificado por depósito y recompensado.</Text>
+        <Text style={styles.cardLine}>Las recompensas se registran como créditos promocionales no contables.</Text>
       </AppCard>
 
       {rows.length === 0 ? (
-        <AdminEmptyState title="Sin referidos" description="Aun no hay actividad del programa de referidos." />
+        <AdminEmptyState title="Sin referidos" description="Aún no hay actividad del programa de referidos." />
       ) : (
         <AdminDataTable
           rows={rows}
           columns={[
-            { key: "code", title: "Codigo", width: 140, render: (row) => <Text style={styles.cellPrimary}>{row.code}</Text> },
-            { key: "user", title: "Usuario referido", width: 220, render: (row) => <Text style={styles.cellPrimary}>{row.referredUser}</Text> },
+            { key: "code", title: "Código", width: 140, render: (row) => <Text style={styles.cellPrimary}>{row.codeUsed}</Text> },
+            {
+              key: "referred",
+              title: "Usuario referido",
+              width: 220,
+              render: (row) => <Text style={styles.cellPrimary}>{row.referred.fullName || row.referred.email || "Usuario"}</Text>,
+            },
+            {
+              key: "referrer",
+              title: "Referrer",
+              width: 220,
+              render: (row) => <Text style={styles.cellMuted}>{row.referrer.fullName || row.referrer.email || "Usuario"}</Text>,
+            },
             {
               key: "status",
               title: "Estado",
-              width: 120,
+              width: 140,
               render: (row) => (
-                <Text style={[styles.status, row.status === "COMPLETED" ? styles.ok : styles.pending]}>{row.status}</Text>
+                <Text
+                  style={[
+                    styles.status,
+                    row.status === "REWARDED"
+                      ? styles.ok
+                      : row.status === "QUALIFIED"
+                        ? styles.qualified
+                        : styles.pending,
+                  ]}
+                >
+                  {row.status}
+                </Text>
               ),
             },
-            { key: "reward", title: "Recompensa", width: 120, render: (row) => <Text style={styles.cellPrimary}>{Number(row.reward).toFixed(2)} cr</Text> },
+            {
+              key: "reward",
+              title: "Recompensa",
+              width: 120,
+              render: (row) => <Text style={styles.cellPrimary}>{Number(row.rewardCredits).toFixed(2)} cr</Text>,
+            },
             {
               key: "date",
               title: "Fecha",
@@ -101,12 +111,6 @@ export default function AdminReferralsScreen() {
           ]}
         />
       )}
-
-      <AppCard>
-        <Text style={styles.cardTitle}>Contexto de negocio</Text>
-        <Text style={styles.cardLine}>Nuevos usuarios del mes: {Number(stats?.clients?.newThisMonth ?? 0)}</Text>
-        <Text style={styles.cardLine}>Clientes activos: {Number(stats?.clients?.active ?? 0)}</Text>
-      </AppCard>
     </View>
   );
 }
@@ -142,11 +146,6 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.body,
     fontSize: 13,
   },
-  cardHint: {
-    color: appTheme.colors.textMuted,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 11,
-  },
   cellPrimary: {
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.body,
@@ -165,6 +164,9 @@ const styles = StyleSheet.create({
   },
   ok: {
     color: appTheme.colors.success,
+  },
+  qualified: {
+    color: "#2563EB",
   },
   pending: {
     color: "#B45309",

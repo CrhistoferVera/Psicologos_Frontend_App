@@ -1,4 +1,4 @@
-// api/userClient.ts
+﻿// api/userClient.ts
 import apiClient from './client';
 import { UserClientData } from '../types/userClient';
 
@@ -26,7 +26,7 @@ function parseApiError(error: any, fallback: string) {
 
 
 
-// LISTAR Y BUSCAR CLIENTES (Soporta la barra roja de búsqueda)
+// LISTAR Y BUSCAR CLIENTES (Soporta la barra roja de bÃºsqueda)
 export const apiGetAllClients = async (search?: string, cursor?: string): Promise<PaginatedClients> => {
 
     try {
@@ -52,7 +52,7 @@ export const apiToggleClientStatus = async (id: string, isActive: boolean) => {
     }
 };
 
-// CONFIGURACIÓN DE LA PLATAFORMA
+// CONFIGURACIÃ“N DE LA PLATAFORMA
 export const apiGetConfig = async (): Promise<{ creditToSolesRate: number }> => {
     try {
         const response = await apiClient.get('users/config');
@@ -62,7 +62,7 @@ export const apiGetConfig = async (): Promise<{ creditToSolesRate: number }> => 
     }
 };
 
-// OBTENER WALLET DE UN USUARIO ESPECÍFICO (solo anfitrionas/admin)
+// OBTENER WALLET DE UN USUARIO ESPECÃFICO (solo professionals/admin)
 export const apiGetUserWallet = async (userId: string): Promise<WalletResponse> => {
     try {
         const response = await apiClient.get(`users/${userId}/wallet`);
@@ -85,3 +85,4 @@ export const apiGetMyWallet = async (): Promise<WalletResponse> => {
         );
     }
 };
+

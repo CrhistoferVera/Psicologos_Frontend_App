@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+﻿import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { AppState } from "react-native";
 import { getProfile } from "../services/auth";
@@ -70,8 +70,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await Promise.all([setAccessToken(token), setUser(nextUser)]);
     setAccessTokenState(token);
     setUserState(nextUser);
-    // Registrar FCM token después del login
-    //para registrar el token de FCM en el backend cada vez que el usuario inicia sesión,
+    // Registrar FCM token despuÃ©s del login
+    //para registrar el token de FCM en el backend cada vez que el usuario inicia sesiÃ³n,
     //lo que asegura que el backend tenga el token actualizado para enviar notificaciones push al dispositivo del usuario
     void registerForPushNotifications();
   }, []);
@@ -83,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   //sirve para cargar el perfil del usuario al iniciar la app,
-  //y también para registrar el token de FCM y configurar los handlers de notificaciones push
+  //y tambiÃ©n para registrar el token de FCM y configurar los handlers de notificaciones push
   useEffect(() => {
     void hydrate();
     void createNotificationChannel();
@@ -121,8 +121,8 @@ Ejemplos de uso (resumen):
   useEffect(() => {
     if (!isHydrated || !user) return;
     if (user.role === "ADMIN") router.replace("/admin");
-    if (user.role === "ANFITRIONA") router.replace("/(anfitriona)");
-    if (user.role === "USER") router.replace("/(cliente)");
+    if (user.role === "ANFITRIONA" || user.role === "PROFESSIONAL") router.replace("/(professional)/dashboard");
+    if (user.role === "USER") router.replace("/(user)/home");
   }, [isHydrated, user]);
 
 2) Leer datos del usuario (id, rol, etc) una vez hidratado:
@@ -132,3 +132,4 @@ Ejemplos de uso (resumen):
     console.log(user.id, user.role, user.email);
   }
 */
+

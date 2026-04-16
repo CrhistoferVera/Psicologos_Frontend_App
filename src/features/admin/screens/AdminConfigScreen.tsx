@@ -2,33 +2,55 @@ import { useEffect, useState } from "react";
 import { Alert, Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import AppCard from "../../../components/ui/AppCard";
 import { appTheme } from "../../../theme/appTheme";
-import { getPublicSystemConfig, getPromotionalCreditGrants, grantPromotionalCredits } from "../api/adminApi";
+import {
+  getAdminConfig,
+  getPromotionalCreditGrants,
+  grantPromotionalCredits,
+  updateAdminConfig,
+} from "../api/adminApi";
 import AdminDataTable from "../components/AdminDataTable";
 import AdminEmptyState from "../components/AdminEmptyState";
 
 export default function AdminConfigScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [systemConfig, setSystemConfig] = useState<{ creditToSolesRate?: number; minVersion?: string } | null>(null);
   const [grants, setGrants] = useState<any[]>([]);
+
+  const [platformFeePercent, setPlatformFeePercent] = useState("50");
+  const [creditToSolesRate, setCreditToSolesRate] = useState("1");
+  const [minAppVersion, setMinAppVersion] = useState("1.0");
+  const [referralRewardCredits, setReferralRewardCredits] = useState("10");
+  const [referralMinDepositAmount, setReferralMinDepositAmount] = useState("0");
+  const [referralEnabled, setReferralEnabled] = useState(true);
+  const [paymentsEnabled, setPaymentsEnabled] = useState(true);
+  const [withdrawalsEnabled, setWithdrawalsEnabled] = useState(true);
+
+  const [savingConfig, setSavingConfig] = useState(false);
 
   const [userId, setUserId] = useState("");
   const [amount, setAmount] = useState("20");
-  const [reason, setReason] = useState("Credito promocional admin");
+  const [reason, setReason] = useState("Crédito promocional admin");
   const [savingGrant, setSavingGrant] = useState(false);
-
-  const [paymentsEnabled, setPaymentsEnabled] = useState(true);
-  const [withdrawalsEnabled, setWithdrawalsEnabled] = useState(true);
 
   async function loadData() {
     try {
       setLoading(true);
       setError(null);
-      const [config, grantsData] = await Promise.all([getPublicSystemConfig(), getPromotionalCreditGrants(30)]);
-      setSystemConfig(config);
+
+      const [config, grantsData] = await Promise.all([getAdminConfig(), getPromotionalCreditGrants(30)]);
+
+      setPlatformFeePercent(String(config.platformFeePercent));
+      setCreditToSolesRate(String(config.creditToSolesRate));
+      setMinAppVersion(config.minAppVersion);
+      setReferralRewardCredits(String(config.referralRewardCredits));
+      setReferralMinDepositAmount(String(config.referralMinDepositAmount));
+      setReferralEnabled(Boolean(config.referralEnabled));
+      setPaymentsEnabled(Boolean(config.paymentsEnabled));
+      setWithdrawalsEnabled(Boolean(config.withdrawalsEnabled));
+
       setGrants(grantsData);
     } catch {
-      setError("No se pudo cargar la configuracion del sistema.");
+      setError("No se pudo cargar la configuración del sistema.");
     } finally {
       setLoading(false);
     }
@@ -38,6 +60,53 @@ export default function AdminConfigScreen() {
     void loadData();
   }, []);
 
+  async function handleSaveConfig() {
+    const platform = Number(platformFeePercent);
+    const creditRate = Number(creditToSolesRate);
+    const rewardCredits = Number(referralRewardCredits);
+    const minDeposit = Number(referralMinDepositAmount);
+
+    if (!Number.isFinite(platform) || platform < 0 || platform > 100) {
+      Alert.alert("Porcentaje inválido", "El porcentaje de plataforma debe estar entre 0 y 100.");
+      return;
+    }
+
+    if (!Number.isFinite(creditRate) || creditRate < 0) {
+      Alert.alert("Rate inválido", "El rate de crédito debe ser un número mayor o igual a 0.");
+      return;
+    }
+
+    if (!Number.isFinite(rewardCredits) || rewardCredits < 0) {
+      Alert.alert("Recompensa inválida", "La recompensa por referido debe ser mayor o igual a 0.");
+      return;
+    }
+
+    if (!Number.isFinite(minDeposit) || minDeposit < 0) {
+      Alert.alert("Monto inválido", "El mínimo de depósito debe ser mayor o igual a 0.");
+      return;
+    }
+
+    try {
+      setSavingConfig(true);
+      await updateAdminConfig({
+        platformFeePercent: platform,
+        creditToSolesRate: creditRate,
+        minAppVersion: minAppVersion.trim() || "1.0",
+        referralRewardCredits: rewardCredits,
+        referralMinDepositAmount: minDeposit,
+        referralEnabled,
+        paymentsEnabled,
+        withdrawalsEnabled,
+      });
+      Alert.alert("Configuración guardada", "Los parámetros globales se actualizaron correctamente.");
+      await loadData();
+    } catch (err: any) {
+      Alert.alert("No se pudo guardar", err?.message ?? "Intenta nuevamente.");
+    } finally {
+      setSavingConfig(false);
+    }
+  }
+
   async function handleGrantCredits() {
     const parsedAmount = Number(amount);
     if (!userId.trim()) {
@@ -45,7 +114,7 @@ export default function AdminConfigScreen() {
       return;
     }
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      Alert.alert("Monto invalido", "Ingresa una cantidad valida de creditos.");
+      Alert.alert("Monto inválido", "Ingresa una cantidad válida de créditos.");
       return;
     }
 
@@ -56,9 +125,9 @@ export default function AdminConfigScreen() {
         amount: parsedAmount,
         reason: reason.trim() || undefined,
       });
-      Alert.alert("Creditos otorgados", "El grant promocional se registro correctamente.");
+      Alert.alert("Créditos otorgados", "El grant promocional se registró correctamente.");
       setUserId("");
-      setReason("Credito promocional admin");
+      setReason("Crédito promocional admin");
       await loadData();
     } catch (err: any) {
       Alert.alert("No se pudo otorgar", err?.message ?? "Intenta nuevamente.");
@@ -69,34 +138,77 @@ export default function AdminConfigScreen() {
 
   return (
     <View style={styles.page}>
-      {loading ? <Text style={styles.info}>Cargando configuracion...</Text> : null}
+      {loading ? <Text style={styles.info}>Cargando configuración...</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <View style={styles.row}>
-        <AppCard style={{ flex: 1 }}>
-          <Text style={styles.cardTitle}>Parametros globales</Text>
-          <Text style={styles.line}>Rate credito/soles: {Number(systemConfig?.creditToSolesRate ?? 1).toFixed(2)}</Text>
-          <Text style={styles.line}>Version minima: {systemConfig?.minVersion ?? "1.0"}</Text>
-          <Text style={styles.note}>Fuente: endpoint `/users/config`.</Text>
-        </AppCard>
+      <AppCard>
+        <Text style={styles.cardTitle}>Parámetros globales</Text>
 
-        <AppCard style={{ flex: 1 }}>
-          <Text style={styles.cardTitle}>Toggles operativos (MVP)</Text>
-          <View style={styles.toggleRow}>
-            <Text style={styles.line}>Pagos habilitados</Text>
-            <Switch value={paymentsEnabled} onValueChange={setPaymentsEnabled} />
-          </View>
-          <View style={styles.toggleRow}>
-            <Text style={styles.line}>Retiros habilitados</Text>
-            <Switch value={withdrawalsEnabled} onValueChange={setWithdrawalsEnabled} />
-          </View>
-          <Text style={styles.note}>TODO: persistir toggles en endpoint admin/config del backend.</Text>
-        </AppCard>
-      </View>
+        <View style={styles.formGrid}>
+          <TextInput
+            value={platformFeePercent}
+            onChangeText={setPlatformFeePercent}
+            placeholder="% plataforma"
+            placeholderTextColor={appTheme.colors.textMuted}
+            keyboardType="decimal-pad"
+            style={styles.input}
+          />
+          <TextInput
+            value={creditToSolesRate}
+            onChangeText={setCreditToSolesRate}
+            placeholder="Rate crédito/soles"
+            placeholderTextColor={appTheme.colors.textMuted}
+            keyboardType="decimal-pad"
+            style={styles.input}
+          />
+          <TextInput
+            value={minAppVersion}
+            onChangeText={setMinAppVersion}
+            placeholder="Versión mínima"
+            placeholderTextColor={appTheme.colors.textMuted}
+            style={styles.input}
+          />
+          <TextInput
+            value={referralRewardCredits}
+            onChangeText={setReferralRewardCredits}
+            placeholder="Reward referido"
+            placeholderTextColor={appTheme.colors.textMuted}
+            keyboardType="decimal-pad"
+            style={styles.input}
+          />
+          <TextInput
+            value={referralMinDepositAmount}
+            onChangeText={setReferralMinDepositAmount}
+            placeholder="Mín depósito referido"
+            placeholderTextColor={appTheme.colors.textMuted}
+            keyboardType="decimal-pad"
+            style={styles.input}
+          />
+        </View>
+
+        <View style={styles.toggleRow}>
+          <Text style={styles.line}>Programa de referidos habilitado</Text>
+          <Switch value={referralEnabled} onValueChange={setReferralEnabled} />
+        </View>
+
+        <View style={styles.toggleRow}>
+          <Text style={styles.line}>Pagos habilitados</Text>
+          <Switch value={paymentsEnabled} onValueChange={setPaymentsEnabled} />
+        </View>
+
+        <View style={styles.toggleRow}>
+          <Text style={styles.line}>Retiros habilitados</Text>
+          <Switch value={withdrawalsEnabled} onValueChange={setWithdrawalsEnabled} />
+        </View>
+
+        <Pressable style={[styles.primaryBtn, savingConfig && { opacity: 0.6 }]} disabled={savingConfig} onPress={() => void handleSaveConfig()}>
+          <Text style={styles.primaryBtnText}>{savingConfig ? "Guardando..." : "Guardar configuración"}</Text>
+        </Pressable>
+      </AppCard>
 
       <AppCard>
-        <Text style={styles.cardTitle}>Creditos promocionales</Text>
-        <Text style={styles.note}>Otorga creditos promocionales sin afectar revenue contable.</Text>
+        <Text style={styles.cardTitle}>Créditos promocionales</Text>
+        <Text style={styles.note}>Otorga créditos promocionales sin afectar revenue contable.</Text>
         <View style={styles.formGrid}>
           <TextInput
             value={userId}
@@ -121,14 +233,14 @@ export default function AdminConfigScreen() {
             style={styles.input}
           />
           <Pressable style={[styles.primaryBtn, savingGrant && { opacity: 0.6 }]} disabled={savingGrant} onPress={() => void handleGrantCredits()}>
-            <Text style={styles.primaryBtnText}>{savingGrant ? "Guardando..." : "Otorgar creditos"}</Text>
+            <Text style={styles.primaryBtnText}>{savingGrant ? "Guardando..." : "Otorgar créditos"}</Text>
           </Pressable>
         </View>
       </AppCard>
 
-      <Text style={styles.sectionTitle}>Ultimos grants promocionales</Text>
+      <Text style={styles.sectionTitle}>Últimos grants promocionales</Text>
       {grants.length === 0 ? (
-        <AdminEmptyState title="Sin grants recientes" description="Aun no hay creditos promocionales otorgados." />
+        <AdminEmptyState title="Sin grants recientes" description="Aún no hay créditos promocionales otorgados." />
       ) : (
         <AdminDataTable
           rows={grants}
@@ -182,10 +294,6 @@ const styles = StyleSheet.create({
   page: {
     padding: 24,
     gap: 12,
-  },
-  row: {
-    flexDirection: "row",
-    gap: 10,
   },
   info: {
     color: appTheme.colors.textMuted,

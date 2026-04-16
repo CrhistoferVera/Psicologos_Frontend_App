@@ -10,6 +10,14 @@ export type ProfessionalProfile = {
   avatarUrl: string | null;
   coverUrl: string | null;
   rateCredits?: number;
+  reviewStatus?: "PENDING" | "APPROVED" | "REJECTED";
+  reviewNotes?: string | null;
+  availability?: {
+    monFri?: string;
+    sat?: string;
+    sun?: string;
+    [key: string]: unknown;
+  } | null;
 };
 
 export type ProfessionalPriceInput = {

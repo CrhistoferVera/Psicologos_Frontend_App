@@ -1,4 +1,4 @@
-import apiClient from "../../../api/client";
+﻿import apiClient from "../../../api/client";
 import {
   apiAddBankAccount,
   apiCreateWithdrawalRequest,
@@ -15,7 +15,6 @@ import {
 import { apiGetMyServicePrices, apiUpsertServicePrice, type ServicePrice } from "../../../api/servicePrices";
 import { getMyChats, type Chat } from "../../../api/messages";
 import { sendOtp, verifyOtp } from "../../../services/auth";
-import { getSpecialtiesCatalog } from "../../professionals/api/professionalsApi";
 import type {
   ProfessionalChatItem,
   ProfessionalPriceInput,
@@ -23,6 +22,26 @@ import type {
   ProfessionalRegisterPayload,
   ProfessionalStatsSummary,
 } from "../types";
+
+export type SpecialtyCatalogItem = {
+  id: string;
+  name: string;
+  slug?: string;
+};
+
+export type ProfessionalReviewStatusResponse = {
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  notes: string | null;
+  isActive: boolean;
+  updatedAt: string | null;
+};
+
+export type ProfessionalAvailability = {
+  monFri?: string;
+  sat?: string;
+  sun?: string;
+  [key: string]: unknown;
+};
 
 function normalizeProfile(raw: any): ProfessionalProfile {
   return {
@@ -35,6 +54,9 @@ function normalizeProfile(raw: any): ProfessionalProfile {
     avatarUrl: raw?.avatarUrl ?? null,
     coverUrl: raw?.coverUrl ?? null,
     rateCredits: typeof raw?.rateCredits === "number" ? raw.rateCredits : undefined,
+    reviewStatus: (raw?.reviewStatus as any) ?? "PENDING",
+    reviewNotes: raw?.reviewNotes ?? null,
+    availability: (raw?.availability as ProfessionalAvailability | null) ?? null,
   };
 }
 
@@ -48,16 +70,6 @@ function toPriceInput(prices: ServicePrice[]): ProfessionalPriceInput {
   return input;
 }
 
-async function getWithFallback<T>(primary: string, legacy: string): Promise<T> {
-  try {
-    const response = await apiClient.get<T>(primary);
-    return response.data;
-  } catch (error: any) {
-    if (error?.response?.status !== 404) throw error;
-    const response = await apiClient.get<T>(legacy);
-    return response.data;
-  }
-}
 
 export async function sendProfessionalVerificationOtp(phoneNumber: string) {
   return sendOtp(phoneNumber);
@@ -68,7 +80,7 @@ export async function verifyProfessionalOtp(phoneNumber: string, code: string): 
   if ("needsProfile" in result && result.needsProfile && result.tempToken) {
     return result.tempToken;
   }
-  throw new Error("Este numero ya tiene una cuenta activa. Inicia sesion.");
+  throw new Error("Este número ya tiene una cuenta activa. Inicia sesión.");
 }
 
 export async function completeProfessionalRegistration(payload: ProfessionalRegisterPayload) {
@@ -94,23 +106,38 @@ export async function completeProfessionalRegistration(payload: ProfessionalRegi
     );
   }
 
-  try {
-    const response = await apiClient.post("/auth/complete-professional-registration", form, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    return response.data;
-  } catch (error: any) {
-    if (error?.response?.status !== 404) throw error;
-    const response = await apiClient.post("/auth/complete-anfitrione-registration", form, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    return response.data;
-  }
+  const response = await apiClient.post("/auth/complete-professional-registration", form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return response.data;
 }
 
 export async function getMyProfessionalProfile(): Promise<ProfessionalProfile> {
-  const data = await getWithFallback<any>("/professionals/me/profile", "/anfitrionas/me/profile");
+  const response = await apiClient.get("/professionals/me/profile");
+  const data = response.data;
   return normalizeProfile(data);
+}
+
+export async function getMyProfessionalReviewStatus(): Promise<ProfessionalReviewStatusResponse> {
+  try {
+    const response = await apiClient.get("/professionals/me/review-status");
+    const data = response.data ?? {};
+    return {
+      status: (data.status as any) ?? "PENDING",
+      notes: data.notes ?? null,
+      isActive: Boolean(data.isActive ?? false),
+      updatedAt: data.updatedAt ?? null,
+    };
+  } catch (error: any) {
+    if (error?.response?.status !== 404) throw error;
+    const profile = await getMyProfessionalProfile();
+    return {
+      status: (profile.reviewStatus as any) ?? "PENDING",
+      notes: profile.reviewNotes ?? null,
+      isActive: true,
+      updatedAt: null,
+    };
+  }
 }
 
 export async function updateMyProfessionalProfile(
@@ -120,6 +147,7 @@ export async function updateMyProfessionalProfile(
     username?: string;
     bio?: string;
     isOnline?: boolean;
+    availability?: ProfessionalAvailability;
   },
   avatarFile?: { uri: string; name: string; type: string },
   coverFile?: { uri: string; name: string; type: string },
@@ -130,6 +158,7 @@ export async function updateMyProfessionalProfile(
   if (payload.username !== undefined) formData.append("username", payload.username);
   if (payload.bio !== undefined) formData.append("bio", payload.bio);
   if (payload.isOnline !== undefined) formData.append("isOnline", String(payload.isOnline));
+  if (payload.availability !== undefined) formData.append("availability", JSON.stringify(payload.availability));
 
   if (avatarFile) {
     formData.append("avatar", { uri: avatarFile.uri, name: avatarFile.name, type: avatarFile.type } as any);
@@ -138,18 +167,10 @@ export async function updateMyProfessionalProfile(
     formData.append("cover", { uri: coverFile.uri, name: coverFile.name, type: coverFile.type } as any);
   }
 
-  try {
-    const response = await apiClient.patch("/professionals/me/profile", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    return normalizeProfile(response.data);
-  } catch (error: any) {
-    if (error?.response?.status !== 404) throw error;
-    const response = await apiClient.patch("/anfitrionas/me/profile", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    return normalizeProfile(response.data);
-  }
+  const response = await apiClient.patch("/professionals/me/profile", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return normalizeProfile(response.data);
 }
 
 export async function getMyProfessionalPrices(): Promise<ProfessionalPriceInput> {
@@ -165,8 +186,47 @@ export async function upsertProfessionalPrices(input: ProfessionalPriceInput) {
   await Promise.all(tasks);
 }
 
-export async function getProfessionalSpecialtiesCatalog() {
-  return getSpecialtiesCatalog();
+export async function getProfessionalSpecialtiesCatalog(): Promise<SpecialtyCatalogItem[]> {
+  try {
+    const response = await apiClient.get("/professionals/me/specialties/catalog");
+    const list = Array.isArray(response.data) ? response.data : [];
+    return list.map((item: any) => ({
+      id: String(item.id),
+      name: String(item.name),
+      slug: item.slug ? String(item.slug) : undefined,
+    }));
+  } catch (error: any) {
+    if (error?.response?.status !== 404) throw error;
+    const response = await apiClient.get("/specialties/public");
+    const list = Array.isArray(response.data) ? response.data : [];
+    return list.map((item: any) => ({
+      id: String(item.id),
+      name: String(item.name),
+      slug: item.slug ? String(item.slug) : undefined,
+    }));
+  }
+}
+
+export async function getMyProfessionalSpecialtyIds(): Promise<string[]> {
+  try {
+    const response = await apiClient.get("/professionals/me/specialties");
+    const rows = Array.isArray(response.data) ? response.data : [];
+    return rows
+      .map((item: any) => String(item?.specialty?.id ?? item?.specialtyId ?? ""))
+      .filter(Boolean);
+  } catch (error: any) {
+    if (error?.response?.status === 404) return [];
+    throw error;
+  }
+}
+
+export async function updateMyProfessionalSpecialties(specialtyIds: string[]): Promise<string[]> {
+  const unique = Array.from(new Set(specialtyIds.filter(Boolean)));
+  const response = await apiClient.put("/professionals/me/specialties", { specialtyIds: unique });
+  const rows = Array.isArray(response.data) ? response.data : [];
+  return rows
+    .map((item: any) => String(item?.specialty?.id ?? item?.specialtyId ?? ""))
+    .filter(Boolean);
 }
 
 export async function getProfessionalChats(): Promise<ProfessionalChatItem[]> {
@@ -236,3 +296,5 @@ export async function requestProfessionalWithdrawal(payload: { credits: number; 
 export async function getProfessionalWithdrawalRequests(): Promise<WithdrawalRequest[]> {
   return apiGetWithdrawalRequests();
 }
+
+

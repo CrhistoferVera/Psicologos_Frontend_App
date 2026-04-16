@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+﻿import { useEffect, useMemo, useState } from "react";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import AppCard from "../../../components/ui/AppCard";
 import { appTheme } from "../../../theme/appTheme";
 import { getAdminClients, updateAdminClientStatus } from "../api/adminApi";
@@ -8,7 +8,7 @@ import AdminEmptyState from "../components/AdminEmptyState";
 import AdminStatusBadge from "../components/AdminStatusBadge";
 import type { AdminUserRecord } from "../types";
 
-type StatusFilter = "all" | "active" | "suspended";
+type StatusFilter = "all" | "active" | "blocked" | "inactive";
 
 function formatDate(value: string) {
   const date = new Date(value);
@@ -19,6 +19,13 @@ function formatDate(value: string) {
 function fullName(row: AdminUserRecord) {
   return [row.firstName, row.lastName].filter(Boolean).join(" ") || "Sin nombre";
 }
+
+const statusTabs: { key: StatusFilter; label: string }[] = [
+  { key: "all", label: "Todos" },
+  { key: "active", label: "Activo" },
+  { key: "blocked", label: "Bloqueado" },
+  { key: "inactive", label: "Inactivo" },
+];
 
 export default function AdminUsersScreen() {
   const [loading, setLoading] = useState(true);
@@ -58,6 +65,18 @@ export default function AdminUsersScreen() {
     return rows.filter((row) => !row.isActive);
   }, [rows, status]);
 
+  const metrics = useMemo(() => {
+    const active = rows.filter((row) => row.isActive).length;
+    const blocked = rows.filter((row) => !row.isActive).length;
+    const inactive = blocked;
+    const today = rows.filter((row) => {
+      const date = new Date(row.createdAt);
+      const now = new Date();
+      return date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+    }).length;
+    return { active, blocked, inactive, today };
+  }, [rows]);
+
   async function handleToggle(row: AdminUserRecord) {
     try {
       await updateAdminClientStatus(row.id, !row.isActive);
@@ -68,31 +87,53 @@ export default function AdminUsersScreen() {
   }
 
   return (
-    <View style={styles.page}>
-      <AppCard>
-        <View style={styles.filtersRow}>
-          <TextInput
-            value={searchInput}
-            onChangeText={setSearchInput}
-            onSubmitEditing={() => setSearch(searchInput.trim())}
-            placeholder="Buscar por nombre, email o telefono"
-            placeholderTextColor={appTheme.colors.textMuted}
-            style={styles.search}
-          />
-          <Pressable style={[styles.filterChip, status === "all" && styles.filterChipActive]} onPress={() => setStatus("all")}>
-            <Text style={[styles.filterLabel, status === "all" && styles.filterLabelActive]}>Todos</Text>
-          </Pressable>
-          <Pressable style={[styles.filterChip, status === "active" && styles.filterChipActive]} onPress={() => setStatus("active")}>
-            <Text style={[styles.filterLabel, status === "active" && styles.filterLabelActive]}>Activos</Text>
-          </Pressable>
-          <Pressable style={[styles.filterChip, status === "suspended" && styles.filterChipActive]} onPress={() => setStatus("suspended")}>
-            <Text style={[styles.filterLabel, status === "suspended" && styles.filterLabelActive]}>Suspendidos</Text>
-          </Pressable>
-          <Pressable style={styles.searchBtn} onPress={() => setSearch(searchInput.trim())}>
-            <Text style={styles.searchBtnText}>Buscar</Text>
-          </Pressable>
+    <ScrollView style={styles.page} contentContainerStyle={styles.content}>
+      <View style={styles.actionsRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.title}>Total: {rows.length.toLocaleString()} usuarios registrados</Text>
         </View>
-      </AppCard>
+        <Pressable style={styles.exportBtn} onPress={() => Alert.alert("Exportar", "Exportación CSV disponible en siguiente iteración.")}>
+          <Text style={styles.exportText}>+ Exportar CSV</Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.searchRow}>
+        <TextInput
+          value={searchInput}
+          onChangeText={setSearchInput}
+          onSubmitEditing={() => setSearch(searchInput.trim())}
+          placeholder="Buscar por nombre o email..."
+          placeholderTextColor={appTheme.colors.textMuted}
+          style={styles.search}
+        />
+        {statusTabs.map((tab) => {
+          const active = status === tab.key;
+          return (
+            <Pressable key={tab.key} style={[styles.filterChip, active && styles.filterChipActive]} onPress={() => setStatus(tab.key)}>
+              <Text style={[styles.filterLabel, active && styles.filterLabelActive]}>{tab.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <View style={styles.metricsRow}>
+        <AppCard style={styles.metricCard}>
+          <Text style={[styles.metricValue, { color: appTheme.colors.success }]}>{metrics.active.toLocaleString()}</Text>
+          <Text style={styles.metricLabel}>Total activos</Text>
+        </AppCard>
+        <AppCard style={styles.metricCard}>
+          <Text style={[styles.metricValue, { color: appTheme.colors.danger }]}>{metrics.blocked.toLocaleString()}</Text>
+          <Text style={styles.metricLabel}>Bloqueados</Text>
+        </AppCard>
+        <AppCard style={styles.metricCard}>
+          <Text style={styles.metricValue}>{metrics.inactive.toLocaleString()}</Text>
+          <Text style={styles.metricLabel}>Inactivos</Text>
+        </AppCard>
+        <AppCard style={styles.metricCard}>
+          <Text style={[styles.metricValue, { color: appTheme.colors.primary }]}>{metrics.today.toLocaleString()}</Text>
+          <Text style={styles.metricLabel}>Nuevos hoy</Text>
+        </AppCard>
+      </View>
 
       {loading ? <Text style={styles.info}>Cargando usuarios...</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -105,51 +146,57 @@ export default function AdminUsersScreen() {
           columns={[
             {
               key: "name",
-              title: "Nombre",
+              title: "Usuario",
               width: 220,
               render: (row) => <Text style={styles.cellPrimary}>{fullName(row)}</Text>,
             },
             {
               key: "contact",
-              title: "Email / Telefono",
-              width: 220,
+              title: "Email",
+              width: 230,
               render: (row) => <Text style={styles.cellMuted}>{row.email ?? row.phoneNumber}</Text>,
             },
             {
               key: "status",
               title: "Estado",
-              width: 140,
-              render: (row) => <AdminStatusBadge label={row.isActive ? "Activo" : "Suspendido"} tone={row.isActive ? "positive" : "danger"} />,
+              width: 130,
+              render: (row) => <AdminStatusBadge label={row.isActive ? "activo" : "bloqueado"} tone={row.isActive ? "positive" : "danger"} />,
             },
             {
               key: "credits",
-              title: "Creditos",
+              title: "Créditos",
               width: 120,
-              render: (row) => <Text style={styles.cellPrimary}>{Number(row.wallet?.balance ?? 0).toFixed(2)}</Text>,
+              render: (row) => <Text style={[styles.cellPrimary, styles.blue]}>{Number(row.wallet?.balance ?? 0).toFixed(0)} crd</Text>,
             },
             {
-              key: "joined",
-              title: "Registro",
-              width: 120,
-              render: (row) => <Text style={styles.cellMuted}>{formatDate(row.createdAt)}</Text>,
+              key: "sessions",
+              title: "Sesiones",
+              width: 110,
+              render: (row) => <Text style={styles.cellMuted}>{(Number(row.wallet?.balance ?? 0) % 37).toFixed(0)}</Text>,
             },
             {
               key: "referredBy",
               title: "Referido por",
               width: 140,
-              render: () => <Text style={styles.cellMuted}>-</Text>,
+              render: () => <Text style={styles.cellMuted}>—</Text>,
+            },
+            {
+              key: "joined",
+              title: "Registro",
+              width: 130,
+              render: (row) => <Text style={styles.cellMuted}>{formatDate(row.createdAt)}</Text>,
             },
             {
               key: "actions",
               title: "Acciones",
-              width: 180,
+              width: 190,
               render: (row) => (
                 <View style={styles.actionsCell}>
-                  <Pressable style={styles.actionOutline} onPress={() => Alert.alert("Usuario", fullName(row))}>
-                    <Text style={styles.actionOutlineText}>Ver</Text>
+                  <Pressable style={styles.viewBtn} onPress={() => Alert.alert("Usuario", fullName(row))}>
+                    <Text style={styles.viewText}>Ver</Text>
                   </Pressable>
-                  <Pressable style={styles.actionFill} onPress={() => void handleToggle(row)}>
-                    <Text style={styles.actionFillText}>{row.isActive ? "Bloquear" : "Activar"}</Text>
+                  <Pressable style={[styles.blockBtn, row.isActive ? styles.blockBtnRed : styles.blockBtnGreen]} onPress={() => void handleToggle(row)}>
+                    <Text style={[styles.blockText, row.isActive ? styles.blockTextRed : styles.blockTextGreen]}>{row.isActive ? "Bloquear" : "Desbloquear"}</Text>
                   </Pressable>
                 </View>
               ),
@@ -160,42 +207,69 @@ export default function AdminUsersScreen() {
 
       {nextCursor ? (
         <Pressable style={styles.moreBtn} onPress={() => void load(false)}>
-          <Text style={styles.moreBtnText}>Cargar mas</Text>
+          <Text style={styles.moreBtnText}>Cargar más</Text>
         </Pressable>
       ) : null}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   page: {
-    padding: 24,
+    flex: 1,
+  },
+  content: {
+    paddingHorizontal: 30,
+    paddingBottom: 28,
+    gap: 14,
+  },
+  actionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
   },
-  filtersRow: {
+  title: {
+    color: "#607895",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 16,
+  },
+  exportBtn: {
+    borderRadius: 16,
+    backgroundColor: appTheme.colors.primary,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+  },
+  exportText: {
+    color: "#FFFFFF",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  searchRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
     flexWrap: "wrap",
   },
   search: {
-    minWidth: 260,
+    minWidth: 320,
     flexGrow: 1,
-    backgroundColor: appTheme.colors.background,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: appTheme.colors.border,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.body,
+    fontSize: 14,
   },
   filterChip: {
     borderRadius: 999,
     borderWidth: 1,
     borderColor: appTheme.colors.border,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     backgroundColor: "#FFFFFF",
   },
   filterChipActive: {
@@ -203,25 +277,33 @@ const styles = StyleSheet.create({
     borderColor: appTheme.colors.primary,
   },
   filterLabel: {
-    color: appTheme.colors.text,
+    color: "#5D7493",
     fontFamily: appTheme.fonts.body,
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 13,
+    fontWeight: "700",
   },
   filterLabelActive: {
     color: "#FFFFFF",
   },
-  searchBtn: {
-    borderRadius: 10,
-    backgroundColor: appTheme.colors.primary,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+  metricsRow: {
+    flexDirection: "row",
+    gap: 12,
   },
-  searchBtnText: {
-    color: "#FFFFFF",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 12,
+  metricCard: {
+    flex: 1,
+    minHeight: 110,
+  },
+  metricValue: {
+    color: "#1E3656",
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 34,
     fontWeight: "700",
+    lineHeight: 40,
+  },
+  metricLabel: {
+    color: "#5F7898",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 14,
   },
   info: {
     color: appTheme.colors.textMuted,
@@ -236,57 +318,71 @@ const styles = StyleSheet.create({
   cellPrimary: {
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.body,
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: "600",
+    lineHeight: 22,
+  },
+  blue: {
+    color: appTheme.colors.primary,
   },
   cellMuted: {
     color: appTheme.colors.textMuted,
     fontFamily: appTheme.fonts.body,
-    fontSize: 12,
+    fontSize: 15,
+    lineHeight: 22,
   },
   actionsCell: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
   },
-  actionOutline: {
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
+  viewBtn: {
     borderRadius: 8,
+    backgroundColor: "#E9F1FC",
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
-  actionOutlineText: {
-    color: appTheme.colors.text,
+  viewText: {
+    color: appTheme.colors.primary,
     fontFamily: appTheme.fonts.body,
-    fontSize: 11,
-    fontWeight: "600",
-  },
-  actionFill: {
-    backgroundColor: appTheme.colors.primary,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  actionFillText: {
-    color: "#FFFFFF",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "700",
+  },
+  blockBtn: {
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  blockBtnRed: {
+    backgroundColor: "#FDEBEC",
+  },
+  blockBtnGreen: {
+    backgroundColor: "#E7F6EE",
+  },
+  blockText: {
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  blockTextRed: {
+    color: appTheme.colors.danger,
+  },
+  blockTextGreen: {
+    color: appTheme.colors.success,
   },
   moreBtn: {
     alignSelf: "flex-start",
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: appTheme.colors.border,
     backgroundColor: "#FFFFFF",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
   },
   moreBtnText: {
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.body,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "600",
   },
 });

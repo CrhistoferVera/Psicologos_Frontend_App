@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+﻿import { useMemo } from "react";
 import { Settings, Users, UserRoundCheck, Landmark, Gift, Layers, LayoutDashboard, LogOut } from "lucide-react-native";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { usePathname, useRouter } from "expo-router";
@@ -9,17 +9,23 @@ type Item = {
   label: string;
   route: string;
   icon: any;
+  badge?: string;
 };
 
 const items: Item[] = [
-  { key: "overview", label: "Overview", route: "/admin/overview", icon: LayoutDashboard },
-  { key: "users", label: "Users", route: "/admin/users", icon: Users },
-  { key: "professionals", label: "Professionals", route: "/admin/professionals", icon: UserRoundCheck },
-  { key: "finance", label: "Finance", route: "/admin/finance", icon: Landmark },
-  { key: "referrals", label: "Referrals", route: "/admin/referrals", icon: Gift },
-  { key: "sections", label: "Sections", route: "/admin/sections", icon: Layers },
-  { key: "config", label: "Config", route: "/admin/config", icon: Settings },
+  { key: "overview", label: "Dashboard", route: "/admin/overview", icon: LayoutDashboard },
+  { key: "users", label: "Usuarios", route: "/admin/users", icon: Users, badge: "1.2k" },
+  { key: "professionals", label: "Profesionales", route: "/admin/professionals", icon: UserRoundCheck, badge: "8" },
+  { key: "sections", label: "Secciones", route: "/admin/sections", icon: Layers },
+  { key: "finance", label: "Finanzas", route: "/admin/finance", icon: Landmark },
+  { key: "referrals", label: "Referidos", route: "/admin/referrals", icon: Gift },
+  { key: "config", label: "Configuración", route: "/admin/config", icon: Settings },
 ];
+
+function initialsFromEmail(email?: string | null) {
+  if (!email) return "A";
+  return email[0]?.toUpperCase() ?? "A";
+}
 
 export default function AdminSidebar() {
   const pathname = usePathname();
@@ -34,10 +40,12 @@ export default function AdminSidebar() {
   return (
     <View style={styles.sidebar}>
       <View style={styles.brandWrap}>
-        <View style={styles.brandDot} />
+        <View style={styles.brandLogo}>
+          <Text style={styles.brandLogoText}>P</Text>
+        </View>
         <View>
-          <Text style={styles.brandTitle}>Psicologos Admin</Text>
-          <Text style={styles.brandSub}>Panel ejecutivo</Text>
+          <Text style={styles.brandTitle}>PsyConnect</Text>
+          <Text style={styles.brandSub}>Panel Admin</Text>
         </View>
       </View>
 
@@ -47,15 +55,29 @@ export default function AdminSidebar() {
           const active = item.route === activeRoute;
           return (
             <Pressable key={item.key} style={[styles.navItem, active && styles.navItemActive]} onPress={() => router.push(item.route as any)}>
-              <Icon size={17} color={active ? "#FFFFFF" : "#C4D3E2"} />
+              <Icon size={18} color={active ? "#5B9BD5" : "#B5C7DA"} />
               <Text style={[styles.navLabel, active && styles.navLabelActive]}>{item.label}</Text>
+              {item.badge ? (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{item.badge}</Text>
+                </View>
+              ) : null}
             </Pressable>
           );
         })}
       </ScrollView>
 
       <View style={styles.footer}>
-        <Text style={styles.userText}>{user?.email ?? "admin@local"}</Text>
+        <View style={styles.accountBox}>
+          <View style={styles.accountAvatar}>
+            <Text style={styles.accountAvatarText}>{initialsFromEmail(user?.email)}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.accountName}>Admin General</Text>
+            <Text style={styles.accountMail}>{user?.email ?? "admin@psyconnect.com"}</Text>
+          </View>
+        </View>
+
         <Pressable
           style={styles.logoutBtn}
           onPress={async () => {
@@ -63,8 +85,8 @@ export default function AdminSidebar() {
             router.replace("/(public)/auth");
           }}
         >
-          <LogOut size={16} color="#F8FAFC" />
-          <Text style={styles.logoutLabel}>Cerrar sesion</Text>
+          <LogOut size={16} color="#9AB0C8" />
+          <Text style={styles.logoutLabel}>Cerrar sesión</Text>
         </Pressable>
       </View>
     </View>
@@ -73,61 +95,87 @@ export default function AdminSidebar() {
 
 const styles = StyleSheet.create({
   sidebar: {
-    width: 248,
+    width: 274,
     backgroundColor: "#1E2A3A",
     paddingTop: 24,
     paddingBottom: 16,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     borderRightWidth: 1,
-    borderRightColor: "#273548",
+    borderRightColor: "#2B3B50",
   },
   brandWrap: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    marginBottom: 18,
     paddingHorizontal: 6,
-    marginBottom: 16,
   },
-  brandDot: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: "#5B9BD5",
+  brandLogo: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: "#748FCA",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  brandLogoText: {
+    color: "#FFFFFF",
+    fontFamily: "Inter-Regular",
+    fontWeight: "700",
+    fontSize: 20,
   },
   brandTitle: {
     color: "#F8FAFC",
-    fontSize: 16,
     fontFamily: "PlusJakartaSans-Bold",
+    fontSize: 18,
     fontWeight: "700",
   },
   brandSub: {
-    color: "#A8BED5",
-    fontSize: 12,
+    color: "#8FA6C0",
+    fontSize: 13,
     fontFamily: "Inter-Regular",
   },
   navList: {
-    gap: 6,
-    paddingVertical: 8,
+    gap: 7,
+    paddingVertical: 6,
   },
   navItem: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderRadius: 15,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   navItemActive: {
-    backgroundColor: "#5B9BD5",
+    backgroundColor: "#2C4765",
+    borderWidth: 1,
+    borderColor: "#3B5D82",
   },
   navLabel: {
-    color: "#C4D3E2",
+    color: "#D0DBE8",
     fontFamily: "Inter-Regular",
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: "600",
+    flex: 1,
   },
   navLabelActive: {
-    color: "#FFFFFF",
+    color: "#5B9BD5",
+    fontWeight: "700",
+  },
+  badge: {
+    minWidth: 30,
+    borderRadius: 999,
+    backgroundColor: "#334A64",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    alignItems: "center",
+  },
+  badgeText: {
+    color: "#BFD0E4",
+    fontFamily: "Inter-Regular",
+    fontSize: 12,
+    fontWeight: "700",
   },
   footer: {
     borderTopWidth: 1,
@@ -135,10 +183,36 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     gap: 8,
   },
-  userText: {
-    color: "#A8BED5",
+  accountBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 6,
+  },
+  accountAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: "#2E4764",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  accountAvatarText: {
+    color: "#77A9DD",
     fontFamily: "Inter-Regular",
-    fontSize: 11,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  accountName: {
+    color: "#E4EDF7",
+    fontFamily: "Inter-Regular",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  accountMail: {
+    color: "#8FA6C0",
+    fontFamily: "Inter-Regular",
+    fontSize: 12,
   },
   logoutBtn: {
     flexDirection: "row",
@@ -147,12 +221,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    backgroundColor: "#31455E",
+    backgroundColor: "#26384D",
   },
   logoutLabel: {
-    color: "#F8FAFC",
+    color: "#BED0E4",
     fontFamily: "Inter-Regular",
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 13,
+    fontWeight: "600",
   },
 });

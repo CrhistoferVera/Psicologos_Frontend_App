@@ -1,18 +1,33 @@
-import { useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+﻿import { useEffect, useMemo, useState } from "react";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import AppCard from "../../../components/ui/AppCard";
 import { appTheme } from "../../../theme/appTheme";
-import { createAdminSpecialty, deactivateAdminSpecialty, getAdminSpecialties, updateAdminSpecialty } from "../api/adminApi";
-import AdminDataTable from "../components/AdminDataTable";
+import {
+  createAdminSpecialty,
+  deactivateAdminSpecialty,
+  getAdminSpecialties,
+  getAdminStats,
+  updateAdminSpecialty,
+} from "../api/adminApi";
 import AdminEmptyState from "../components/AdminEmptyState";
-import AdminStatusBadge from "../components/AdminStatusBadge";
 import type { AdminSpecialty } from "../types";
+
+function subsectionListFromDescription(name: string, description?: string | null) {
+  if (!description) return [name];
+  const parsed = description
+    .split(/[,.;]/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 7);
+  return parsed.length > 0 ? parsed : [name];
+}
 
 export default function AdminSectionsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [rows, setRows] = useState<AdminSpecialty[]>([]);
+  const [stats, setStats] = useState<any>(null);
 
   const [newName, setNewName] = useState("");
   const [newDescription, setNewDescription] = useState("");
@@ -24,10 +39,11 @@ export default function AdminSectionsScreen() {
     try {
       setLoading(true);
       setError(null);
-      const data = await getAdminSpecialties(true, search || undefined);
+      const [data, statsData] = await Promise.all([getAdminSpecialties(true, search || undefined), getAdminStats()]);
       setRows(data);
+      setStats(statsData);
     } catch {
-      setError("No se pudo cargar sections/especialidades.");
+      setError("No se pudo cargar secciones/especialidades.");
     } finally {
       setLoading(false);
     }
@@ -40,7 +56,7 @@ export default function AdminSectionsScreen() {
 
   async function handleCreate() {
     if (!newName.trim()) {
-      Alert.alert("Nombre requerido", "Ingresa un nombre para la especialidad.");
+      Alert.alert("Nombre requerido", "Ingresa un nombre para la sección.");
       return;
     }
     try {
@@ -81,250 +97,378 @@ export default function AdminSectionsScreen() {
     }
   }
 
-  async function handleActivate(id: string) {
-    try {
-      await updateAdminSpecialty(id, { isActive: true });
-      await load();
-    } catch (err: any) {
-      Alert.alert("No se pudo activar", err?.message ?? "Intenta nuevamente.");
-    }
-  }
-
   const activeCount = useMemo(() => rows.filter((row) => row.isActive).length, [rows]);
 
   return (
-    <View style={styles.page}>
+    <ScrollView style={styles.page} contentContainerStyle={styles.content}>
+      <View style={styles.actionsRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.subtitle}>Gestiona la taxonomía de especialidades de la plataforma</Text>
+        </View>
+        <Pressable style={styles.newBtn} onPress={() => Alert.alert("Nueva sección", "Usa el formulario inferior para crear una nueva sección.")}>
+          <Text style={styles.newBtnText}>+ Nueva sección</Text>
+        </Pressable>
+      </View>
+
       <View style={styles.metricsRow}>
-        <AppCard style={{ flex: 1 }}>
-          <Text style={styles.metricLabel}>Especialidades activas</Text>
+        <AppCard style={styles.metricCard}>
           <Text style={styles.metricValue}>{activeCount}</Text>
+          <Text style={styles.metricLabel}>Secciones activas</Text>
         </AppCard>
-        <AppCard style={{ flex: 1 }}>
-          <Text style={styles.metricLabel}>Especialidades totales</Text>
+        <AppCard style={styles.metricCard}>
           <Text style={styles.metricValue}>{rows.length}</Text>
+          <Text style={styles.metricLabel}>Subsecciones totales</Text>
+        </AppCard>
+        <AppCard style={styles.metricCard}>
+          <Text style={styles.metricValue}>{Number(stats?.professionals?.total ?? 0)}</Text>
+          <Text style={styles.metricLabel}>Profesionales asignados</Text>
         </AppCard>
       </View>
 
       <AppCard>
-        <Text style={styles.panelTitle}>Crear section/especialidad</Text>
-        <TextInput
-          value={newName}
-          onChangeText={setNewName}
-          placeholder="Nombre (ej: Ansiedad)"
-          placeholderTextColor={appTheme.colors.textMuted}
-          style={styles.input}
-        />
-        <TextInput
-          value={newDescription}
-          onChangeText={setNewDescription}
-          placeholder="Descripcion opcional"
-          placeholderTextColor={appTheme.colors.textMuted}
-          style={styles.input}
-        />
-        <Pressable style={styles.primaryBtn} onPress={() => void handleCreate()}>
-          <Text style={styles.primaryBtnText}>Crear especialidad</Text>
-        </Pressable>
+        <View style={styles.createHeader}>
+          <Text style={styles.formTitle}>Crear sección</Text>
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Buscar secciones..."
+            placeholderTextColor={appTheme.colors.textMuted}
+            style={styles.searchInput}
+          />
+        </View>
+
+        <View style={styles.formGrid}>
+          <TextInput
+            value={newName}
+            onChangeText={setNewName}
+            placeholder="Nombre (ej: Psicología)"
+            placeholderTextColor={appTheme.colors.textMuted}
+            style={styles.input}
+          />
+          <TextInput
+            value={newDescription}
+            onChangeText={setNewDescription}
+            placeholder="Subsecciones separadas por coma (ej: Ansiedad, Depresión)"
+            placeholderTextColor={appTheme.colors.textMuted}
+            style={styles.input}
+          />
+          <Pressable style={styles.primaryBtn} onPress={() => void handleCreate()}>
+            <Text style={styles.primaryBtnText}>Agregar</Text>
+          </Pressable>
+        </View>
       </AppCard>
 
-      <AppCard>
-        <Text style={styles.panelTitle}>Buscar section</Text>
-        <TextInput
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Buscar por nombre o descripcion"
-          placeholderTextColor={appTheme.colors.textMuted}
-          style={styles.input}
-        />
-      </AppCard>
-
-      {loading ? <Text style={styles.info}>Cargando sections...</Text> : null}
+      {loading ? <Text style={styles.info}>Cargando secciones...</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       {!loading && rows.length === 0 ? (
-        <AdminEmptyState title="Sin sections" description="No hay especialidades registradas aun." />
+        <AdminEmptyState title="Sin secciones" description="No hay especialidades registradas aún." />
       ) : (
-        <AdminDataTable
-          rows={rows}
-          columns={[
-            { key: "name", title: "Section / Especialidad", width: 220, render: (row) => <Text style={styles.cellPrimary}>{row.name}</Text> },
-            { key: "slug", title: "Slug", width: 180, render: (row) => <Text style={styles.cellMuted}>{row.slug}</Text> },
-            {
-              key: "description",
-              title: "Descripcion",
-              width: 300,
-              render: (row) => <Text style={styles.cellMuted}>{row.description ?? "-"}</Text>,
-            },
-            {
-              key: "status",
-              title: "Estado",
-              width: 130,
-              render: (row) => <AdminStatusBadge label={row.isActive ? "Activa" : "Inactiva"} tone={row.isActive ? "positive" : "neutral"} />,
-            },
-            {
-              key: "actions",
-              title: "Acciones",
-              width: 220,
-              render: (row) => (
-                <View style={styles.actionsCell}>
-                  <Pressable style={styles.outlineBtn} onPress={() => openEdit(row)}>
-                    <Text style={styles.outlineBtnText}>Editar</Text>
+        rows.map((row) => (
+          <AppCard key={row.id}>
+            <View style={styles.sectionTop}>
+              <View style={styles.sectionIcon}>
+                <Text style={styles.sectionIconText}>🧠</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sectionTitle}>{row.name}</Text>
+                <Text style={styles.sectionMeta}>{row.isActive ? "Activa" : "Inactiva"} · {subsectionListFromDescription(row.name, row.description).length} subsecciones</Text>
+              </View>
+              <View style={styles.sectionActions}>
+                <Pressable style={styles.editBtn} onPress={() => openEdit(row)}>
+                  <Text style={styles.editText}>Editar</Text>
+                </Pressable>
+                {row.isActive ? (
+                  <Pressable style={styles.deleteBtn} onPress={() => void handleDeactivate(row.id)}>
+                    <Text style={styles.deleteText}>Eliminar</Text>
                   </Pressable>
-                  {row.isActive ? (
-                    <Pressable style={styles.rejectBtn} onPress={() => void handleDeactivate(row.id)}>
-                      <Text style={styles.rejectText}>Desactivar</Text>
-                    </Pressable>
-                  ) : (
-                    <Pressable style={styles.primaryBtnInline} onPress={() => void handleActivate(row.id)}>
-                      <Text style={styles.primaryBtnInlineText}>Activar</Text>
-                    </Pressable>
-                  )}
+                ) : (
+                  <Pressable
+                    style={styles.editBtn}
+                    onPress={async () => {
+                      await updateAdminSpecialty(row.id, { isActive: true });
+                      await load();
+                    }}
+                  >
+                    <Text style={styles.editText}>Activar</Text>
+                  </Pressable>
+                )}
+              </View>
+            </View>
+
+            <View style={styles.chipsWrap}>
+              {subsectionListFromDescription(row.name, row.description).map((subsection, index) => (
+                <View key={`${row.id}-${index}`} style={styles.subChip}>
+                  <Text style={styles.subChipText}>{subsection}</Text>
                 </View>
-              ),
-            },
-          ]}
-        />
+              ))}
+            </View>
+
+            <View style={styles.fakeSubsectionRow}>
+              <Text style={styles.fakeSubsectionText}>+ Nueva subsección...</Text>
+              <Pressable style={styles.addSubBtn} onPress={() => Alert.alert("Pendiente", "Subsecciones editables se habilitarán en la siguiente fase.")}>
+                <Text style={styles.addSubBtnText}>Agregar</Text>
+              </Pressable>
+            </View>
+          </AppCard>
+        ))
       )}
 
       {editingId ? (
         <AppCard>
-          <Text style={styles.panelTitle}>Editar section</Text>
+          <Text style={styles.formTitle}>Editar sección</Text>
           <TextInput value={editName} onChangeText={setEditName} style={styles.input} placeholder="Nombre" placeholderTextColor={appTheme.colors.textMuted} />
-          <TextInput value={editDescription} onChangeText={setEditDescription} style={styles.input} placeholder="Descripcion" placeholderTextColor={appTheme.colors.textMuted} />
+          <TextInput value={editDescription} onChangeText={setEditDescription} style={styles.input} placeholder="Descripción" placeholderTextColor={appTheme.colors.textMuted} />
           <View style={styles.editActions}>
-            <Pressable style={styles.outlineBtn} onPress={() => setEditingId(null)}>
-              <Text style={styles.outlineBtnText}>Cancelar</Text>
+            <Pressable style={styles.cancelBtn} onPress={() => setEditingId(null)}>
+              <Text style={styles.cancelBtnText}>Cancelar</Text>
             </Pressable>
-            <Pressable style={styles.primaryBtnInline} onPress={() => void handleSaveEdit()}>
-              <Text style={styles.primaryBtnInlineText}>Guardar</Text>
+            <Pressable style={styles.primaryBtn} onPress={() => void handleSaveEdit()}>
+              <Text style={styles.primaryBtnText}>Guardar</Text>
             </Pressable>
           </View>
         </AppCard>
       ) : null}
-
-      <AppCard>
-        <Text style={styles.panelTitle}>Subsections (estructura futura)</Text>
-        <Text style={styles.info}>La jerarquia se prepara para categorias clinicas y subsecciones en fase siguiente.</Text>
-        <Text style={styles.info}>TODO: agregar entidad backend de subsecciones y ordenamiento.</Text>
-      </AppCard>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   page: {
-    padding: 24,
+    flex: 1,
+  },
+  content: {
+    paddingHorizontal: 30,
+    paddingBottom: 28,
+    gap: 14,
+  },
+  actionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
+  },
+  subtitle: {
+    color: "#607895",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 16,
+  },
+  newBtn: {
+    borderRadius: 16,
+    backgroundColor: appTheme.colors.primary,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+  },
+  newBtnText: {
+    color: "#FFFFFF",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 14,
+    fontWeight: "700",
   },
   metricsRow: {
     flexDirection: "row",
-    gap: 10,
+    gap: 12,
   },
-  metricLabel: {
-    color: appTheme.colors.textMuted,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 12,
+  metricCard: {
+    flex: 1,
+    minHeight: 110,
   },
   metricValue: {
+    color: "#1E3656",
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 30,
+    fontWeight: "700",
+    lineHeight: 40,
+  },
+  metricLabel: {
+    color: "#5F7898",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 14,
+  },
+  createHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  formTitle: {
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.heading,
-    fontSize: 28,
+    fontSize: 20,
     fontWeight: "700",
   },
-  panelTitle: {
-    color: appTheme.colors.text,
-    fontFamily: appTheme.fonts.heading,
-    fontSize: 16,
-    fontWeight: "700",
+  formGrid: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "wrap",
   },
-  input: {
-    backgroundColor: appTheme.colors.background,
+  searchInput: {
+    minWidth: 260,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: appTheme.colors.border,
-    borderRadius: 10,
+    borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 10,
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.body,
+    fontSize: 14,
+  },
+  input: {
+    minWidth: 240,
+    flexGrow: 1,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 14,
   },
   primaryBtn: {
-    borderRadius: 10,
+    borderRadius: 12,
     backgroundColor: appTheme.colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    alignSelf: "flex-start",
   },
   primaryBtnText: {
     color: "#FFFFFF",
     fontFamily: appTheme.fonts.body,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "700",
   },
   info: {
     color: appTheme.colors.textMuted,
     fontFamily: appTheme.fonts.body,
-    fontSize: 12,
+    fontSize: 13,
   },
   error: {
     color: appTheme.colors.danger,
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
   },
-  cellPrimary: {
-    color: appTheme.colors.text,
+  sectionTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  sectionIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#EEF4FD",
+  },
+  sectionIconText: {
+    fontSize: 22,
+  },
+  sectionTitle: {
+    color: "#1F3656",
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 30,
+    fontWeight: "700",
+    lineHeight: 34,
+  },
+  sectionMeta: {
+    color: "#607895",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 15,
+  },
+  sectionActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  editBtn: {
+    borderRadius: 8,
+    backgroundColor: "#E9F1FC",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  editText: {
+    color: appTheme.colors.primary,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  deleteBtn: {
+    borderRadius: 8,
+    backgroundColor: "#FDEBEC",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  deleteText: {
+    color: appTheme.colors.danger,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  chipsWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  subChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#DCE8F4",
+    backgroundColor: "#F5FAFF",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  subChipText: {
+    color: "#476284",
     fontFamily: appTheme.fonts.body,
     fontSize: 13,
     fontWeight: "600",
   },
-  cellMuted: {
-    color: appTheme.colors.textMuted,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 12,
-  },
-  actionsCell: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  outlineBtn: {
+  fakeSubsectionRow: {
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: appTheme.colors.border,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
-  outlineBtnText: {
-    color: appTheme.colors.text,
+  fakeSubsectionText: {
+    color: "#8AA0BA",
     fontFamily: appTheme.fonts.body,
-    fontSize: 11,
-    fontWeight: "600",
+    fontSize: 14,
   },
-  rejectBtn: {
-    borderRadius: 8,
-    backgroundColor: "#FEE2E2",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  rejectText: {
-    color: appTheme.colors.danger,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  primaryBtnInline: {
-    borderRadius: 8,
+  addSubBtn: {
+    borderRadius: 12,
     backgroundColor: appTheme.colors.primary,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
   },
-  primaryBtnInlineText: {
+  addSubBtnText: {
     color: "#FFFFFF",
     fontFamily: appTheme.fonts.body,
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: "700",
   },
   editActions: {
     flexDirection: "row",
     gap: 8,
     justifyContent: "flex-end",
+  },
+  cancelBtn: {
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: "#FFFFFF",
+  },
+  cancelBtnText: {
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 13,
+    fontWeight: "600",
   },
 });

@@ -11,8 +11,10 @@ import { appTheme } from "../../../theme/appTheme";
 import {
   getMyProfessionalPrices,
   getMyProfessionalProfile,
+  getMyProfessionalSpecialtyIds,
   getProfessionalSpecialtiesCatalog,
   updateMyProfessionalProfile,
+  updateMyProfessionalSpecialties,
   upsertProfessionalPrices,
 } from "../api/professionalApi";
 
@@ -37,7 +39,7 @@ export default function ProfessionalProfileScreen() {
   const [satHours, setSatHours] = useState("09:00 - 19:00");
   const [sunHours, setSunHours] = useState("No disponible");
 
-  const [catalog, setCatalog] = useState<string[]>([]);
+  const [catalog, setCatalog] = useState<{ id: string; name: string }[]>([]);
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -54,10 +56,11 @@ export default function ProfessionalProfileScreen() {
         setLoading(true);
         setError(null);
 
-        const [profile, prices, specialties] = await Promise.all([
+        const [profile, prices, specialtiesCatalog, mySpecialtyIds] = await Promise.all([
           getMyProfessionalProfile(),
           getMyProfessionalPrices(),
           getProfessionalSpecialtiesCatalog(),
+          getMyProfessionalSpecialtyIds(),
         ]);
 
         setFirstName(profile.firstName || "");
@@ -67,13 +70,18 @@ export default function ProfessionalProfileScreen() {
         setIsOnline(Boolean(profile.isOnline));
         setAvatarUrl(profile.avatarUrl ?? null);
 
+        const availability = profile.availability ?? {};
+        setMonFriHours(String((availability as any).monFri ?? "09:00 - 19:00"));
+        setSatHours(String((availability as any).sat ?? "09:00 - 19:00"));
+        setSunHours(String((availability as any).sun ?? "No disponible"));
+
         setChatPrice(String(prices.chat ?? 0));
         setCallPrice(String(prices.call ?? 0));
         setVideoPrice(String(prices.video ?? 0));
 
-        const trimmed = specialties.slice(0, 24);
+        const trimmed = specialtiesCatalog.slice(0, 48).map((item) => ({ id: item.id, name: item.name }));
         setCatalog(trimmed);
-        setSelectedSpecialties(trimmed.slice(0, 4));
+        setSelectedSpecialties(Array.from(new Set(mySpecialtyIds)));
       } catch {
         setError("No se pudo cargar el perfil profesional.");
       } finally {
@@ -82,17 +90,26 @@ export default function ProfessionalProfileScreen() {
     })();
   }, []);
 
+  const selectedSpecialtyNames = useMemo(
+    () =>
+      selectedSpecialties
+        .map((id) => catalog.find((item) => item.id === id)?.name)
+        .filter(Boolean) as string[],
+    [catalog, selectedSpecialties],
+  );
+
   const displayName = useMemo(() => {
     const full = `${firstName} ${lastName}`.trim();
     if (!full) return "Professional";
     return full.startsWith("Dra.") || full.startsWith("Dr.") ? full : `Dra. ${full}`;
   }, [firstName, lastName]);
 
-  const visibleSpecialties = selectedSpecialties.length > 0 ? selectedSpecialties : catalog.slice(0, 4);
+  const visibleSpecialties = selectedSpecialtyNames.length > 0 ? selectedSpecialtyNames : catalog.slice(0, 4).map((item) => item.name);
+  const readonlySpecialties = selectedSpecialties.length > 0 ? catalog.filter((item) => selectedSpecialties.includes(item.id)) : catalog.slice(0, 4);
 
-  function toggleSpecialty(tag: string) {
+  function toggleSpecialty(id: string) {
     setSelectedSpecialties((prev) =>
-      prev.includes(tag) ? prev.filter((item) => item !== tag) : [...prev, tag],
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
     );
   }
 
@@ -130,6 +147,11 @@ export default function ProfessionalProfileScreen() {
           username: username.trim(),
           bio: bio.trim(),
           isOnline,
+          availability: {
+            monFri: monFriHours.trim(),
+            sat: satHours.trim(),
+            sun: sunHours.trim(),
+          },
         },
         avatarFile,
       );
@@ -140,7 +162,8 @@ export default function ProfessionalProfileScreen() {
         video: Number(videoPrice || 0),
       });
 
-      // TODO(backend): persist specialties + weekly availability in professional profile endpoint.
+      await updateMyProfessionalSpecialties(selectedSpecialties);
+
       Alert.alert("Perfil actualizado", "Tus cambios se guardaron correctamente.");
       setEditingBio(false);
       setEditingSpecialties(false);
@@ -162,8 +185,8 @@ export default function ProfessionalProfileScreen() {
             <Ionicons name="arrow-back" size={18} color={appTheme.colors.text} />
           </Pressable>
           <Text style={styles.headerTitle}>Mi perfil</Text>
-          <Pressable onPress={() => Alert.alert("PrÃ³ximamente", "Vista pÃºblica en la siguiente iteraciÃ³n.")}> 
-            <Text style={styles.publicLink}>Vista pÃºblica â†’</Text>
+          <Pressable onPress={() => Alert.alert("Próximamente", "Vista pública en la siguiente iteración.")}> 
+            <Text style={styles.publicLink}>Vista pública ?</Text>
           </Pressable>
         </View>
 
@@ -180,9 +203,9 @@ export default function ProfessionalProfileScreen() {
 
           <View style={{ flex: 1 }}>
             <Text style={styles.name}>{displayName}</Text>
-            <Text style={styles.roleSubtitle}>{visibleSpecialties[0] ?? "PsicologÃ­a clÃ­nica"}</Text>
+            <Text style={styles.roleSubtitle}>{visibleSpecialties[0] ?? "Psicología clínica"}</Text>
             <View style={styles.verifiedPill}>
-              <Text style={styles.verifiedText}>âœ“ Verificada</Text>
+              <Text style={styles.verifiedText}>? Verificada</Text>
             </View>
           </View>
         </View>
@@ -204,7 +227,7 @@ export default function ProfessionalProfileScreen() {
                 value={bio}
                 onChangeText={setBio}
                 multiline
-                placeholder="Describe tu enfoque terapÃ©utico"
+                placeholder="Describe tu enfoque terapéutico"
                 placeholderTextColor="#7A8EA8"
                 style={styles.textArea}
               />
@@ -218,7 +241,7 @@ export default function ProfessionalProfileScreen() {
             </View>
           ) : (
             <Text style={styles.cardBodyText} numberOfLines={4}>
-              {bio || "Agrega una descripciÃ³n profesional para que los clientes conozcan tu enfoque terapÃ©utico."}
+              {bio || "Agrega una descripción profesional para que los clientes conozcan tu enfoque terapéutico."}
             </Text>
           )}
         </AppCard>
@@ -232,12 +255,12 @@ export default function ProfessionalProfileScreen() {
           </View>
 
           <View style={styles.specialtiesWrap}>
-            {(editingSpecialties ? catalog : visibleSpecialties).map((item) => (
+            {(editingSpecialties ? catalog : readonlySpecialties).map((item) => (
               <AppChip
-                key={item}
-                label={item}
-                active={selectedSpecialties.includes(item)}
-                onPress={editingSpecialties ? () => toggleSpecialty(item) : undefined}
+                key={item.id}
+                label={item.name}
+                active={selectedSpecialties.includes(item.id)}
+                onPress={editingSpecialties ? () => toggleSpecialty(item.id) : undefined}
               />
             ))}
           </View>
@@ -281,19 +304,19 @@ export default function ProfessionalProfileScreen() {
           ) : (
             <View style={styles.rateRows}>
               <View style={styles.rateRow}>
-                <Text style={styles.rateLeft}>ðŸ’¬ Chat</Text>
+                <Text style={styles.rateLeft}>?? Chat</Text>
                 <Text style={styles.rateRight}>{Number(chatPrice || 0).toFixed(0)} crd/mensaje</Text>
               </View>
               <View style={styles.divider} />
 
               <View style={styles.rateRow}>
-                <Text style={styles.rateLeft}>ðŸ“ž Llamada</Text>
+                <Text style={styles.rateLeft}>?? Llamada</Text>
                 <Text style={styles.rateRight}>{Number(callPrice || 0).toFixed(0)} crd/min</Text>
               </View>
               <View style={styles.divider} />
 
               <View style={styles.rateRow}>
-                <Text style={styles.rateLeft}>ðŸŽ¥ Video</Text>
+                <Text style={styles.rateLeft}>?? Video</Text>
                 <Text style={styles.rateRight}>{Number(videoPrice || 0).toFixed(0)} crd/min</Text>
               </View>
             </View>
@@ -320,7 +343,7 @@ export default function ProfessionalProfileScreen() {
               <TextInput
                 value={satHours}
                 onChangeText={setSatHours}
-                placeholder="SÃ¡b"
+                placeholder="Sáb"
                 placeholderTextColor="#7A8EA8"
                 style={styles.inlineInput}
               />
@@ -333,7 +356,7 @@ export default function ProfessionalProfileScreen() {
               />
 
               <View style={styles.onlineRow}>
-                <Text style={styles.onlineLabel}>Estado en lÃ­nea</Text>
+                <Text style={styles.onlineLabel}>Estado en línea</Text>
                 <Switch
                   value={isOnline}
                   onValueChange={setIsOnline}
@@ -345,11 +368,11 @@ export default function ProfessionalProfileScreen() {
           ) : (
             <View style={styles.scheduleRows}>
               <View style={styles.scheduleRow}>
-                <Text style={styles.scheduleLeft}>Lunâ€“Vie</Text>
+                <Text style={styles.scheduleLeft}>Lun–Vie</Text>
                 <Text style={styles.scheduleRight}>{monFriHours}</Text>
               </View>
               <View style={styles.scheduleRow}>
-                <Text style={styles.scheduleLeft}>SÃ¡b</Text>
+                <Text style={styles.scheduleLeft}>Sáb</Text>
                 <Text style={styles.scheduleRight}>{satHours}</Text>
               </View>
               <View style={styles.scheduleRow}>
@@ -589,3 +612,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 });
+
+
+

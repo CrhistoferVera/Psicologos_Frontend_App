@@ -1,6 +1,6 @@
 ﻿export const appActiveRef = { current: true };
 export const activeChatRef = { current: null as string | null };
-export const anfitrionaChatScreenRef = { current: false };
+export const professionalChatScreenRef = { current: false };
 
 export const createNotificationChannel = async (): Promise<void> => {
   // Web: not supported
@@ -22,3 +22,4 @@ export const setupBackgroundNotificationHandler = (): void => {
 export const setBackgroundMessageHandler = (): void => {
   // Web: not supported
 };
+
