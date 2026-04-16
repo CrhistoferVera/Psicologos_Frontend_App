@@ -1,22 +1,44 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
-import AppCard from "../../../components/ui/AppCard";
 import AppScreen from "../../../components/ui/AppScreen";
 import { useAuth } from "../../../context/AuthContext";
 import { appTheme } from "../../../theme/appTheme";
 import { getMyChats, type Chat } from "../../../api/messages";
+import { apiGetMyWallet } from "../../../api/userClient";
 
-function formatShortDate(iso: string) {
+function isSameDay(a: Date, b: Date) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+function isYesterday(date: Date, now: Date) {
+  const y = new Date(now);
+  y.setDate(now.getDate() - 1);
+  return isSameDay(date, y);
+}
+
+function formatConversationDate(iso: string) {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
-  return `${date.getDate()}/${date.getMonth() + 1}`;
+
+  const now = new Date();
+
+  if (isSameDay(date, now)) {
+    return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+  }
+
+  if (isYesterday(date, now)) return "Ayer";
+
+  const week = ["Dom", "Lun", "Mar", "Mie", "Jue", "Vie", "Sab"];
+  return week[date.getDay()] ?? "";
 }
 
 export default function ChatListScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const [chats, setChats] = useState<Chat[]>([]);
+  const [balance, setBalance] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,10 +53,18 @@ export default function ChatListScreen() {
       try {
         setLoading(true);
         setError(null);
-        const data = await getMyChats();
-        setChats(data);
-      } catch {
-        setError("No se pudo cargar tus chats.");
+
+        const [chatData, walletData] = await Promise.allSettled([getMyChats(), apiGetMyWallet()]);
+
+        if (chatData.status === "fulfilled") {
+          setChats(chatData.value);
+        } else {
+          setError("No se pudo cargar tus chats.");
+        }
+
+        if (walletData.status === "fulfilled") {
+          setBalance(walletData.value?.balance ?? 0);
+        }
       } finally {
         setLoading(false);
       }
@@ -42,27 +72,44 @@ export default function ChatListScreen() {
   }, [user?.id]);
 
   return (
-    <AppScreen scroll>
-      <View style={styles.container}>
-        <Text style={styles.title}>Chats</Text>
-        <Text style={styles.subtitle}>Tus conversaciones con profesionales.</Text>
-
-        {loading ? <Text style={styles.empty}>Cargando conversaciones...</Text> : null}
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-
-        {!loading && chats.length === 0 ? (
-          <AppCard>
-            <Text style={styles.empty}>Aun no tienes conversaciones activas.</Text>
-          </AppCard>
-        ) : null}
-
+    <AppScreen contentPadding={0}>
+      <View style={styles.page}>
         <FlatList
           data={chats}
-          scrollEnabled={false}
           keyExtractor={(item) => item.conversationId}
-          ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+          style={styles.list}
+          contentContainerStyle={styles.listContent}
+          ListHeaderComponent={
+            <View style={styles.headerBlock}>
+              <Text style={styles.title}>Mensajes</Text>
+
+              <Pressable style={styles.balanceCard} onPress={() => router.push("/(user)/credits")}>
+                <View style={styles.balanceLeft}>
+                  <Ionicons name="card-outline" size={16} color={appTheme.colors.primary} />
+                  <View>
+                    <Text style={styles.balanceLabel}>Saldo disponible:</Text>
+                    <Text style={styles.balanceValue}>{Math.floor(balance)} creditos</Text>
+                  </View>
+                </View>
+                <View style={styles.balanceRight}>
+                  <Text style={styles.rechargeText}>Recargar</Text>
+                  <Text style={styles.rechargeArrow}>→</Text>
+                </View>
+              </Pressable>
+
+              {loading ? <Text style={styles.helper}>Cargando conversaciones...</Text> : null}
+              {error ? <Text style={styles.error}>{error}</Text> : null}
+            </View>
+          }
+          ListFooterComponent={
+            <View style={styles.footerWrap}>
+              <Ionicons name="bulb-outline" size={16} color="#B45309" />
+              <Text style={styles.footerText}>Cada mensaje consume creditos. Asegurate de tener saldo suficiente.</Text>
+            </View>
+          }
           renderItem={({ item }) => (
             <Pressable
+              style={styles.row}
               onPress={() =>
                 router.push({
                   pathname: "/(user)/chats/[id]",
@@ -75,30 +122,38 @@ export default function ChatListScreen() {
                 } as any)
               }
             >
-              <AppCard>
-                <View style={styles.row}>
-                  <Image
-                    source={item.otherUserAvatar ? { uri: item.otherUserAvatar } : require("../../../../assets/no_image.jpg")}
-                    style={styles.avatar}
-                  />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.name}>{item.otherUserName}</Text>
-                    <Text style={styles.message} numberOfLines={1}>
-                      {item.lastMessage ?? "Sin mensajes aun"}
-                    </Text>
+              <View style={styles.avatarWrap}>
+                <Image
+                  source={item.otherUserAvatar ? { uri: item.otherUserAvatar } : require("../../../../assets/no_image.jpg")}
+                  style={styles.avatar}
+                />
+                <View style={styles.onlineDot} />
+              </View>
+
+              <View style={{ flex: 1 }}>
+                <Text style={styles.name}>{item.otherUserName}</Text>
+                <Text style={styles.message} numberOfLines={1}>
+                  {item.lastMessage ?? "Aun no hay mensajes"}
+                </Text>
+              </View>
+
+              <View style={styles.rightCol}>
+                <Text style={styles.date}>{formatConversationDate(item.lastMessageAt)}</Text>
+                {item.unreadCount > 0 ? (
+                  <View style={styles.unreadBadge}>
+                    <Text style={styles.unreadText}>{item.unreadCount}</Text>
                   </View>
-                  <View style={{ alignItems: "flex-end", gap: 6 }}>
-                    <Text style={styles.date}>{formatShortDate(item.lastMessageAt)}</Text>
-                    {item.unreadCount > 0 ? (
-                      <View style={styles.unreadBadge}>
-                        <Text style={styles.unreadText}>{item.unreadCount}</Text>
-                      </View>
-                    ) : null}
-                  </View>
-                </View>
-              </AppCard>
+                ) : null}
+              </View>
             </Pressable>
           )}
+          ListEmptyComponent={
+            !loading ? (
+              <View style={styles.emptyWrap}>
+                <Text style={styles.helper}>Aun no tienes conversaciones activas.</Text>
+              </View>
+            ) : null
+          }
         />
       </View>
     </AppScreen>
@@ -106,25 +161,81 @@ export default function ChatListScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    gap: 12,
+  page: {
+    flex: 1,
+    backgroundColor: appTheme.colors.background,
+  },
+  list: {
+    flex: 1,
+  },
+  listContent: {
+    paddingBottom: 0,
+  },
+  headerBlock: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: appTheme.colors.border,
   },
   title: {
     color: appTheme.colors.text,
-    fontSize: 28,
+    fontSize: 32,
     fontFamily: appTheme.fonts.heading,
     fontWeight: "700",
+    marginBottom: 12,
   },
-  subtitle: {
+  balanceCard: {
+    borderWidth: 1,
+    borderColor: "#D1DAE6",
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: "#F7FAFE",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  balanceLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  balanceLabel: {
     color: appTheme.colors.textMuted,
     fontFamily: appTheme.fonts.body,
+    fontSize: 13,
   },
-  empty: {
+  balanceValue: {
+    color: appTheme.colors.primary,
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 21,
+    fontWeight: "700",
+  },
+  balanceRight: {
+    alignItems: "flex-end",
+  },
+  rechargeText: {
+    color: appTheme.colors.primary,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  rechargeArrow: {
+    color: appTheme.colors.primary,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  helper: {
+    marginTop: 8,
     color: appTheme.colors.textMuted,
     fontFamily: appTheme.fonts.body,
+    fontSize: 13,
     textAlign: "center",
   },
   error: {
+    marginTop: 8,
     color: appTheme.colors.danger,
     fontFamily: appTheme.fonts.body,
     textAlign: "center",
@@ -134,42 +245,95 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E9EEF5",
+  },
+  avatarWrap: {
+    width: 54,
+    height: 54,
+    borderRadius: 15,
+    position: "relative",
   },
   avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: "100%",
+    height: "100%",
+    borderRadius: 15,
     backgroundColor: "#E2E8F0",
+  },
+  onlineDot: {
+    position: "absolute",
+    right: -2,
+    bottom: -2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: appTheme.colors.success,
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
   },
   name: {
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.heading,
     fontWeight: "700",
-    fontSize: 15,
+    fontSize: 17,
   },
   message: {
     color: appTheme.colors.textMuted,
     fontFamily: appTheme.fonts.body,
-    fontSize: 13,
+    fontSize: 17,
+    marginTop: 2,
+  },
+  rightCol: {
+    alignItems: "flex-end",
+    gap: 6,
   },
   date: {
     color: appTheme.colors.textMuted,
     fontFamily: appTheme.fonts.body,
-    fontSize: 11,
+    fontSize: 15,
   },
   unreadBadge: {
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: appTheme.colors.primary,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 5,
+    paddingHorizontal: 6,
   },
   unreadText: {
     color: "#FFFFFF",
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: appTheme.fonts.body,
     fontWeight: "700",
+  },
+  emptyWrap: {
+    paddingHorizontal: 16,
+    paddingVertical: 22,
+    backgroundColor: "#FFFFFF",
+  },
+  footerWrap: {
+    marginTop: 14,
+    marginHorizontal: 16,
+    marginBottom: 10,
+    borderRadius: 12,
+    backgroundColor: "#FFF7E6",
+    borderWidth: 1,
+    borderColor: "#F8E6B8",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  footerText: {
+    flex: 1,
+    color: "#9A4C00",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 13,
+    lineHeight: 19,
   },
 });

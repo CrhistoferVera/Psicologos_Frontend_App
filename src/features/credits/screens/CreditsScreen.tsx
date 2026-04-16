@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
-import { Alert, FlatList, Linking, StyleSheet, Text, View } from "react-native";
-import AppButton from "../../../components/ui/AppButton";
+﻿import { useEffect, useMemo, useState } from "react";
+import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
 import AppCard from "../../../components/ui/AppCard";
 import AppScreen from "../../../components/ui/AppScreen";
 import { apiGetAllPackages, apiFlowCreatePayment } from "../../../api/package";
@@ -15,11 +17,65 @@ type PackageItem = {
   price: number;
 };
 
+type ExpenseItem = {
+  id: string;
+  detalle: string;
+  monto: string | number;
+  fecha: string;
+  tipo?: string;
+};
+
+type PaymentMethod = "card" | "paypal";
+type TabKey = "wallet" | "recharge";
+
+function asNumber(value: string | number | null | undefined) {
+  if (typeof value === "number") return value;
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function isSameDay(a: Date, b: Date) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+function isYesterday(date: Date, now: Date) {
+  const y = new Date(now);
+  y.setDate(now.getDate() - 1);
+  return isSameDay(date, y);
+}
+
+function formatMoveDate(iso: string) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const now = new Date();
+  const hour = `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+
+  if (isSameDay(date, now)) return `Hoy ${hour}`;
+  if (isYesterday(date, now)) return `Ayer ${hour}`;
+
+  return `${date.getDate()}/${date.getMonth() + 1} ${hour}`;
+}
+
+function signedAmount(item: ExpenseItem) {
+  const amount = asNumber(item.monto);
+  const creditTypes = new Set(["DEPOSIT", "PROMOTIONAL_GRANT"]);
+  const isCredit = item.tipo ? creditTypes.has(item.tipo) : amount > 0;
+  return isCredit ? Math.abs(amount) : -Math.abs(amount);
+}
+
 export default function CreditsScreen() {
+  const router = useRouter();
+
+  const [activeTab, setActiveTab] = useState<TabKey>("wallet");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
+
   const [balance, setBalance] = useState(0);
   const [promoBalance, setPromoBalance] = useState(0);
   const [packages, setPackages] = useState<PackageItem[]>([]);
-  const [history, setHistory] = useState<{ id: string; detalle: string; monto: string | number; fecha: string }[]>([]);
+  const [history, setHistory] = useState<ExpenseItem[]>([]);
+  const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,11 +84,13 @@ export default function CreditsScreen() {
       try {
         setLoading(true);
         setError(null);
-        const [wallet, list, expenses] = await Promise.all([
+
+        const [wallet, packageRes, expensesRes] = await Promise.all([
           apiGetMyWallet(),
           apiGetAllPackages(),
           apiGetExpenseHistory(),
         ]);
+
         setBalance(Number(wallet?.balance ?? 0));
         setPromoBalance(
           Number(
@@ -43,16 +101,30 @@ export default function CreditsScreen() {
           ),
         );
 
-        const normalized = Array.isArray(list?.data) ? list.data : Array.isArray(list) ? list : [];
-        setPackages(
-          normalized.map((item: any) => ({
+        const normalized = Array.isArray((packageRes as any)?.data)
+          ? (packageRes as any).data
+          : Array.isArray(packageRes)
+            ? packageRes
+            : [];
+
+        const mappedPackages = normalized
+          .map((item: any) => ({
             id: String(item.id),
             name: String(item.name ?? `Paquete ${item.credits}`),
             credits: Number(item.credits ?? 0),
             price: Number(item.price ?? 0),
-          })),
-        );
-        setHistory(Array.isArray(expenses?.data) ? expenses.data.slice(0, 8) : []);
+          }))
+          .sort((a: PackageItem, b: PackageItem) => a.credits - b.credits);
+
+        setPackages(mappedPackages);
+
+        if (mappedPackages.length > 0) {
+          const preferred300 = mappedPackages.find((pkg: PackageItem) => pkg.credits === 300);
+          setSelectedPackageId(preferred300?.id ?? mappedPackages[0].id);
+        }
+
+        const expenseData = Array.isArray((expensesRes as any)?.data) ? (expensesRes as any).data : [];
+        setHistory(expenseData.slice(0, 10));
       } catch {
         setError("No se pudo cargar la información de créditos.");
         setPackages([]);
@@ -64,84 +136,210 @@ export default function CreditsScreen() {
 
   const totalBalance = useMemo(() => balance + promoBalance, [balance, promoBalance]);
 
+  const selectedPackage = useMemo(
+    () => packages.find((pkg) => pkg.id === selectedPackageId) ?? null,
+    [packages, selectedPackageId],
+  );
+
+  const usedToday = useMemo(() => {
+    const now = new Date();
+    return history
+      .filter((item) => {
+        const date = new Date(item.fecha);
+        if (Number.isNaN(date.getTime())) return false;
+        return isSameDay(date, now);
+      })
+      .reduce((acc, item) => acc + Math.abs(Math.min(signedAmount(item), 0)), 0);
+  }, [history]);
+
+  const usedThisMonth = useMemo(() => {
+    const now = new Date();
+    return history
+      .filter((item) => {
+        const date = new Date(item.fecha);
+        if (Number.isNaN(date.getTime())) return false;
+        return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+      })
+      .reduce((acc, item) => acc + Math.abs(Math.min(signedAmount(item), 0)), 0);
+  }, [history]);
+
   async function handleBuy(packageId: string) {
     try {
       const response = await apiFlowCreatePayment(packageId);
       if (response?.paymentUrl) {
         await Linking.openURL(response.paymentUrl);
       }
-    } catch (error: any) {
-      Alert.alert("No se pudo iniciar la recarga", error?.message ?? "Intenta nuevamente.");
+    } catch (err: any) {
+      Alert.alert("No se pudo iniciar la recarga", err?.message ?? "Intenta nuevamente.");
     }
   }
 
+  function packageBadge(index: number, pkg: PackageItem) {
+    if (pkg.credits === 300 || index === 1) return "Popular";
+    if (pkg.credits >= 600 || index === 2) return "Mejor valor";
+    return null;
+  }
+
   return (
-    <AppScreen scroll>
-      <View style={styles.container}>
-        <Text style={styles.title}>Créditos y Wallet</Text>
-        <Text style={styles.subtitle}>Gestiona tu saldo y recargas de forma simple.</Text>
+    <AppScreen scroll contentPadding={0}>
+      <View style={styles.page}>
+        <View style={styles.headerRow}>
+          <Pressable onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="arrow-back" size={21} color={appTheme.colors.text} />
+          </Pressable>
+          <Text style={styles.title}>Créditos</Text>
+        </View>
+
+        <View style={styles.tabsRow}>
+          <Pressable
+            style={[styles.tabBtn, activeTab === "wallet" && styles.tabBtnActive]}
+            onPress={() => setActiveTab("wallet")}
+          >
+            <Ionicons name="card-outline" size={15} color={activeTab === "wallet" ? "#FFFFFF" : appTheme.colors.primary} />
+            <Text style={[styles.tabText, activeTab === "wallet" && styles.tabTextActive]}>Mi wallet</Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.tabBtn, activeTab === "recharge" && styles.tabBtnActive]}
+            onPress={() => setActiveTab("recharge")}
+          >
+            <Ionicons name="cart-outline" size={15} color={activeTab === "recharge" ? "#FFFFFF" : appTheme.colors.primary} />
+            <Text style={[styles.tabText, activeTab === "recharge" && styles.tabTextActive]}>Recargar</Text>
+          </Pressable>
+        </View>
+
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        <AppCard>
-          <Text style={styles.cardTitle}>Saldo total</Text>
-          <Text style={styles.totalBalance}>{totalBalance.toFixed(2)} créditos</Text>
-          <View style={styles.splitRow}>
-            <Text style={styles.splitLabel}>Saldo real</Text>
-            <Text style={styles.splitValue}>{balance.toFixed(2)} cr</Text>
-          </View>
-          <View style={styles.splitRow}>
-            <Text style={styles.splitLabel}>Saldo promocional</Text>
-            <Text style={[styles.splitValue, { color: appTheme.colors.success }]}>{promoBalance.toFixed(2)} cr</Text>
-          </View>
-        </AppCard>
+        {activeTab === "wallet" ? (
+          <>
+            <View style={styles.sectionPad}>
+              <LinearGradient
+                colors={["#3F6E9F", "#5B9BD5"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.walletHero}
+              >
+                <Text style={styles.walletLabel}>Saldo disponible</Text>
+                <Text style={styles.walletBalance}>{Math.floor(totalBalance)}</Text>
+                <Text style={styles.walletHint}>créditos · ≈ ${(totalBalance * 0.042).toFixed(2)} USD</Text>
 
-        <Text style={styles.section}>Paquetes de recarga</Text>
-        {loading ? (
-          <AppCard>
-            <Text style={styles.emptyText}>Cargando paquetes...</Text>
-          </AppCard>
-        ) : packages.length === 0 ? (
-          <AppCard>
-            <Text style={styles.emptyText}>No hay paquetes publicados por el momento.</Text>
-          </AppCard>
-        ) : (
-          <FlatList
-            data={packages}
-            scrollEnabled={false}
-            keyExtractor={(item) => item.id}
-            ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
-            renderItem={({ item }) => (
-              <AppCard>
-                <Text style={styles.pkgName}>{item.name}</Text>
-                <Text style={styles.pkgMeta}>
-                  {item.credits} créditos · Bs {item.price.toFixed(2)}
-                </Text>
-                <AppButton title="Recargar" onPress={() => handleBuy(item.id)} />
-              </AppCard>
-            )}
-          />
-        )}
+                <Pressable style={styles.walletRechargeBtn} onPress={() => setActiveTab("recharge")}>
+                  <Text style={styles.walletRechargeText}>+ Recargar créditos</Text>
+                </Pressable>
+              </LinearGradient>
+            </View>
 
-        <Text style={styles.section}>Historial reciente</Text>
-        {history.length === 0 ? (
-          <AppCard>
-            <Text style={styles.emptyText}>Sin movimientos recientes.</Text>
-          </AppCard>
-        ) : (
-          <FlatList
-            data={history}
-            scrollEnabled={false}
-            keyExtractor={(item) => item.id}
-            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-            renderItem={({ item }) => (
-              <AppCard>
-                <Text style={styles.histDetail}>{item.detalle}</Text>
-                <Text style={styles.histMeta}>
-                  {item.monto} cr · {new Date(item.fecha).toLocaleDateString()}
-                </Text>
-              </AppCard>
+            <View style={styles.statsRow}>
+              <View style={styles.statCard}>
+                <Text style={styles.statValue}>{Math.round(usedToday)} crd</Text>
+                <Text style={styles.statLabel}>Usados hoy</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Text style={styles.statValue}>{Math.round(usedThisMonth)} crd</Text>
+                <Text style={styles.statLabel}>Este mes</Text>
+              </View>
+            </View>
+
+            <View style={styles.sectionPad}>
+              <Text style={styles.sectionTitle}>Historial de movimientos</Text>
+            </View>
+
+            {history.length === 0 ? (
+              <View style={styles.sectionPad}>
+                <AppCard>
+                  <Text style={styles.emptyText}>{loading ? "Cargando historial..." : "Sin movimientos recientes."}</Text>
+                </AppCard>
+              </View>
+            ) : (
+              <View style={styles.movementsList}>
+                {history.slice(0, 6).map((item) => {
+                  const signed = signedAmount(item);
+                  const isCredit = signed >= 0;
+
+                  return (
+                    <View key={item.id} style={styles.moveCard}>
+                      <View style={[styles.moveIconWrap, isCredit ? styles.moveIconCredit : styles.moveIconDebit]}>
+                        <Ionicons name={isCredit ? "arrow-down" : "arrow-up"} size={16} color="#1E293B" />
+                      </View>
+
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.moveTitle} numberOfLines={2}>{item.detalle}</Text>
+                        <Text style={styles.moveDate}>{formatMoveDate(item.fecha)}</Text>
+                      </View>
+
+                      <Text style={[styles.moveAmount, isCredit ? styles.creditAmount : styles.debitAmount]}>
+                        {isCredit ? "+" : "-"}{Math.abs(signed)} crd
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
             )}
-          />
+          </>
+        ) : (
+          <>
+            <View style={styles.sectionPad}>
+              <Text style={styles.sectionTitle}>Selecciona un paquete</Text>
+            </View>
+
+            <View style={styles.packagesGrid}>
+              {packages.map((pkg, idx) => {
+                const selected = pkg.id === selectedPackageId;
+                const badge = packageBadge(idx, pkg);
+
+                return (
+                  <Pressable
+                    key={pkg.id}
+                    style={[styles.packageCard, selected && styles.packageCardSelected]}
+                    onPress={() => setSelectedPackageId(pkg.id)}
+                  >
+                    {badge ? (
+                      <View style={styles.badgePill}>
+                        <Text style={styles.badgeText}>{badge}</Text>
+                      </View>
+                    ) : null}
+                    <Text style={styles.pkgCredits}>{pkg.credits}</Text>
+                    <Text style={styles.pkgCreditsLabel}>créditos</Text>
+                    <Text style={styles.pkgPrice}>${pkg.price.toFixed(2)}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <View style={styles.sectionPad}>
+              <AppCard>
+                <Text style={styles.paymentTitle}>Método de pago</Text>
+
+                <Pressable style={styles.paymentRow} onPress={() => setPaymentMethod("card")}>
+                  <View style={[styles.radio, paymentMethod === "card" && styles.radioActive]} />
+                  <Ionicons name="card-outline" size={16} color={appTheme.colors.primary} />
+                  <Text style={styles.paymentText}>Tarjeta **** 4242</Text>
+                </Pressable>
+
+                <Pressable style={styles.paymentRow} onPress={() => setPaymentMethod("paypal")}>
+                  <View style={[styles.radio, paymentMethod === "paypal" && styles.radioActive]} />
+                  <Ionicons name="logo-paypal" size={16} color={appTheme.colors.primary} />
+                  <Text style={styles.paymentText}>PayPal</Text>
+                </Pressable>
+              </AppCard>
+            </View>
+
+            <View style={styles.sectionPad}>
+              <Pressable
+                style={[styles.buyBtn, (!selectedPackage || loading) && { opacity: 0.6 }]}
+                disabled={!selectedPackage || loading}
+                onPress={() => selectedPackage && handleBuy(selectedPackage.id)}
+              >
+                <Text style={styles.buyBtnText}>
+                  {selectedPackage
+                    ? `Comprar ${selectedPackage.credits} créditos · $${selectedPackage.price.toFixed(2)}`
+                    : "Selecciona un paquete"}
+                </Text>
+              </Pressable>
+
+              <Text style={styles.secureText}>Pago seguro · SSL encriptado</Text>
+            </View>
+          </>
         )}
       </View>
     </AppScreen>
@@ -149,78 +347,310 @@ export default function CreditsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  page: {
+    backgroundColor: appTheme.colors.background,
+    paddingTop: 6,
+    paddingBottom: 14,
     gap: 12,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 16,
+  },
+  backBtn: {
+    width: 30,
+    height: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 15,
   },
   title: {
     color: appTheme.colors.text,
-    fontSize: 28,
+    fontSize: 34,
     fontFamily: appTheme.fonts.heading,
     fontWeight: "700",
   },
-  subtitle: {
-    color: appTheme.colors.textMuted,
-    fontFamily: appTheme.fonts.body,
-  },
-  cardTitle: {
-    color: appTheme.colors.textMuted,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 13,
-  },
-  totalBalance: {
-    color: appTheme.colors.primary,
-    fontSize: 30,
-    fontFamily: appTheme.fonts.heading,
-    fontWeight: "700",
-  },
-  splitRow: {
+  tabsRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    gap: 8,
+    paddingHorizontal: 16,
   },
-  splitLabel: {
-    color: appTheme.colors.textMuted,
+  tabBtn: {
+    flex: 1,
+    minHeight: 40,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 6,
+  },
+  tabBtnActive: {
+    backgroundColor: appTheme.colors.primary,
+    borderColor: appTheme.colors.primary,
+  },
+  tabText: {
+    color: "#64748B",
     fontFamily: appTheme.fonts.body,
-  },
-  splitValue: {
-    color: appTheme.colors.text,
-    fontFamily: appTheme.fonts.heading,
-    fontWeight: "700",
-  },
-  section: {
-    color: appTheme.colors.text,
-    fontFamily: appTheme.fonts.heading,
-    fontWeight: "700",
-    fontSize: 17,
-    marginTop: 4,
-  },
-  pkgName: {
-    color: appTheme.colors.text,
-    fontFamily: appTheme.fonts.heading,
-    fontWeight: "700",
-    fontSize: 16,
-  },
-  pkgMeta: {
-    color: appTheme.colors.textMuted,
-    fontFamily: appTheme.fonts.body,
-  },
-  histDetail: {
-    color: appTheme.colors.text,
-    fontFamily: appTheme.fonts.body,
+    fontSize: 15,
     fontWeight: "600",
   },
-  histMeta: {
-    color: appTheme.colors.textMuted,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 12,
-  },
-  emptyText: {
-    color: appTheme.colors.textMuted,
-    fontFamily: appTheme.fonts.body,
+  tabTextActive: {
+    color: "#FFFFFF",
+    fontWeight: "700",
   },
   errorText: {
     color: appTheme.colors.danger,
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
+    textAlign: "center",
+    paddingHorizontal: 16,
+  },
+  sectionPad: {
+    paddingHorizontal: 16,
+  },
+  walletHero: {
+    borderRadius: 22,
+    paddingHorizontal: 20,
+    paddingVertical: 22,
+  },
+  walletLabel: {
+    color: "#DCEAFF",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  walletBalance: {
+    color: "#FFFFFF",
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 52,
+    lineHeight: 58,
+    fontWeight: "700",
+    marginTop: 2,
+  },
+  walletHint: {
+    color: "#DCEAFF",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 15,
+    marginTop: 2,
+  },
+  walletRechargeBtn: {
+    marginTop: 14,
+    alignSelf: "flex-start",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.35)",
+    backgroundColor: "rgba(255,255,255,0.14)",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  walletRechargeText: {
+    color: "#FFFFFF",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  statsRow: {
+    flexDirection: "row",
+    gap: 10,
+    paddingHorizontal: 16,
+  },
+  statCard: {
+    flex: 1,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    paddingVertical: 14,
+  },
+  statValue: {
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 21,
+    fontWeight: "700",
+  },
+  statLabel: {
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 13,
+    marginTop: 2,
+  },
+  sectionTitle: {
+    color: "#607A99",
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  movementsList: {
+    gap: 10,
+    paddingHorizontal: 16,
+  },
+  moveCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+    backgroundColor: "#FFFFFF",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  moveIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  moveIconCredit: {
+    backgroundColor: "#EAF7F0",
+  },
+  moveIconDebit: {
+    backgroundColor: "#F8EFEF",
+  },
+  moveTitle: {
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  moveDate: {
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 13,
+    marginTop: 2,
+  },
+  moveAmount: {
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  creditAmount: {
+    color: "#5BAA82",
+  },
+  debitAmount: {
+    color: "#EF4444",
+  },
+  emptyText: {
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    textAlign: "center",
+  },
+  packagesGrid: {
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  packageCard: {
+    width: "48%",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    position: "relative",
+  },
+  packageCardSelected: {
+    borderColor: appTheme.colors.primary,
+    borderWidth: 2,
+    backgroundColor: "#F4F9FF",
+  },
+  badgePill: {
+    position: "absolute",
+    top: -10,
+    right: 10,
+    borderRadius: 999,
+    backgroundColor: appTheme.colors.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  badgeText: {
+    color: "#FFFFFF",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  pkgCredits: {
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 39,
+    lineHeight: 42,
+    fontWeight: "700",
+  },
+  pkgCreditsLabel: {
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 15,
+  },
+  pkgPrice: {
+    marginTop: 4,
+    color: appTheme.colors.primary,
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 34,
+    fontWeight: "700",
+  },
+  paymentTitle: {
+    color: "#607A99",
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 17,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  paymentRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 8,
+  },
+  radio: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: appTheme.colors.primary,
+    backgroundColor: "transparent",
+  },
+  radioActive: {
+    backgroundColor: appTheme.colors.primary,
+  },
+  paymentText: {
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 17,
+    fontWeight: "500",
+  },
+  buyBtn: {
+    borderRadius: 16,
+    backgroundColor: appTheme.colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 54,
+    paddingHorizontal: 14,
+  },
+  buyBtnText: {
+    color: "#FFFFFF",
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 17,
+    fontWeight: "700",
+  },
+  secureText: {
+    marginTop: 10,
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 14,
+    textAlign: "center",
   },
 });
+
+
+
+
 

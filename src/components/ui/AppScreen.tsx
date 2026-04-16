@@ -1,5 +1,6 @@
-import type { ReactNode } from "react";
-import { SafeAreaView, ScrollView, StyleSheet, View } from "react-native";
+﻿import type { ReactNode } from "react";
+import { ScrollView, StyleSheet, View } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { appTheme } from "../../theme/appTheme";
 
 type Props = {
@@ -9,10 +10,20 @@ type Props = {
 };
 
 export default function AppScreen({ children, scroll = false, contentPadding = 16 }: Props) {
+  const insets = useSafeAreaInsets();
+
   if (scroll) {
     return (
-      <SafeAreaView style={styles.safe}>
-        <ScrollView contentContainerStyle={[styles.scrollContent, { padding: contentPadding }]}>
+      <SafeAreaView edges={["top", "left", "right"]} style={styles.safe}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              padding: contentPadding,
+              paddingBottom: Math.max(24, insets.bottom + 12),
+            },
+          ]}
+        >
           {children}
         </ScrollView>
       </SafeAreaView>
@@ -20,8 +31,18 @@ export default function AppScreen({ children, scroll = false, contentPadding = 1
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={[styles.content, { padding: contentPadding }]}>{children}</View>
+    <SafeAreaView edges={["top", "left", "right", "bottom"]} style={styles.safe}>
+      <View
+        style={[
+          styles.content,
+          {
+            padding: contentPadding,
+            paddingBottom: Math.max(contentPadding, insets.bottom + 8),
+          },
+        ]}
+      >
+        {children}
+      </View>
     </SafeAreaView>
   );
 }
@@ -35,7 +56,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 24,
+    flexGrow: 1,
   },
 });
-

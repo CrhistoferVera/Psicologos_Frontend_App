@@ -1,284 +1,178 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { Picker } from "@react-native-picker/picker";
-import AppButton from "../../../components/ui/AppButton";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { Alert, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import AppCard from "../../../components/ui/AppCard";
 import AppScreen from "../../../components/ui/AppScreen";
 import { appTheme } from "../../../theme/appTheme";
-import {
-  addProfessionalBankAccount,
-  getProfessionalBankAccounts,
-  getProfessionalBanks,
-  getProfessionalEarningsData,
-  getProfessionalWithdrawalRequests,
-  removeProfessionalBankAccount,
-  requestProfessionalWithdrawal,
-} from "../api/professionalApi";
+import { getProfessionalEarningsData } from "../api/professionalApi";
+
+function formatMoney(value: number) {
+  return `$${Number(value || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function formatMovementTime(iso?: string) {
+  if (!iso) return "Hoy 11:30";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "Hoy 11:30";
+
+  const now = new Date();
+  const sameDay =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate();
+
+  const hour = `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+  return sameDay ? `Hoy ${hour}` : `${date.getDate()}/${date.getMonth() + 1} ${hour}`;
+}
+
+function prettifyService(service: string) {
+  const value = String(service || "").toLowerCase();
+  if (value.includes("video")) return "Videollamada";
+  if (value.includes("call") || value.includes("llamada")) return "Llamada";
+  if (value.includes("message") || value.includes("chat")) return "Chat";
+  return "Sesión";
+}
 
 export default function ProfessionalEarningsScreen() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [earnings, setEarnings] = useState<any>(null);
-  const [banks, setBanks] = useState<any[]>([]);
-  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
-  const [withdrawals, setWithdrawals] = useState<any[]>([]);
-
-  const [bankId, setBankId] = useState<number | null>(null);
-  const [accountNumber, setAccountNumber] = useState("");
-  const [accountHolderName, setAccountHolderName] = useState("");
-  const [creditsToWithdraw, setCreditsToWithdraw] = useState("");
-  const [selectedBankAccountId, setSelectedBankAccountId] = useState("");
-  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    void loadData();
+    void (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await getProfessionalEarningsData();
+        setEarnings(data);
+      } catch {
+        setError("No se pudo cargar la información de ganancias.");
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
-
-  async function loadData() {
-    try {
-      setLoading(true);
-      setError(null);
-      const [earningsData, banksData, accountsData, withdrawalsData] = await Promise.all([
-        getProfessionalEarningsData(),
-        getProfessionalBanks(),
-        getProfessionalBankAccounts(),
-        getProfessionalWithdrawalRequests(),
-      ]);
-      setEarnings(earningsData);
-      setBanks(Array.isArray(banksData) ? banksData : []);
-      setBankAccounts(Array.isArray(accountsData) ? accountsData : []);
-      setWithdrawals(Array.isArray(withdrawalsData) ? withdrawalsData : []);
-
-      if (Array.isArray(banksData) && banksData.length > 0 && bankId == null) {
-        setBankId(Number(banksData[0].id));
-      }
-      if (Array.isArray(accountsData) && accountsData.length > 0) {
-        setSelectedBankAccountId(String(accountsData[0].id));
-      }
-    } catch {
-      setError("No se pudo cargar la informacion de ganancias.");
-    } finally {
-      setLoading(false);
-    }
-  }
 
   const gross = useMemo(() => {
     if (!Array.isArray(earnings?.transactions)) return 0;
     return earnings.transactions.reduce((acc: number, tx: any) => acc + Number(tx.amount ?? 0), 0);
   }, [earnings]);
 
-  const net = Number(earnings?.total ?? 0);
+  const net = Number(earnings?.total ?? earnings?.balance ?? 0);
   const commission = Math.max(gross - net, 0);
+  const referrals = Number((earnings as any)?.referrals ?? 0);
 
-  async function handleAddBankAccount() {
-    if (!bankId || !accountNumber.trim()) {
-      Alert.alert("Datos incompletos", "Selecciona banco e ingresa numero de cuenta.");
-      return;
-    }
+  const thisWeek = Number(earnings?.thisWeek ?? 0);
+  const thisMonth = net;
+  const historical = gross;
 
-    try {
-      setSubmitting(true);
-      await addProfessionalBankAccount({
-        bankId,
-        accountNumber: accountNumber.trim(),
-        accountHolderName: accountHolderName.trim() || undefined,
-      });
-      setAccountNumber("");
-      setAccountHolderName("");
-      await loadData();
-      Alert.alert("Cuenta agregada", "Tu cuenta bancaria fue registrada.");
-    } catch (err: any) {
-      Alert.alert("No se pudo agregar", err?.message ?? "Intenta nuevamente.");
-    } finally {
-      setSubmitting(false);
-    }
+  const txList = Array.isArray(earnings?.transactions) ? earnings.transactions.slice(0, 8) : [];
+
+  function handleWithdraw() {
+    Alert.alert("Próximamente", "El flujo guiado de solicitud de retiro se habilitará en la siguiente iteración.");
   }
 
-  async function handleDeleteBankAccount(id: string) {
-    try {
-      setSubmitting(true);
-      await removeProfessionalBankAccount(id);
-      await loadData();
-    } catch (err: any) {
-      Alert.alert("No se pudo eliminar", err?.message ?? "Intenta nuevamente.");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function handleCreateWithdrawal() {
-    const credits = Number(creditsToWithdraw || 0);
-    if (!selectedBankAccountId || credits <= 0) {
-      Alert.alert("Datos incompletos", "Selecciona cuenta y monto de retiro.");
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-      await requestProfessionalWithdrawal({
-        credits,
-        bankAccountId: selectedBankAccountId,
-      });
-      setCreditsToWithdraw("");
-      await loadData();
-      Alert.alert("Solicitud enviada", "Tu retiro quedo en estado pendiente.");
-    } catch (err: any) {
-      Alert.alert("No se pudo solicitar", err?.message ?? "Intenta nuevamente.");
-    } finally {
-      setSubmitting(false);
-    }
+  function handleReport() {
+    Alert.alert("Próximamente", "La exportación de reportes estará disponible pronto.");
   }
 
   return (
-    <AppScreen scroll>
-      <View style={styles.container}>
-        <Text style={styles.title}>Ganancias</Text>
-        <Text style={styles.subtitle}>Resumen financiero profesional y retiros.</Text>
+    <AppScreen scroll contentPadding={0}>
+      <View style={styles.page}>
+        <View style={styles.headerRow}>
+          <Pressable style={styles.backBtn} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={18} color={appTheme.colors.text} />
+          </Pressable>
+          <Text style={styles.title}>Ganancias</Text>
+        </View>
 
-        {loading ? <Text style={styles.info}>Cargando informacion...</Text> : null}
+        {loading ? <Text style={styles.info}>Cargando información...</Text> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <AppCard>
-          <Text style={styles.cardLabel}>Saldo neto disponible</Text>
-          <Text style={styles.netValue}>{net.toFixed(2)} creditos</Text>
-          <View style={styles.breakRow}>
-            <Text style={styles.breakLabel}>Bruto facturado</Text>
-            <Text style={styles.breakValue}>{gross.toFixed(2)} cr</Text>
-          </View>
-          <View style={styles.breakRow}>
-            <Text style={styles.breakLabel}>Neto acreditado</Text>
-            <Text style={styles.breakValue}>{net.toFixed(2)} cr</Text>
-          </View>
-          <View style={styles.breakRow}>
-            <Text style={styles.breakLabel}>Comision plataforma</Text>
-            <Text style={styles.breakValue}>{commission.toFixed(2)} cr</Text>
-          </View>
-          <View style={styles.breakRow}>
-            <Text style={styles.breakLabel}>Promocional no contable</Text>
-            <Text style={styles.breakValue}>0.00 cr</Text>
-          </View>
-          <Text style={styles.note}>Desglose sujeto al ledger financiero final del backend.</Text>
-        </AppCard>
+        <View style={styles.heroCard}>
+          <Text style={styles.heroLabel}>Ganancia neta (55%)</Text>
+          <Text style={styles.heroValue}>{formatMoney(thisMonth)}</Text>
 
-        <AppCard>
-          <Text style={styles.sectionTitle}>Solicitar retiro</Text>
-          <TextInput
-            value={creditsToWithdraw}
-            onChangeText={setCreditsToWithdraw}
-            placeholder="Monto en creditos"
-            keyboardType="number-pad"
-            style={styles.input}
-            placeholderTextColor={appTheme.colors.textMuted}
-          />
-          <View style={styles.pickerWrap}>
-            <Picker
-              selectedValue={selectedBankAccountId}
-              onValueChange={(value) => setSelectedBankAccountId(String(value))}
-              style={{ height: 44 }}
-            >
-              <Picker.Item label="Selecciona una cuenta" value="" />
-              {bankAccounts.map((account) => (
-                <Picker.Item
-                  key={String(account.id)}
-                  label={`${account.bankName} � ${account.accountNumber}`}
-                  value={String(account.id)}
-                />
-              ))}
-            </Picker>
-          </View>
-          <AppButton title="Solicitar retiro" onPress={handleCreateWithdrawal} loading={submitting} />
-        </AppCard>
+          <View style={styles.heroBreakdown}>
+            <View style={styles.heroCol}>
+              <Text style={styles.heroColValue}>{formatMoney(gross)}</Text>
+              <Text style={styles.heroColLabel}>Bruto total</Text>
+            </View>
 
-        <AppCard>
-          <Text style={styles.sectionTitle}>Agregar cuenta bancaria</Text>
-          <View style={styles.pickerWrap}>
-            <Picker selectedValue={bankId ?? ""} onValueChange={(value) => setBankId(Number(value))} style={{ height: 44 }}>
-              {banks.map((bank) => (
-                <Picker.Item key={String(bank.id)} label={bank.name} value={bank.id} />
-              ))}
-            </Picker>
-          </View>
-          <TextInput
-            value={accountNumber}
-            onChangeText={setAccountNumber}
-            placeholder="Numero de cuenta"
-            style={styles.input}
-            placeholderTextColor={appTheme.colors.textMuted}
-          />
-          <TextInput
-            value={accountHolderName}
-            onChangeText={setAccountHolderName}
-            placeholder="Nombre del titular (opcional)"
-            style={styles.input}
-            placeholderTextColor={appTheme.colors.textMuted}
-          />
-          <AppButton title="Guardar cuenta" variant="secondary" onPress={handleAddBankAccount} loading={submitting} />
-        </AppCard>
+            <View style={styles.heroCol}>
+              <Text style={styles.heroColValue}>{formatMoney(commission)}</Text>
+              <Text style={styles.heroColLabel}>Comisión (45%)</Text>
+            </View>
 
-        <Text style={styles.sectionTitle}>Cuentas registradas</Text>
-        {bankAccounts.length === 0 ? (
-          <AppCard>
-            <Text style={styles.info}>No tienes cuentas bancarias registradas.</Text>
+            <View style={styles.heroCol}>
+              <Text style={styles.heroColValue}>+{formatMoney(referrals)}</Text>
+              <Text style={styles.heroColLabel}>Referidos</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.actionsRow}>
+          <Pressable style={styles.withdrawBtn} onPress={handleWithdraw}>
+            <Text style={styles.withdrawText}>💰 Solicitar retiro</Text>
+          </Pressable>
+
+          <Pressable style={styles.reportBtn} onPress={handleReport}>
+            <Text style={styles.reportText}>📊 Ver reporte</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.kpisRow}>
+          <AppCard style={styles.kpiCard}>
+            <Text style={styles.kpiValue}>{formatMoney(thisWeek)}</Text>
+            <Text style={styles.kpiLabel}>Esta semana</Text>
           </AppCard>
-        ) : (
-          <FlatList
-            data={bankAccounts}
-            keyExtractor={(item) => String(item.id)}
-            scrollEnabled={false}
-            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-            renderItem={({ item }) => (
-              <AppCard>
-                <Text style={styles.bankName}>{item.bankName}</Text>
-                <Text style={styles.bankMeta}>{item.accountNumber}</Text>
-                <Pressable onPress={() => handleDeleteBankAccount(String(item.id))}>
-                  <Text style={styles.deleteText}>Eliminar</Text>
-                </Pressable>
-              </AppCard>
-            )}
-          />
-        )}
 
-        <Text style={styles.sectionTitle}>Movimientos de ganancia</Text>
-        {Array.isArray(earnings?.transactions) && earnings.transactions.length > 0 ? (
-          <FlatList
-            data={earnings.transactions.slice(0, 12)}
-            keyExtractor={(item) => item.id}
-            scrollEnabled={false}
-            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-            renderItem={({ item }) => (
-              <AppCard>
-                <Text style={styles.txTitle}>{item.service}</Text>
-                <Text style={styles.txMeta}>{item.clientName || "Cliente"}</Text>
-                <Text style={styles.txAmount}>+{Number(item.amount).toFixed(2)} cr</Text>
-              </AppCard>
-            )}
-          />
-        ) : (
-          <AppCard>
+          <AppCard style={styles.kpiCard}>
+            <Text style={styles.kpiValue}>{formatMoney(thisMonth)}</Text>
+            <Text style={styles.kpiLabel}>Este mes</Text>
+          </AppCard>
+
+          <AppCard style={styles.kpiCard}>
+            <Text style={styles.kpiValue}>{formatMoney(historical)}</Text>
+            <Text style={styles.kpiLabel}>Total histórico</Text>
+          </AppCard>
+        </View>
+
+        <Text style={styles.sectionTitle}>Movimientos recientes</Text>
+
+        {txList.length === 0 && !loading ? (
+          <AppCard style={{ marginHorizontal: 14 }}>
             <Text style={styles.info}>Sin movimientos de ganancia.</Text>
           </AppCard>
-        )}
-
-        <Text style={styles.sectionTitle}>Solicitudes de retiro</Text>
-        {withdrawals.length === 0 ? (
-          <AppCard>
-            <Text style={styles.info}>Aun no tienes solicitudes de retiro.</Text>
-          </AppCard>
         ) : (
           <FlatList
-            data={withdrawals}
+            data={txList}
             keyExtractor={(item) => String(item.id)}
             scrollEnabled={false}
-            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-            renderItem={({ item }) => (
-              <AppCard>
-                <Text style={styles.txTitle}>{Number(item.credits).toFixed(2)} cr � S/ {Number(item.soles).toFixed(2)}</Text>
-                <Text style={styles.txMeta}>{item.bankName} � {item.accountNumber}</Text>
-                <Text style={[styles.status, item.status === "APPROVED" ? styles.ok : item.status === "REJECTED" ? styles.reject : styles.pending]}>
-                  {item.status}
-                </Text>
-              </AppCard>
-            )}
+            contentContainerStyle={styles.movementsList}
+            ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+            renderItem={({ item }) => {
+              const amount = Number(item.amount ?? 0);
+              const grossApprox = amount > 0 ? amount / 0.55 : 0;
+
+              return (
+                <AppCard style={styles.moveCard}>
+                  <View style={styles.moveTop}>
+                    <Text style={styles.moveClient}>{item.clientName || "Cliente"}</Text>
+                    <Text style={styles.moveAmount}>+{formatMoney(amount)}</Text>
+                  </View>
+
+                  <View style={styles.moveMid}>
+                    <Text style={styles.moveService}>{prettifyService(item.service)}</Text>
+                    <Text style={styles.moveGross}>de {formatMoney(grossApprox)} bruto</Text>
+                  </View>
+
+                  <Text style={styles.moveTime}>{formatMovementTime(item.createdAt)}</Text>
+                </AppCard>
+              );
+            }}
           />
         )}
       </View>
@@ -287,129 +181,207 @@ export default function ProfessionalEarningsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  page: {
+    backgroundColor: appTheme.colors.background,
+    paddingTop: 8,
+    paddingBottom: 16,
     gap: 12,
   },
-  title: {
-    color: appTheme.colors.text,
-    fontSize: 28,
-    fontFamily: appTheme.fonts.heading,
-    fontWeight: "700",
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#DEE6F1",
   },
-  subtitle: {
-    color: appTheme.colors.textMuted,
-    fontFamily: appTheme.fonts.body,
+  backBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  title: {
+    color: "#172B46",
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 32,
+    fontWeight: "700",
   },
   info: {
     color: appTheme.colors.textMuted,
     fontFamily: appTheme.fonts.body,
     fontSize: 13,
+    textAlign: "center",
+    paddingHorizontal: 14,
   },
   error: {
     color: appTheme.colors.danger,
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
+    textAlign: "center",
+    paddingHorizontal: 14,
   },
-  cardLabel: {
-    color: appTheme.colors.textMuted,
+  heroCard: {
+    marginHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: "#3E7F61",
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    gap: 10,
+  },
+  heroLabel: {
+    color: "#DDF3E7",
     fontFamily: appTheme.fonts.body,
-    fontSize: 13,
+    fontSize: 14,
+    fontWeight: "600",
   },
-  netValue: {
-    color: appTheme.colors.success,
+  heroValue: {
+    color: "#FFFFFF",
     fontFamily: appTheme.fonts.heading,
-    fontSize: 30,
+    fontSize: 44,
+    lineHeight: 48,
     fontWeight: "700",
   },
-  breakRow: {
+  heroBreakdown: {
     flexDirection: "row",
     justifyContent: "space-between",
+    gap: 10,
+    marginTop: 2,
   },
-  breakLabel: {
-    color: appTheme.colors.textMuted,
+  heroCol: {
+    flex: 1,
+  },
+  heroColValue: {
+    color: "#FFFFFF",
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  heroColLabel: {
+    marginTop: 2,
+    color: "#D7EFE3",
     fontFamily: appTheme.fonts.body,
     fontSize: 13,
+    lineHeight: 16,
   },
-  breakValue: {
-    color: appTheme.colors.text,
+  actionsRow: {
+    flexDirection: "row",
+    gap: 10,
+    paddingHorizontal: 14,
+  },
+  withdrawBtn: {
+    flex: 1,
+    minHeight: 46,
+    borderRadius: 15,
+    backgroundColor: "#6AB88A",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 10,
+  },
+  withdrawText: {
+    color: "#FFFFFF",
     fontFamily: appTheme.fonts.heading,
+    fontSize: 17,
     fontWeight: "700",
-    fontSize: 14,
   },
-  note: {
-    color: appTheme.colors.textMuted,
+  reportBtn: {
+    flex: 1,
+    minHeight: 46,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: "#D3DEE9",
+    backgroundColor: "#F6F9FD",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 10,
+  },
+  reportText: {
+    color: "#5C7391",
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 17,
+    fontWeight: "700",
+  },
+  kpisRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 14,
+  },
+  kpiCard: {
+    flex: 1,
+    minHeight: 90,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+  },
+  kpiValue: {
+    color: "#69AF8A",
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 17,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  kpiLabel: {
+    marginTop: 4,
+    color: "#5F7896",
     fontFamily: appTheme.fonts.body,
-    fontSize: 11,
+    fontSize: 13,
+    textAlign: "center",
+    lineHeight: 16,
   },
   sectionTitle: {
-    color: appTheme.colors.text,
+    color: "#5F7896",
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 18,
+    fontWeight: "700",
+    paddingHorizontal: 14,
+    marginTop: 4,
+  },
+  movementsList: {
+    paddingHorizontal: 14,
+    paddingBottom: 4,
+  },
+  moveCard: {
+    borderRadius: 16,
+    gap: 4,
+  },
+  moveTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  moveClient: {
+    color: "#1F3651",
     fontFamily: appTheme.fonts.heading,
     fontSize: 16,
     fontWeight: "700",
   },
-  input: {
-    backgroundColor: appTheme.colors.surface,
-    borderRadius: appTheme.radius.lg,
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
-    minHeight: 46,
-    paddingHorizontal: 12,
-    color: appTheme.colors.text,
-    fontFamily: appTheme.fonts.body,
-  },
-  pickerWrap: {
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
-    borderRadius: appTheme.radius.lg,
-    backgroundColor: appTheme.colors.surface,
-    overflow: "hidden",
-  },
-  bankName: {
-    color: appTheme.colors.text,
+  moveAmount: {
+    color: appTheme.colors.success,
     fontFamily: appTheme.fonts.heading,
+    fontSize: 16,
     fontWeight: "700",
-    fontSize: 15,
   },
-  bankMeta: {
-    color: appTheme.colors.textMuted,
+  moveMid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 8,
+  },
+  moveService: {
+    color: "#5F7896",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 14,
+  },
+  moveGross: {
+    color: "#8AA0BA",
     fontFamily: appTheme.fonts.body,
     fontSize: 13,
   },
-  deleteText: {
-    color: appTheme.colors.danger,
+  moveTime: {
+    color: "#8AA0BA",
     fontFamily: appTheme.fonts.body,
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  txTitle: {
-    color: appTheme.colors.text,
-    fontFamily: appTheme.fonts.body,
-    fontWeight: "600",
-    fontSize: 14,
-  },
-  txMeta: {
-    color: appTheme.colors.textMuted,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 12,
-  },
-  txAmount: {
-    color: appTheme.colors.success,
-    fontFamily: appTheme.fonts.heading,
-    fontWeight: "700",
-    fontSize: 15,
-  },
-  status: {
-    fontFamily: appTheme.fonts.body,
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  pending: {
-    color: "#B45309",
-  },
-  ok: {
-    color: appTheme.colors.success,
-  },
-  reject: {
-    color: appTheme.colors.danger,
+    fontSize: 13,
   },
 });

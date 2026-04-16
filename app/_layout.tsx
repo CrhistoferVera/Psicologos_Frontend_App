@@ -1,9 +1,9 @@
-import "../global.css";
+﻿import "../global.css";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { Alert, BackHandler, View } from "react-native";
+import { Alert, BackHandler, Platform, View } from "react-native";
+import * as ScreenCapture from "expo-screen-capture";
 import { AuthProvider } from "../src/context/AuthContext";
-import { usePreventScreenCapture } from "expo-screen-capture";
 import { ActiveChatProvider } from "../src/context/ActiveChatContext";
 import Toast from "react-native-toast-message";
 import { toastConfig } from "../src/components/ToastConfig";
@@ -27,15 +27,30 @@ function BackHandlerGuard() {
     });
     return () => subscription.remove();
   }, []);
+
+  return null;
+}
+
+function ScreenCaptureGuard() {
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+
+    void ScreenCapture.preventScreenCaptureAsync().catch(() => {});
+
+    return () => {
+      void ScreenCapture.allowScreenCaptureAsync().catch(() => {});
+    };
+  }, []);
+
   return null;
 }
 
 export default function Layout() {
-  usePreventScreenCapture();
   return (
     <VersionGuard>
       <AuthProvider>
         <ActiveChatProvider>
+          <ScreenCaptureGuard />
           <BackHandlerGuard />
           <View className="flex-1" style={{ backgroundColor: appTheme.colors.background }}>
             <StatusBar style="dark" />
@@ -47,4 +62,3 @@ export default function Layout() {
     </VersionGuard>
   );
 }
-
