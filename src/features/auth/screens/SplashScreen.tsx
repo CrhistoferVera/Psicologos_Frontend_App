@@ -12,7 +12,13 @@ export default function SplashScreen() {
     if (!isHydrated) return;
     const timer = setTimeout(() => {
       if (user) {
-        router.replace("/(user)/home");
+        if (user.role === "ADMIN") {
+          router.replace("/admin");
+        } else if (user.role === "ANFITRIONA" || user.role === "PROFESSIONAL") {
+          router.replace("/(professional)/dashboard");
+        } else {
+          router.replace("/(user)/home");
+        }
       } else {
         router.replace("/(public)/onboarding");
       }

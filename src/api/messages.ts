@@ -16,9 +16,10 @@ export interface Message {
   senderId: string;
   text: string | null;
   read: boolean;
-  isLocked: boolean;
-  price: number | null;
-  isUnlocked: boolean;
+  // Legacy optional fields kept for old screens until legacy routes are retired.
+  isLocked?: boolean;
+  price?: number | null;
+  isUnlocked?: boolean;
   createdAt: string;
 }
 
@@ -30,6 +31,11 @@ export interface ServicePrice {
 
 export function getChats(userId: string) {
   return apiFetch<Chat[]>(`/messages/chats?userId=${userId}`);
+}
+
+// Preferred endpoint wrapper for current backend (user inferred from JWT)
+export function getMyChats() {
+  return apiFetch<Chat[]>('/messages/chats');
 }
 
 export function getMessages(conversationId: string) {
@@ -48,6 +54,14 @@ export function sendMessageHttp(
   });
 }
 
+// Preferred sender for MVP user flow (no legacy locked flag, sender inferred from JWT)
+export function sendMessageToUser(receiverId: string, text: string) {
+  return apiFetch<Message>('/messages', {
+    method: 'POST',
+    body: JSON.stringify({ receiverId, text }),
+  });
+}
+
 export function unlockMessage(messageId: string) {
   return apiFetch<{ success: boolean; text: string }>(`/messages/${messageId}/unlock`, {
     method: 'POST',
@@ -62,5 +76,12 @@ export function markAsRead(conversationId: string, userId: string) {
   return apiFetch<{ success: boolean }>('/messages/read', {
     method: 'POST',
     body: JSON.stringify({ conversationId, userId }),
+  });
+}
+
+export function markConversationAsRead(conversationId: string) {
+  return apiFetch<{ success: boolean }>('/messages/read', {
+    method: 'POST',
+    body: JSON.stringify({ conversationId }),
   });
 }

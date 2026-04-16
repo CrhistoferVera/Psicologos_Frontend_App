@@ -15,7 +15,7 @@ const items: Item[] = [
   { key: "home", label: "Inicio", icon: House, route: "/(user)/home" },
   { key: "professionals", label: "Buscar", icon: Search, route: "/(user)/professionals" },
   { key: "chats", label: "Chats", icon: MessageCircle, route: "/(user)/chats" },
-  { key: "credits", label: "Créditos", icon: Wallet, route: "/(user)/credits" },
+  { key: "credits", label: "Creditos", icon: Wallet, route: "/(user)/credits" },
   { key: "profile", label: "Perfil", icon: User, route: "/(user)/profile" },
 ];
 
@@ -93,4 +93,3 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 });
-

@@ -10,7 +10,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import { RtcSurfaceView, VideoSourceType } from 'react-native-agora';
+import { RtcSurfaceView, VideoSourceType } from '@/src/lib/agora';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';

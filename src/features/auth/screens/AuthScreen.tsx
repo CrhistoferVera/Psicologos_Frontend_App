@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useRouter } from "expo-router";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import AppButton from "../../../components/ui/AppButton";
 import AppInput from "../../../components/ui/AppInput";
 import AppScreen from "../../../components/ui/AppScreen";
@@ -16,17 +16,28 @@ export default function AuthScreen() {
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const router = useRouter();
   const { setSession } = useAuth();
 
   async function handleLogin() {
     try {
       setLoading(true);
+      setErrorMessage(null);
       const response = await loginWithEmail(email.trim(), password);
       await setSession(response.access_token, response.user);
-      router.replace("/(user)/home");
+
+      if (response.user.role === "ADMIN") {
+        router.replace("/admin");
+      } else if (response.user.role === "ANFITRIONA" || response.user.role === "PROFESSIONAL") {
+        router.replace("/(professional)/dashboard");
+      } else {
+        router.replace("/(user)/home");
+      }
     } catch (error: any) {
-      Alert.alert("No se pudo iniciar sesión", error?.message ?? "Intenta nuevamente.");
+      const message = error?.message ?? "Intenta nuevamente.";
+      setErrorMessage(message);
+      Alert.alert("No se pudo iniciar sesion", message);
     } finally {
       setLoading(false);
     }
@@ -35,11 +46,14 @@ export default function AuthScreen() {
   async function handleRegister() {
     try {
       setLoading(true);
+      setErrorMessage(null);
       const normalized = phone.trim();
       await sendOtp(normalized);
       router.push({ pathname: "/(public)/verify-otp", params: { phone: normalized } });
     } catch (error: any) {
-      Alert.alert("No se pudo continuar", error?.message ?? "Revisa el número y vuelve a intentar.");
+      const message = error?.message ?? "Revisa el numero y vuelve a intentar.";
+      setErrorMessage(message);
+      Alert.alert("No se pudo continuar", message);
     } finally {
       setLoading(false);
     }
@@ -50,11 +64,11 @@ export default function AuthScreen() {
       <View style={styles.container}>
         <Text style={styles.kicker}>Bienvenido</Text>
         <Text style={styles.title}>Tu espacio de apoyo profesional</Text>
-        <Text style={styles.subtitle}>Accede a psicólogos y profesionales con un flujo claro y seguro.</Text>
+        <Text style={styles.subtitle}>Accede a psicologos y profesionales con un flujo claro y seguro.</Text>
 
         <View style={styles.tabs}>
           <AppButton
-            title="Iniciar sesión"
+            title="Iniciar sesion"
             variant={mode === "login" ? "primary" : "secondary"}
             onPress={() => setMode("login")}
             style={styles.tabButton}
@@ -69,25 +83,34 @@ export default function AuthScreen() {
 
         {mode === "login" ? (
           <View style={styles.form}>
-            <AppInput label="Correo electrónico" value={email} onChangeText={setEmail} keyboardType="email-address" />
-            <AppInput label="Contraseña" value={password} onChangeText={setPassword} secureTextEntry />
-            <AppButton title="Entrar" onPress={handleLogin} loading={loading} />
+            <AppInput label="Correo electronico" value={email} onChangeText={setEmail} keyboardType="email-address" />
+            <AppInput label="Contrasena" value={password} onChangeText={setPassword} secureTextEntry />
+            <AppButton title="Entrar" onPress={handleLogin} loading={loading} disabled={!email.trim() || !password} />
           </View>
         ) : (
           <View style={styles.form}>
             <AppInput
-              label="Número de teléfono (incluye código país)"
+              label="Numero de telefono (incluye codigo pais)"
               value={phone}
               onChangeText={setPhone}
               placeholder="+59170000000"
               keyboardType="phone-pad"
             />
-            <Text style={styles.help}>
-              Te enviaremos un código OTP para validar tu cuenta y completar tu registro.
-            </Text>
-            <AppButton title="Recibir código" onPress={handleRegister} loading={loading} />
+            <Text style={styles.help}>Te enviaremos un codigo OTP para validar tu cuenta y completar tu registro.</Text>
+            <AppButton
+              title="Recibir codigo"
+              onPress={handleRegister}
+              loading={loading}
+              disabled={phone.trim().length < 8}
+            />
           </View>
         )}
+
+        <Pressable style={styles.professionalCta} onPress={() => router.push("/(public)/professional-register" as any)}>
+          <Text style={styles.professionalText}>Soy profesional � Crear cuenta profesional</Text>
+        </Pressable>
+
+        {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
       </View>
     </AppScreen>
   );
@@ -134,5 +157,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
   },
+  professionalCta: {
+    borderWidth: 1,
+    borderColor: appTheme.colors.success,
+    borderRadius: appTheme.radius.lg,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    backgroundColor: "#F1F8F4",
+  },
+  professionalText: {
+    color: appTheme.colors.success,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 13,
+    textAlign: "center",
+    fontWeight: "700",
+  },
+  errorText: {
+    color: appTheme.colors.danger,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+  },
 });
-

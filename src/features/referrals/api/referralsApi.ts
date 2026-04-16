@@ -15,7 +15,12 @@ export async function getReferralSummary(userId?: string): Promise<ReferralSumma
       invitedCount: Number(data.invitedCount ?? data.totalInvites ?? 0),
       bonusCredits: Number(data.bonusCredits ?? data.totalBonusCredits ?? 0),
     };
-  } catch {
+  } catch (error: any) {
+    // TODO(backend): expose stable referrals endpoint for user MVP.
+    // Keep deterministic fallback only when endpoint is not implemented yet.
+    if (error?.response?.status !== 404) {
+      throw error;
+    }
     const prefix = userId ? userId.slice(0, 6).toUpperCase() : "PSI001";
     return {
       code: `SALUD-${prefix}`,

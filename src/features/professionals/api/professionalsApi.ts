@@ -63,6 +63,7 @@ function parsePricesFromServicePrices(servicePrices: any[] | undefined): Profess
 
 function mapRawProfessional(item: any): Professional {
   const basePrice = Number(item?.rateCredits ?? item?.credits ?? 0);
+  const servicePrices = parsePricesFromServicePrices(item?.servicePrices);
   return {
     id: String(item?.id ?? ""),
     name: String(item?.name ?? item?.fullName ?? "Professional"),
@@ -73,7 +74,9 @@ function mapRawProfessional(item: any): Professional {
     isOnline: Boolean(item?.isOnline ?? false),
     rating: typeof item?.rating === "number" ? item.rating : undefined,
     prices: {
-      chat: basePrice > 0 ? basePrice : undefined,
+      chat: basePrice > 0 ? basePrice : servicePrices.chat,
+      call: servicePrices.call,
+      video: servicePrices.video,
     },
   };
 }
@@ -88,8 +91,21 @@ async function tryGet<T>(url: string, params?: Record<string, unknown>): Promise
   }
 }
 
-export async function getProfessionals(search?: string): Promise<Professional[]> {
-  const params = search ? { search, q: search } : undefined;
+type GetProfessionalsOptions = {
+  search?: string;
+  specialty?: string;
+  page?: number;
+  limit?: number;
+};
+
+export async function getProfessionals(options: GetProfessionalsOptions = {}): Promise<Professional[]> {
+  const { search, specialty, page = 1, limit = 20 } = options;
+  // Backend currently supports `specialty` filter at public professionals endpoint.
+  const params: Record<string, unknown> = { page, limit };
+  if (specialty && specialty.trim().length > 0 && specialty !== "Todos") {
+    params.specialty = specialty.trim();
+  }
+
   const response =
     (await tryGet<ListResponse>("/professionals/public", params)) ??
     (await tryGet<ListResponse>("/anfitrionas/public", params));
@@ -97,8 +113,16 @@ export async function getProfessionals(search?: string): Promise<Professional[]>
   if (!response) return fallbackProfessionals;
 
   const list = Array.isArray(response?.data) ? response.data : Array.isArray(response as any) ? (response as any) : [];
-  const normalized = list.map(mapRawProfessional).filter((item) => item.id);
-  return normalized.length > 0 ? normalized : fallbackProfessionals;
+  let normalized = list.map(mapRawProfessional).filter((item: Professional) => item.id);
+  if (search && search.trim().length > 0) {
+    const term = search.toLowerCase();
+    normalized = normalized.filter(
+      (item: Professional) =>
+        item.name.toLowerCase().includes(term) ||
+        item.specialties.some((tag: string) => tag.toLowerCase().includes(term)),
+    );
+  }
+  return normalized;
 }
 
 export async function getProfessionalById(id: string): Promise<Professional> {
@@ -124,11 +148,17 @@ export async function getProfessionalById(id: string): Promise<Professional> {
 
 export async function getSpecialtiesCatalog(): Promise<string[]> {
   const specialtiesResponse =
+    // TODO: expose a dedicated public specialties endpoint in backend.
     (await tryGet<any[]>("/specialties/public")) ??
     (await tryGet<any[]>("/specialties"));
 
-  if (specialtiesResponse && Array.isArray(specialtiesResponse) && specialtiesResponse.length > 0) {
-    const names = specialtiesResponse
+  const raw =
+    Array.isArray((specialtiesResponse as any)?.data)
+      ? (specialtiesResponse as any).data
+      : specialtiesResponse;
+
+  if (raw && Array.isArray(raw) && raw.length > 0) {
+    const names = raw
       .map((item) => (typeof item === "string" ? item : item?.name ?? item?.label))
       .filter(Boolean) as string[];
     return Array.from(new Set(names));

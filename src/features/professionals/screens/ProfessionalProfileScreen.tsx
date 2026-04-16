@@ -11,17 +11,25 @@ import type { Professional } from "../types";
 
 export default function ProfessionalProfileScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{ id?: string | string[] }>();
+  const professionalId = Array.isArray(params.id) ? params.id[0] : params.id ?? "";
   const [professional, setProfessional] = useState<Professional | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!professionalId) return;
     void (async () => {
-      const data = await getProfessionalById(params.id);
-      setProfessional(data);
+      try {
+        const data = await getProfessionalById(professionalId);
+        setProfessional(data);
+        setError(null);
+      } catch {
+        setError("No se pudo cargar el perfil profesional.");
+      }
     })();
-  }, [params.id]);
+  }, [professionalId]);
 
-  if (!professional) {
+  if (!professional && !error) {
     return (
       <AppScreen>
         <View style={styles.center}>
@@ -30,6 +38,18 @@ export default function ProfessionalProfileScreen() {
       </AppScreen>
     );
   }
+
+  if (!professional && error) {
+    return (
+      <AppScreen>
+        <View style={styles.center}>
+          <Text style={[styles.loading, { color: appTheme.colors.danger }]}>{error}</Text>
+        </View>
+      </AppScreen>
+    );
+  }
+
+  if (!professional) return null;
 
   return (
     <AppScreen scroll>

@@ -16,7 +16,7 @@ export default function Home() {
 
   if (user) {
     if (user.role === "ADMIN") return <Redirect href="/admin" />;
-    if (user.role === "ANFITRIONA" || user.role === "PROFESSIONAL") return <Redirect href="/(anfitriona)" />;
+    if (user.role === "ANFITRIONA" || user.role === "PROFESSIONAL") return <Redirect href="/(professional)/dashboard" />;
     return <Redirect href="/(user)/home" />;
   }
 

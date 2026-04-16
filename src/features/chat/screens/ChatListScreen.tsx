@@ -5,7 +5,7 @@ import AppCard from "../../../components/ui/AppCard";
 import AppScreen from "../../../components/ui/AppScreen";
 import { useAuth } from "../../../context/AuthContext";
 import { appTheme } from "../../../theme/appTheme";
-import { getChats, type Chat } from "../../../api/messages";
+import { getMyChats, type Chat } from "../../../api/messages";
 
 function formatShortDate(iso: string) {
   const date = new Date(iso);
@@ -18,13 +18,23 @@ export default function ChatListScreen() {
   const { user } = useAuth();
   const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      setChats([]);
+      setLoading(false);
+      return;
+    }
+
     void (async () => {
       try {
-        const data = await getChats(user.id);
+        setLoading(true);
+        setError(null);
+        const data = await getMyChats();
         setChats(data);
+      } catch {
+        setError("No se pudo cargar tus chats.");
       } finally {
         setLoading(false);
       }
@@ -38,10 +48,11 @@ export default function ChatListScreen() {
         <Text style={styles.subtitle}>Tus conversaciones con profesionales.</Text>
 
         {loading ? <Text style={styles.empty}>Cargando conversaciones...</Text> : null}
+        {error ? <Text style={styles.error}>{error}</Text> : null}
 
         {!loading && chats.length === 0 ? (
           <AppCard>
-            <Text style={styles.empty}>Aún no tienes conversaciones activas.</Text>
+            <Text style={styles.empty}>Aun no tienes conversaciones activas.</Text>
           </AppCard>
         ) : null}
 
@@ -73,7 +84,7 @@ export default function ChatListScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.name}>{item.otherUserName}</Text>
                     <Text style={styles.message} numberOfLines={1}>
-                      {item.lastMessage ?? "Sin mensajes aún"}
+                      {item.lastMessage ?? "Sin mensajes aun"}
                     </Text>
                   </View>
                   <View style={{ alignItems: "flex-end", gap: 6 }}>
@@ -112,6 +123,12 @@ const styles = StyleSheet.create({
     color: appTheme.colors.textMuted,
     fontFamily: appTheme.fonts.body,
     textAlign: "center",
+  },
+  error: {
+    color: appTheme.colors.danger,
+    fontFamily: appTheme.fonts.body,
+    textAlign: "center",
+    fontSize: 12,
   },
   row: {
     flexDirection: "row",
@@ -156,4 +173,3 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 });
-

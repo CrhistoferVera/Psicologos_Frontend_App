@@ -13,13 +13,23 @@ export default function ReferralsScreen() {
   const [code, setCode] = useState("");
   const [invites, setInvites] = useState(0);
   const [bonus, setBonus] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     void (async () => {
-      const data = await getReferralSummary(user?.id);
-      setCode(data.code);
-      setInvites(data.invitedCount);
-      setBonus(data.bonusCredits);
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await getReferralSummary(user?.id);
+        setCode(data.code);
+        setInvites(data.invitedCount);
+        setBonus(data.bonusCredits);
+      } catch {
+        setError("No se pudo cargar la información de referidos.");
+      } finally {
+        setLoading(false);
+      }
     })();
   }, [user?.id]);
 
@@ -39,13 +49,14 @@ export default function ReferralsScreen() {
       <View style={styles.container}>
         <Text style={styles.title}>Referidos</Text>
         <Text style={styles.subtitle}>Invita a tus contactos y recibe créditos promocionales.</Text>
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         <AppCard>
           <Text style={styles.cardLabel}>Tu código</Text>
-          <Text style={styles.code}>{code}</Text>
+          <Text style={styles.code}>{loading ? "Cargando..." : code}</Text>
           <View style={styles.actions}>
-            <AppButton title="Copiar" variant="secondary" onPress={handleCopy} style={{ flex: 1 }} />
-            <AppButton title="Compartir" onPress={handleShare} style={{ flex: 1 }} />
+            <AppButton title="Copiar" variant="secondary" onPress={handleCopy} style={{ flex: 1 }} disabled={loading || !code} />
+            <AppButton title="Compartir" onPress={handleShare} style={{ flex: 1 }} disabled={loading || !code} />
           </View>
         </AppCard>
 
@@ -121,6 +132,11 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
     lineHeight: 18,
+  },
+  errorText: {
+    color: appTheme.colors.danger,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
   },
 });
 

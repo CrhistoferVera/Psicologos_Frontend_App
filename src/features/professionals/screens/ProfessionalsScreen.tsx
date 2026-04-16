@@ -10,22 +10,34 @@ import type { Professional } from "../types";
 
 export default function ProfessionalsScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ search?: string; specialty?: string }>();
+  const params = useLocalSearchParams<{ search?: string | string[]; specialty?: string | string[] }>();
+  const initialSearch = Array.isArray(params.search) ? params.search[0] : params.search ?? "";
+  const initialSpecialty = Array.isArray(params.specialty) ? params.specialty[0] : params.specialty ?? "Todos";
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState(params.search ?? "");
-  const [selectedSpecialty, setSelectedSpecialty] = useState(params.specialty ?? "Todos");
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState(initialSearch);
+  const [selectedSpecialty, setSelectedSpecialty] = useState(initialSpecialty);
   const [items, setItems] = useState<Professional[]>([]);
   const [specialties, setSpecialties] = useState<string[]>([]);
 
   useEffect(() => {
     void (async () => {
       setLoading(true);
-      const [list, catalog] = await Promise.all([getProfessionals(params.search), getSpecialtiesCatalog()]);
-      setItems(list);
-      setSpecialties(["Todos", ...catalog]);
-      setLoading(false);
+      setError(null);
+      try {
+        const [list, catalog] = await Promise.all([
+          getProfessionals({ search: initialSearch, specialty: initialSpecialty }),
+          getSpecialtiesCatalog(),
+        ]);
+        setItems(list);
+        setSpecialties(["Todos", ...catalog]);
+      } catch {
+        setError("No se pudo cargar el listado de profesionales.");
+      } finally {
+        setLoading(false);
+      }
     })();
-  }, [params.search]);
+  }, [initialSearch, initialSpecialty]);
 
   const filtered = useMemo(() => {
     return items.filter((item) => {
@@ -66,6 +78,7 @@ export default function ProfessionalsScreen() {
         />
 
         <Text style={styles.resultText}>{loading ? "Cargando..." : `${filtered.length} resultados`}</Text>
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         <FlatList
           data={filtered}
@@ -79,6 +92,9 @@ export default function ProfessionalsScreen() {
           )}
           scrollEnabled={false}
         />
+        {!loading && filtered.length === 0 ? (
+          <Text style={styles.emptyText}>No encontramos profesionales con esos filtros.</Text>
+        ) : null}
       </View>
     </AppScreen>
   );
@@ -118,6 +134,18 @@ const styles = StyleSheet.create({
     color: appTheme.colors.textMuted,
     fontSize: 13,
     fontFamily: appTheme.fonts.body,
+  },
+  errorText: {
+    color: appTheme.colors.danger,
+    fontSize: 12,
+    fontFamily: appTheme.fonts.body,
+  },
+  emptyText: {
+    color: appTheme.colors.textMuted,
+    fontSize: 13,
+    fontFamily: appTheme.fonts.body,
+    textAlign: "center",
+    marginTop: 8,
   },
 });
 

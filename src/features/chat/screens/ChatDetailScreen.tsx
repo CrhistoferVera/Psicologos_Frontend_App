@@ -14,7 +14,7 @@ import {
 import { ArrowLeft } from "lucide-react-native";
 import { useAuth } from "../../../context/AuthContext";
 import { appTheme } from "../../../theme/appTheme";
-import { getMessages, markAsRead, sendMessageHttp, type Message } from "../../../api/messages";
+import { getMessages, markConversationAsRead, sendMessageToUser, type Message } from "../../../api/messages";
 import { apiGetMyWallet } from "../../../api/userClient";
 
 type MessageUI = {
@@ -35,10 +35,10 @@ function normalizeMessages(raw: Message[]): MessageUI[] {
 
 export default function ChatDetailScreen() {
   const params = useLocalSearchParams<{
-    id: string;
-    professionalId?: string;
-    professionalName?: string;
-    professionalAvatar?: string;
+    id?: string | string[];
+    professionalId?: string | string[];
+    professionalName?: string | string[];
+    professionalAvatar?: string | string[];
   }>();
   const router = useRouter();
   const { user } = useAuth();
@@ -46,24 +46,49 @@ export default function ChatDetailScreen() {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [balance, setBalance] = useState(0);
+  const [error, setError] = useState<string | null>(null);
 
-  const conversationId = params.id;
-  const professionalId = params.professionalId ?? params.id;
+  const rawId = Array.isArray(params.id) ? params.id[0] : params.id ?? "";
+  const rawProfessionalId = Array.isArray(params.professionalId) ? params.professionalId[0] : params.professionalId;
+  const professionalId = rawProfessionalId ?? rawId;
+  const professionalName = Array.isArray(params.professionalName)
+    ? params.professionalName[0]
+    : params.professionalName ?? "Profesional";
+  const professionalAvatar = Array.isArray(params.professionalAvatar)
+    ? params.professionalAvatar[0]
+    : params.professionalAvatar ?? "";
+
+  const [conversationId, setConversationId] = useState(rawId);
 
   useEffect(() => {
-    if (!conversationId || !user?.id) return;
+    setConversationId(rawId);
+  }, [rawId]);
+
+  useEffect(() => {
+    if (!user?.id) return;
 
     void (async () => {
+      setError(null);
+
       try {
-        const [list, wallet] = await Promise.all([
-          getMessages(conversationId),
-          apiGetMyWallet(),
-        ]);
-        setMessages(normalizeMessages(list));
+        const wallet = await apiGetMyWallet();
         setBalance(wallet?.balance ?? 0);
-        await markAsRead(conversationId, user.id);
       } catch {
-        // Conversation may not exist yet; keep local empty state.
+        // Wallet errors should not block chat view.
+      }
+
+      if (!conversationId) {
+        setMessages([]);
+        return;
+      }
+
+      try {
+        const list = await getMessages(conversationId);
+        setMessages(normalizeMessages(list));
+        await markConversationAsRead(conversationId);
+      } catch {
+        setMessages([]);
+        setError("Este chat aun no tiene historial o no esta disponible.");
       }
     })();
   }, [conversationId, user?.id]);
@@ -76,15 +101,22 @@ export default function ChatDetailScreen() {
     setText("");
     try {
       setSending(true);
-      const sent = await sendMessageHttp(user.id, professionalId, payloadText, false);
+      const sent = await sendMessageToUser(professionalId, payloadText);
       const newMessage: MessageUI = {
         id: sent.id ?? `temp-${Date.now()}`,
         senderId: user.id,
         text: sent.text ?? payloadText,
         createdAt: sent.createdAt ?? new Date().toISOString(),
       };
+      if (sent.conversationId) {
+        setConversationId(sent.conversationId);
+      }
       setMessages((prev) => [newMessage, ...prev]);
       setBalance((prev) => Math.max(prev - 1, 0));
+      setError(null);
+    } catch (err: any) {
+      setText(payloadText);
+      setError(err?.message ?? "No se pudo enviar el mensaje.");
     } finally {
       setSending(false);
     }
@@ -98,14 +130,14 @@ export default function ChatDetailScreen() {
         </Pressable>
         <Image
           source={
-            params.professionalAvatar
-              ? { uri: params.professionalAvatar }
+            professionalAvatar
+              ? { uri: professionalAvatar }
               : require("../../../../assets/no_image.jpg")
           }
           style={styles.avatar}
         />
         <View style={{ flex: 1 }}>
-          <Text style={styles.name}>{params.professionalName ?? "Profesional"}</Text>
+          <Text style={styles.name}>{professionalName}</Text>
           <Text style={styles.sub}>Chat privado</Text>
         </View>
         <View style={styles.balanceChip}>
@@ -115,8 +147,13 @@ export default function ChatDetailScreen() {
 
       {lowBalance ? (
         <Pressable style={styles.warning} onPress={() => router.push("/(user)/credits" as any)}>
-          <Text style={styles.warningText}>Saldo bajo. Toca aquí para recargar créditos.</Text>
+          <Text style={styles.warningText}>Saldo bajo. Toca aqui para recargar creditos.</Text>
         </Pressable>
+      ) : null}
+      {error ? (
+        <View style={styles.errorWrap}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
       ) : null}
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -219,6 +256,19 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "center",
   },
+  errorWrap: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: "#FEE2E2",
+    borderBottomWidth: 1,
+    borderBottomColor: "#FCA5A5",
+  },
+  errorText: {
+    color: "#991B1B",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    textAlign: "center",
+  },
   messages: {
     padding: 14,
     gap: 8,
@@ -277,4 +327,3 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 });
-

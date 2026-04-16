@@ -17,16 +17,27 @@ export default function HomeScreen() {
   const [search, setSearch] = useState("");
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [balance, setBalance] = useState<number>(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     void (async () => {
       try {
+        setLoading(true);
+        setError(null);
         const [wallet, list] = await Promise.all([apiGetMyWallet(), getProfessionals()]);
         setBalance(wallet?.balance ?? 0);
         setProfessionals(list.slice(0, 5));
       } catch {
-        const list = await getProfessionals();
-        setProfessionals(list.slice(0, 5));
+        try {
+          const list = await getProfessionals();
+          setProfessionals(list.slice(0, 5));
+          setError("No se pudo cargar el saldo en este momento.");
+        } catch {
+          setError("No se pudieron cargar los profesionales.");
+        }
+      } finally {
+        setLoading(false);
       }
     })();
   }, []);
@@ -73,6 +84,8 @@ export default function HomeScreen() {
           </Text>
         </View>
 
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+
         <FlatList
           data={professionals}
           scrollEnabled={false}
@@ -85,6 +98,11 @@ export default function HomeScreen() {
             />
           )}
         />
+        {!loading && professionals.length === 0 ? (
+          <AppCard>
+            <Text style={styles.emptyText}>No hay profesionales disponibles por el momento.</Text>
+          </AppCard>
+        ) : null}
       </View>
     </AppScreen>
   );
@@ -155,6 +173,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: appTheme.fonts.body,
     fontWeight: "600",
+  },
+  error: {
+    color: appTheme.colors.danger,
+    fontSize: 12,
+    fontFamily: appTheme.fonts.body,
+  },
+  emptyText: {
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
   },
 });
 

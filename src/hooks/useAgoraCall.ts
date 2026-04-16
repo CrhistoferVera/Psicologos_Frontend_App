@@ -6,7 +6,7 @@ import {
   IRtcEngineEventHandler,
   ChannelProfileType,
   ClientRoleType,
-} from 'react-native-agora';
+} from '../lib/agora';
 import { getAgoraToken } from '../api/calls';
 import { AGORA_APP_ID } from '../config';
 

@@ -11,6 +11,8 @@ interface PaginatedClients {
 export interface WalletResponse {
     success: boolean;
     balance: number;
+    promotionalBalance?: number;
+    realBalance?: number;
     userId: string;
     updatedAt: string;
 }

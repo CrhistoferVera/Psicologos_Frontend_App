@@ -9,8 +9,8 @@ import { completeRegistration } from "../../../services/auth";
 import { appTheme } from "../../../theme/appTheme";
 
 export default function CompleteProfileScreen() {
-  const params = useLocalSearchParams<{ tempToken?: string; phone?: string }>();
-  const tempToken = params.tempToken ?? "";
+  const params = useLocalSearchParams<{ tempToken?: string | string[]; phone?: string | string[] }>();
+  const tempToken = Array.isArray(params.tempToken) ? params.tempToken[0] : params.tempToken ?? "";
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -19,6 +19,13 @@ export default function CompleteProfileScreen() {
   const [loading, setLoading] = useState(false);
   const { setSession } = useAuth();
   const router = useRouter();
+  const isFormInvalid =
+    !firstName.trim() ||
+    !lastName.trim() ||
+    !email.trim() ||
+    !password ||
+    !confirmPassword ||
+    password !== confirmPassword;
 
   async function handleSubmit() {
     if (!tempToken) {
@@ -60,7 +67,7 @@ export default function CompleteProfileScreen() {
           onChangeText={setConfirmPassword}
           secureTextEntry
         />
-        <AppButton title="Crear cuenta" onPress={handleSubmit} loading={loading} />
+        <AppButton title="Crear cuenta" onPress={handleSubmit} loading={loading} disabled={isFormInvalid} />
       </View>
     </AppScreen>
   );

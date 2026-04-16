@@ -9,8 +9,8 @@ import { verifyOtp } from "../../../services/auth";
 import { appTheme } from "../../../theme/appTheme";
 
 export default function VerifyOtpScreen() {
-  const params = useLocalSearchParams<{ phone?: string }>();
-  const phone = params.phone ?? "";
+  const params = useLocalSearchParams<{ phone?: string | string[] }>();
+  const phone = Array.isArray(params.phone) ? params.phone[0] : params.phone ?? "";
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -54,7 +54,12 @@ export default function VerifyOtpScreen() {
           placeholder="123456"
         />
 
-        <AppButton title="Verificar" onPress={handleVerify} loading={loading} />
+        <AppButton
+          title="Verificar"
+          onPress={handleVerify}
+          loading={loading}
+          disabled={!phone || code.trim().length < 4}
+        />
       </View>
     </AppScreen>
   );

@@ -20,10 +20,14 @@ export default function CreditsScreen() {
   const [promoBalance, setPromoBalance] = useState(0);
   const [packages, setPackages] = useState<PackageItem[]>([]);
   const [history, setHistory] = useState<{ id: string; detalle: string; monto: string | number; fecha: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     void (async () => {
       try {
+        setLoading(true);
+        setError(null);
         const [wallet, list, expenses] = await Promise.all([
           apiGetMyWallet(),
           apiGetAllPackages(),
@@ -32,8 +36,8 @@ export default function CreditsScreen() {
         setBalance(Number(wallet?.balance ?? 0));
         setPromoBalance(
           Number(
-            (wallet as any)?.promoBalance ??
-              (wallet as any)?.promotionalBalance ??
+            wallet?.promotionalBalance ??
+              (wallet as any)?.promoBalance ??
               (wallet as any)?.giftBalance ??
               0,
           ),
@@ -50,7 +54,10 @@ export default function CreditsScreen() {
         );
         setHistory(Array.isArray(expenses?.data) ? expenses.data.slice(0, 8) : []);
       } catch {
+        setError("No se pudo cargar la información de créditos.");
         setPackages([]);
+      } finally {
+        setLoading(false);
       }
     })();
   }, []);
@@ -73,6 +80,7 @@ export default function CreditsScreen() {
       <View style={styles.container}>
         <Text style={styles.title}>Créditos y Wallet</Text>
         <Text style={styles.subtitle}>Gestiona tu saldo y recargas de forma simple.</Text>
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         <AppCard>
           <Text style={styles.cardTitle}>Saldo total</Text>
@@ -88,7 +96,11 @@ export default function CreditsScreen() {
         </AppCard>
 
         <Text style={styles.section}>Paquetes de recarga</Text>
-        {packages.length === 0 ? (
+        {loading ? (
+          <AppCard>
+            <Text style={styles.emptyText}>Cargando paquetes...</Text>
+          </AppCard>
+        ) : packages.length === 0 ? (
           <AppCard>
             <Text style={styles.emptyText}>No hay paquetes publicados por el momento.</Text>
           </AppCard>
@@ -204,6 +216,11 @@ const styles = StyleSheet.create({
   emptyText: {
     color: appTheme.colors.textMuted,
     fontFamily: appTheme.fonts.body,
+  },
+  errorText: {
+    color: appTheme.colors.danger,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
   },
 });
 
