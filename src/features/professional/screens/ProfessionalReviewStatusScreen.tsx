@@ -23,7 +23,7 @@ export default function ProfessionalReviewStatusScreen() {
         setStatus(review.status);
         setNotes(review.notes ?? null);
       } catch {
-        setError("No se pudo cargar el estado de revisi髇.");
+        setError("No se pudo cargar el estado de revisi贸n.");
       } finally {
         setLoading(false);
       }
@@ -33,7 +33,7 @@ export default function ProfessionalReviewStatusScreen() {
   const statusLabel = useMemo(() => {
     if (status === "APPROVED") return "Aprobado";
     if (status === "REJECTED") return "Rechazado";
-    return "Pendiente de aprobaci髇";
+    return "Pendiente de aprobaci贸n";
   }, [status]);
 
   const statusColor = useMemo(() => {
@@ -46,7 +46,7 @@ export default function ProfessionalReviewStatusScreen() {
     <AppScreen>
       <View style={styles.container}>
         <Text style={styles.title}>Estado del registro profesional</Text>
-        <Text style={styles.subtitle}>Consulta el estado de revisi髇 de tu perfil profesional.</Text>
+        <Text style={styles.subtitle}>Consulta el estado de revisi贸n de tu perfil profesional.</Text>
 
         {loading ? <Text style={styles.meta}>Cargando estado...</Text> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -54,14 +54,14 @@ export default function ProfessionalReviewStatusScreen() {
         <AppCard>
           <Text style={styles.cardTitle}>Estado actual</Text>
           <Text style={[styles.status, { color: statusColor }]}>{statusLabel}</Text>
-          {notes ? <Text style={styles.meta}>Observaci髇: {notes}</Text> : null}
+          {notes ? <Text style={styles.meta}>Observaci贸n: {notes}</Text> : null}
         </AppCard>
 
         <AppCard>
           <Text style={styles.cardTitle}>Siguientes pasos</Text>
           <Text style={styles.meta}>1. Completa tu perfil, especialidades y disponibilidad.</Text>
           <Text style={styles.meta}>2. Ajusta tus tarifas de chat, llamada y video.</Text>
-          <Text style={styles.meta}>3. Cuando el equipo apruebe tu cuenta, aparecer醩 en el listado p鷅lico.</Text>
+          <Text style={styles.meta}>3. Cuando el equipo apruebe tu cuenta, aparecer谩s en el listado p煤blico.</Text>
         </AppCard>
 
         <AppButton title="Ir al dashboard profesional" onPress={() => router.replace("/(professional)/dashboard")} />

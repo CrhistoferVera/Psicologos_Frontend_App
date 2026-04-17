@@ -18,7 +18,7 @@ function fullName(firstName?: string | null, lastName?: string | null) {
 }
 
 function money(value: number) {
-  return `$${Math.round(value).toLocaleString()}`;
+  return `Bs ${Math.round(value).toLocaleString()}`;
 }
 
 function errorMessage(error: any) {
@@ -173,7 +173,7 @@ export default function AdminOverviewScreen() {
             pendingWithdrawals.map((item) => (
               <AppCard key={item.id}>
                 <Text style={styles.rowTitle}>{fullName(item.professional?.firstName, item.professional?.lastName)}</Text>
-                <Text style={styles.rowMeta}>{Number(item.credits).toFixed(2)} cr · S/ {Number(item.soles).toFixed(2)}</Text>
+                <Text style={styles.rowMeta}>{Number(item.credits).toFixed(2)} cr · Bs {Number(item.soles).toFixed(2)}</Text>
                 <AdminStatusBadge label="Pendiente" tone="warning" />
               </AppCard>
             ))

@@ -49,22 +49,22 @@ export default function AdminReferralsScreen() {
         <AdminKpiCard label="Pendientes" value={String(metrics.pending)} tone="warning" />
         <AdminKpiCard label="Calificados" value={String(metrics.qualified)} tone="neutral" />
         <AdminKpiCard label="Recompensados" value={String(metrics.rewarded)} tone="positive" />
-        <AdminKpiCard label="Créditos entregados" value={`${metrics.rewards.toFixed(2)} cr`} />
+        <AdminKpiCard label="CrÃ©ditos entregados" value={`${metrics.rewards.toFixed(2)} cr`} />
       </View>
 
       <AppCard>
         <Text style={styles.cardTitle}>Programa de referidos</Text>
-        <Text style={styles.cardLine}>Estados: pendiente, calificado por depósito y recompensado.</Text>
-        <Text style={styles.cardLine}>Las recompensas se registran como créditos promocionales no contables.</Text>
+        <Text style={styles.cardLine}>Estados: pendiente, calificado por depÃ³sito y recompensado.</Text>
+        <Text style={styles.cardLine}>Las recompensas se registran como crÃ©ditos promocionales no contables.</Text>
       </AppCard>
 
       {rows.length === 0 ? (
-        <AdminEmptyState title="Sin referidos" description="Aún no hay actividad del programa de referidos." />
+        <AdminEmptyState title="Sin referidos" description="AÃºn no hay actividad del programa de referidos." />
       ) : (
         <AdminDataTable
           rows={rows}
           columns={[
-            { key: "code", title: "Código", width: 140, render: (row) => <Text style={styles.cellPrimary}>{row.codeUsed}</Text> },
+            { key: "code", title: "CÃ³digo", width: 140, render: (row) => <Text style={styles.cellPrimary}>{row.codeUsed}</Text> },
             {
               key: "referred",
               title: "Usuario referido",
