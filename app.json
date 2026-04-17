@@ -5,36 +5,20 @@
     "scheme": "psyconnect",
     "version": "7.0",
     "orientation": "portrait",
-    "icon": "./assets/logofull.jpeg",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/logofull.jpeg",
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
-    },
-    "ios": {
-      "bundleIdentifier": "com.psyconnect.app",
-      "googleServicesFile": "./GoogleService-Info.plist",
-      "supportsTablet": true,
-      "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false,
-        "NSMicrophoneUsageDescription": "Se necesita el micrófono para las llamadas de voz y video.",
-        "NSCameraUsageDescription": "Se necesita la cámara para las videollamadas."
-      },
-      "icon": "./assets/logofull.jpeg",
-      "splash": {
-        "image": "./assets/logofull.jpeg",
-        "resizeMode": "contain",
-        "backgroundColor": "#ffffff"
-      }
     },
     "android": {
       "softwareKeyboardLayoutMode": "resize",
       "package": "com.psyconnect.app",
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/logofull.jpeg",
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
@@ -58,6 +42,7 @@
       "expo-video",
       "@react-native-firebase/app",
       "@react-native-firebase/messaging",
+      "expo-font"
     ],
     "extra": {
       "router": {},
