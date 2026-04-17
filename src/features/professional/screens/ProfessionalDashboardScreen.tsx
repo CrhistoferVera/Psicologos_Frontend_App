@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Alert, Image, Pressable, StyleSheet, Switch, Text, View } from "react-native";
@@ -516,4 +516,5 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 });
+
 

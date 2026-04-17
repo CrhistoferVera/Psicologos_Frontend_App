@@ -88,7 +88,7 @@ export default function ChatListScreen() {
                   <Ionicons name="card-outline" size={16} color={appTheme.colors.primary} />
                   <View>
                     <Text style={styles.balanceLabel}>Saldo disponible:</Text>
-                    <Text style={styles.balanceValue}>{Math.floor(balance)} creditos</Text>
+                    <Text style={styles.balanceValue}>{Math.floor(balance)} créditos</Text>
                   </View>
                 </View>
                 <View style={styles.balanceRight}>
@@ -104,7 +104,7 @@ export default function ChatListScreen() {
           ListFooterComponent={
             <View style={styles.footerWrap}>
               <Ionicons name="bulb-outline" size={16} color="#B45309" />
-              <Text style={styles.footerText}>Cada mensaje consume creditos. Asegurate de tener saldo suficiente.</Text>
+              <Text style={styles.footerText}>Cada mensaje consume créditos. Asegúrate de tener saldo suficiente.</Text>
             </View>
           }
           renderItem={({ item }) => (
@@ -133,7 +133,7 @@ export default function ChatListScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.name}>{item.otherUserName}</Text>
                 <Text style={styles.message} numberOfLines={1}>
-                  {item.lastMessage ?? "Aun no hay mensajes"}
+                  {item.lastMessage ?? "Aún no hay mensajes"}
                 </Text>
               </View>
 
@@ -150,7 +150,7 @@ export default function ChatListScreen() {
           ListEmptyComponent={
             !loading ? (
               <View style={styles.emptyWrap}>
-                <Text style={styles.helper}>Aun no tienes conversaciones activas.</Text>
+                <Text style={styles.helper}>Aún no tienes conversaciones activas.</Text>
               </View>
             ) : null
           }
@@ -337,3 +337,4 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
 });
+

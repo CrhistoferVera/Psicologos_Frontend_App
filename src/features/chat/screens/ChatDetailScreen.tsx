@@ -152,7 +152,7 @@ export default function ChatDetailScreen() {
 
         <View style={{ flex: 1 }}>
           <Text style={styles.name}>{professionalName}</Text>
-          <Text style={styles.sub}>• En linea</Text>
+          <Text style={styles.sub}>• En línea</Text>
         </View>
 
         <View style={styles.headerActions}>
@@ -468,3 +468,4 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 });
+

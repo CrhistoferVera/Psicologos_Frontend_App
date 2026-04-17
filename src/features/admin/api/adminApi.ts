@@ -203,7 +203,7 @@ export async function grantPromotionalCredits(payload: { userId: string; amount:
     const response = await apiClient.post("/admin/promotional-credits/grants", payload);
     return response.data;
   } catch (error: any) {
-    throw new Error(normalizeError(error, "No se pudieron otorgar creditos promocionales."));
+    throw new Error(normalizeError(error, "No se pudieron otorgar créditos promocionales."));
   }
 }
 

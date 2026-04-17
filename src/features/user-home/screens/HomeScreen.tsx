@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -76,7 +76,7 @@ export default function HomeScreen() {
         <View style={styles.searchWrap}>
           <Ionicons name="search" size={18} color="#6F88A4" />
           <TextInput
-            placeholder="Buscar psicologos, especialidades..."
+            placeholder="Buscar..."
             placeholderTextColor="#7A8FA9"
             value={search}
             onChangeText={setSearch}
@@ -94,10 +94,10 @@ export default function HomeScreen() {
           style={styles.creditsCard}
         >
           <View style={{ flex: 1 }}>
-            <Text style={styles.creditsLabel}>Tus creditos</Text>
+            <Text style={styles.creditsLabel}>Tus créditos</Text>
             <View style={styles.creditsRow}>
               <Ionicons name="card-outline" size={24} color="#FFFFFF" />
-              <Text style={styles.creditsValue}>{Math.floor(balance)} creditos</Text>
+              <Text style={styles.creditsValue}>{Math.floor(balance)} créditos</Text>
             </View>
           </View>
           <Pressable style={styles.rechargeBtn} onPress={() => router.push("/(user)/credits")}> 
@@ -157,7 +157,7 @@ export default function HomeScreen() {
                     {item.specialties.length ? item.specialties[0] : "Psicologia clinica"}
                   </Text>
                   <View style={styles.proMetaRow}>
-                    <Text style={styles.rating}>â˜… {item.rating ? item.rating.toFixed(1) : "4.9"}</Text>
+                    <Text style={styles.rating}>★ {item.rating ? item.rating.toFixed(1) : "4.9"}</Text>
                     <Text style={styles.price}>{item.prices.chat ?? 15} crd/min</Text>
                   </View>
                 </View>
@@ -395,3 +395,4 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.body,
   },
 });
+

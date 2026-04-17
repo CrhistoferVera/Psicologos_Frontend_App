@@ -1,5 +1,5 @@
 ﻿import "../global.css";
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Alert, BackHandler, Platform, View } from "react-native";
 import * as ScreenCapture from "expo-screen-capture";
@@ -12,8 +12,15 @@ import VersionGuard from "../src/components/VersionGuard";
 import { appTheme } from "../src/theme/appTheme";
 
 function BackHandlerGuard() {
+  const router = useRouter();
+
   useEffect(() => {
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (router.canGoBack()) {
+        // Allow native back navigation when there is navigation history.
+        return false;
+      }
+
       Alert.alert(
         "¿Salir de la app?",
         "¿Seguro que quieres salir de la aplicación?",
@@ -26,7 +33,7 @@ function BackHandlerGuard() {
       return true;
     });
     return () => subscription.remove();
-  }, []);
+  }, [router]);
 
   return null;
 }

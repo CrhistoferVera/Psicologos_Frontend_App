@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -108,13 +108,13 @@ export default function ProfessionalProfileScreen() {
               <View style={styles.ratingRow}>
                 <Text style={styles.star}>★</Text>
                 <Text style={styles.ratingValue}>{ratingText}</Text>
-                <Text style={styles.reviews}>({reviewCount} resenas)</Text>
+                <Text style={styles.reviews}>({reviewCount} reseñas)</Text>
               </View>
             </View>
 
             <View style={[styles.statusBadge, professional.isOnline ? styles.statusOnline : styles.statusOffline]}>
               <Text style={[styles.statusText, professional.isOnline ? styles.statusOnlineText : styles.statusOfflineText]}>
-                {professional.isOnline ? "En linea" : "Offline"}
+                {professional.isOnline ? "En línea" : "Offline"}
               </Text>
             </View>
           </View>
@@ -123,7 +123,7 @@ export default function ProfessionalProfileScreen() {
         <AppCard style={styles.creditsCard}>
           <View style={styles.creditInfo}>
             <Ionicons name="card-outline" size={18} color={appTheme.colors.primary} />
-            <Text style={styles.creditLabel}>Tus creditos:</Text>
+            <Text style={styles.creditLabel}>Tus créditos:</Text>
             <Text style={styles.creditValue}>{Math.floor(balance)}</Text>
           </View>
           <Pressable style={styles.creditBtn} onPress={() => router.push("/(user)/credits")}>
@@ -187,7 +187,7 @@ export default function ProfessionalProfileScreen() {
         ) : (
           <AppCard>
             <Text style={styles.blockTitle}>Resenas</Text>
-            <Text style={styles.bio}>Aun no hay resenas publicadas para este profesional.</Text>
+            <Text style={styles.bio}>Aún no hay reseñas publicadas para este profesional.</Text>
           </AppCard>
         )}
 
@@ -487,3 +487,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 });
+
