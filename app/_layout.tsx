@@ -5,6 +5,7 @@ import { Alert, BackHandler, Platform, View } from "react-native";
 import * as ScreenCapture from "expo-screen-capture";
 import { AuthProvider } from "../src/context/AuthContext";
 import { ActiveChatProvider } from "../src/context/ActiveChatContext";
+import { CallProvider } from "../src/context/CallContext";
 import Toast from "react-native-toast-message";
 import { toastConfig } from "../src/components/ToastConfig";
 import { useEffect } from "react";
@@ -56,15 +57,17 @@ export default function Layout() {
   return (
     <VersionGuard>
       <AuthProvider>
-        <ActiveChatProvider>
-          <ScreenCaptureGuard />
-          <BackHandlerGuard />
-          <View className="flex-1" style={{ backgroundColor: appTheme.colors.background }}>
-            <StatusBar style="dark" />
-            <Stack screenOptions={{ headerShown: false }} />
-            <Toast config={toastConfig} />
-          </View>
-        </ActiveChatProvider>
+        <CallProvider>
+          <ActiveChatProvider>
+            <ScreenCaptureGuard />
+            <BackHandlerGuard />
+            <View className="flex-1" style={{ backgroundColor: appTheme.colors.background }}>
+              <StatusBar style="dark" />
+              <Stack screenOptions={{ headerShown: false }} />
+              <Toast config={toastConfig} />
+            </View>
+          </ActiveChatProvider>
+        </CallProvider>
       </AuthProvider>
     </VersionGuard>
   );

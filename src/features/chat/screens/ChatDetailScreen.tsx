@@ -1,6 +1,7 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
+  ActivityIndicator,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -17,6 +18,9 @@ import { useAuth } from "../../../context/AuthContext";
 import { appTheme } from "../../../theme/appTheme";
 import { getMessages, markConversationAsRead, sendMessageToUser, type Message } from "../../../api/messages";
 import { apiGetMyWallet } from "../../../api/userClient";
+import { useSocket } from "../../../hooks/useSocket";
+import { type CallType } from "../../../hooks/useCallSocket";
+import { useCallManager } from "../../../context/CallContext";
 
 type MessageUI = {
   id: string;
@@ -26,12 +30,14 @@ type MessageUI = {
 };
 
 function normalizeMessages(raw: Message[]): MessageUI[] {
-  return raw.map((item) => ({
-    id: item.id,
-    senderId: item.senderId,
-    text: item.text ?? "",
-    createdAt: item.createdAt,
-  }));
+  return raw
+    .map((item) => ({
+      id: item.id,
+      senderId: item.senderId,
+      text: item.text ?? "",
+      createdAt: item.createdAt,
+    }))
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 }
 
 function formatMessageHour(iso: string) {
@@ -43,6 +49,7 @@ function formatMessageHour(iso: string) {
 export default function ChatDetailScreen() {
   const params = useLocalSearchParams<{
     id?: string | string[];
+    conversationId?: string | string[];
     professionalId?: string | string[];
     professionalName?: string | string[];
     professionalAvatar?: string | string[];
@@ -50,16 +57,24 @@ export default function ChatDetailScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  const listRef = useRef<FlatList<MessageUI>>(null);
+  const { onNewMessage } = useSocket(user?.id);
+  const { startOutgoingCall } = useCallManager();
 
   const [messages, setMessages] = useState<MessageUI[]>([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [balance, setBalance] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [inputHeight, setInputHeight] = useState(44);
+  const [requestingCall, setRequestingCall] = useState(false);
 
   const rawId = Array.isArray(params.id) ? params.id[0] : params.id ?? "";
+  const rawConversationId = Array.isArray(params.conversationId) ? params.conversationId[0] : params.conversationId;
   const rawProfessionalId = Array.isArray(params.professionalId) ? params.professionalId[0] : params.professionalId;
   const professionalId = rawProfessionalId ?? rawId;
+  const resolvedConversationId = rawConversationId !== undefined ? rawConversationId : rawId;
   const professionalName = Array.isArray(params.professionalName)
     ? params.professionalName[0]
     : params.professionalName ?? "Profesional";
@@ -67,17 +82,18 @@ export default function ChatDetailScreen() {
     ? params.professionalAvatar[0]
     : params.professionalAvatar ?? "";
 
-  const [conversationId, setConversationId] = useState(rawId);
+  const [conversationId, setConversationId] = useState(resolvedConversationId);
 
   useEffect(() => {
-    setConversationId(rawId);
-  }, [rawId]);
+    setConversationId(resolvedConversationId);
+  }, [resolvedConversationId]);
 
   useEffect(() => {
     if (!user?.id) return;
 
     void (async () => {
       setError(null);
+      setLoading(true);
 
       try {
         const wallet = await apiGetMyWallet();
@@ -88,6 +104,7 @@ export default function ChatDetailScreen() {
 
       if (!conversationId) {
         setMessages([]);
+        setLoading(false);
         return;
       }
 
@@ -97,18 +114,56 @@ export default function ChatDetailScreen() {
         await markConversationAsRead(conversationId);
       } catch {
         setMessages([]);
-        setError("Este chat aun no tiene historial o no esta disponible.");
+        setError("Este chat aún no tiene historial o no está disponible.");
+      } finally {
+        setLoading(false);
       }
     })();
   }, [conversationId, user?.id]);
 
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      listRef.current?.scrollToEnd({ animated: true });
+    }, 80);
+
+    return () => clearTimeout(timeout);
+  }, [messages.length]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const unsubscribe = onNewMessage((incoming) => {
+      if (!incoming?.conversationId) return;
+      if (incoming.conversationId !== conversationId) return;
+      if (incoming.senderId === user.id) return;
+
+      setMessages((prev) => {
+        if (prev.some((msg) => msg.id === incoming.id)) return prev;
+        return [
+          ...prev,
+          {
+            id: incoming.id,
+            senderId: incoming.senderId,
+            text: incoming.text ?? "",
+            createdAt: incoming.createdAt ?? new Date().toISOString(),
+          },
+        ];
+      });
+
+      void markConversationAsRead(incoming.conversationId);
+    });
+
+    return unsubscribe;
+  }, [conversationId, onNewMessage, user?.id]);
+
   const lowBalance = useMemo(() => balance < 15, [balance]);
 
   async function handleSend() {
-    if (!text.trim() || !user?.id || !professionalId) return;
+    if (!text.trim() || !user?.id || !professionalId || sending) return;
 
     const payloadText = text.trim();
     setText("");
+    setInputHeight(44);
 
     try {
       setSending(true);
@@ -125,7 +180,7 @@ export default function ChatDetailScreen() {
         setConversationId(sent.conversationId);
       }
 
-      setMessages((prev) => [newMessage, ...prev]);
+      setMessages((prev) => [...prev, newMessage]);
       setBalance((prev) => Math.max(prev - 1, 0));
       setError(null);
     } catch (err: any) {
@@ -136,11 +191,27 @@ export default function ChatDetailScreen() {
     }
   }
 
-  const headerDate = messages.length > 0 ? formatMessageHour(messages[messages.length - 1].createdAt) : "10:00";
+  async function handleRequestCall(callType: CallType) {
+    if (!professionalId || requestingCall) return;
+    try {
+      setRequestingCall(true);
+      startOutgoingCall({
+        receiverId: professionalId,
+        receiverName: professionalName,
+        receiverAvatar: professionalAvatar || null,
+        callType,
+        pricePerMinute: callType === "VIDEO_CALL" ? 25 : 20,
+      });
+    } finally {
+      setRequestingCall(false);
+    }
+  }
+
+  const showEmpty = !loading && messages.length === 0 && !error;
 
   return (
     <View style={styles.page}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}> 
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <Pressable onPress={() => router.back()} style={styles.iconBtn}>
           <Ionicons name="arrow-back" size={18} color={appTheme.colors.text} />
         </Pressable>
@@ -151,15 +222,25 @@ export default function ChatDetailScreen() {
         />
 
         <View style={{ flex: 1 }}>
-          <Text style={styles.name}>{professionalName}</Text>
+          <Text style={styles.name} numberOfLines={1}>
+            {professionalName}
+          </Text>
           <Text style={styles.sub}>• En línea</Text>
         </View>
 
         <View style={styles.headerActions}>
-          <Pressable style={styles.iconBtnMuted}>
+          <Pressable
+            style={[styles.iconBtnMuted, requestingCall && styles.iconBtnMutedDisabled]}
+            disabled={requestingCall}
+            onPress={() => handleRequestCall("CALL")}
+          >
             <Ionicons name="call" size={16} color="#C0267A" />
           </Pressable>
-          <Pressable style={styles.iconBtnMuted}>
+          <Pressable
+            style={[styles.iconBtnMuted, requestingCall && styles.iconBtnMutedDisabled]}
+            disabled={requestingCall}
+            onPress={() => handleRequestCall("VIDEO_CALL")}
+          >
             <Ionicons name="videocam" size={16} color="#6C5BB6" />
           </Pressable>
         </View>
@@ -171,7 +252,7 @@ export default function ChatDetailScreen() {
             <Ionicons name="card-outline" size={16} color={appTheme.colors.primary} />
             <Text style={styles.balanceText}>Saldo: </Text>
             <Text style={styles.balanceStrong}>{Math.floor(balance)}</Text>
-            <Text style={styles.balanceText}>   15 crd/mensaje</Text>
+            <Text style={styles.balanceText}> · 15 crd/mensaje</Text>
           </View>
           <Text style={styles.balanceAction}>Recargar</Text>
         </Pressable>
@@ -190,19 +271,32 @@ export default function ChatDetailScreen() {
       ) : null}
 
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={insets.top + 10}
+        style={styles.chatBody}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? insets.top + 6 : 0}
       >
-        <View style={styles.timeSeparatorWrap}>
-          <Text style={styles.timeSeparator}>Hoy · {headerDate}</Text>
-        </View>
+        {loading ? (
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator size="small" color={appTheme.colors.primary} />
+            <Text style={styles.loadingText}>Cargando mensajes...</Text>
+          </View>
+        ) : null}
+
+        {showEmpty ? (
+          <View style={styles.emptyWrap}>
+            <Ionicons name="chatbubble-ellipses-outline" size={24} color={appTheme.colors.textMuted} />
+            <Text style={styles.emptyText}>Aún no hay mensajes en esta conversación.</Text>
+          </View>
+        ) : null}
 
         <FlatList
+          ref={listRef}
           data={messages}
-          inverted
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.messages}
+          keyboardDismissMode="interactive"
+          keyboardShouldPersistTaps="handled"
+          ListHeaderComponent={<Text style={styles.timeSeparator}>Hoy</Text>}
           renderItem={({ item }) => {
             const mine = item.senderId === user?.id;
             return (
@@ -217,7 +311,8 @@ export default function ChatDetailScreen() {
                 <View style={[styles.bubble, mine ? styles.mine : styles.theirs]}>
                   <Text style={[styles.messageText, mine && styles.messageTextMine]}>{item.text}</Text>
                   <Text style={[styles.messageMeta, mine && styles.messageMetaMine]}>
-                    {formatMessageHour(item.createdAt)}{mine ? " ✓✓" : ""}
+                    {formatMessageHour(item.createdAt)}
+                    {mine ? " ✓✓" : ""}
                   </Text>
                 </View>
               </View>
@@ -225,7 +320,7 @@ export default function ChatDetailScreen() {
           }}
         />
 
-        <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 8) }]}> 
+        <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
           <Pressable style={styles.leftIconBtn}>
             <Ionicons name="happy-outline" size={18} color="#8898AA" />
           </Pressable>
@@ -235,10 +330,19 @@ export default function ChatDetailScreen() {
             onChangeText={setText}
             placeholder="Escribe un mensaje..."
             placeholderTextColor={appTheme.colors.textMuted}
-            style={styles.input}
+            style={[styles.input, { height: Math.min(Math.max(inputHeight, 44), 120) }]}
+            multiline
+            maxLength={1200}
+            onContentSizeChange={(event) => {
+              setInputHeight(event.nativeEvent.contentSize.height + 16);
+            }}
           />
 
-          <Pressable style={[styles.sendButton, sending && { opacity: 0.6 }]} disabled={sending} onPress={handleSend}>
+          <Pressable
+            style={[styles.sendButton, (!text.trim() || sending) && styles.sendButtonDisabled]}
+            disabled={!text.trim() || sending}
+            onPress={handleSend}
+          >
             <Ionicons name="arrow-up" size={17} color="#FFFFFF" />
           </Pressable>
         </View>
@@ -277,6 +381,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#F0EDF9",
+  },
+  iconBtnMutedDisabled: {
+    opacity: 0.55,
   },
   headerActions: {
     flexDirection: "row",
@@ -321,6 +428,7 @@ const styles = StyleSheet.create({
   balanceLeft: {
     flexDirection: "row",
     alignItems: "center",
+    flexShrink: 1,
   },
   balanceText: {
     color: "#526780",
@@ -349,11 +457,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   errorWrap: {
-    paddingVertical: 6,
+    marginHorizontal: 12,
+    marginBottom: 8,
+    borderRadius: 12,
+    paddingVertical: 8,
     paddingHorizontal: 12,
     backgroundColor: "#FEE2E2",
-    borderBottomWidth: 1,
-    borderBottomColor: "#FCA5A5",
+    borderWidth: 1,
+    borderColor: "#FCA5A5",
   },
   errorText: {
     color: "#991B1B",
@@ -361,20 +472,45 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: "center",
   },
-  timeSeparatorWrap: {
-    paddingTop: 10,
+  chatBody: {
+    flex: 1,
+  },
+  loadingWrap: {
+    paddingVertical: 8,
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  loadingText: {
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+  },
+  emptyWrap: {
+    marginTop: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  emptyText: {
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 13,
   },
   timeSeparator: {
+    alignSelf: "center",
+    marginBottom: 10,
     color: "#94A3B8",
     fontFamily: appTheme.fonts.body,
     fontSize: 13,
   },
   messages: {
     paddingHorizontal: 12,
-    paddingTop: 8,
+    paddingTop: 10,
     paddingBottom: 12,
     gap: 10,
+    flexGrow: 1,
   },
   messageRow: {
     flexDirection: "row",
@@ -396,7 +532,7 @@ const styles = StyleSheet.create({
   },
   bubble: {
     maxWidth: "82%",
-    borderRadius: 16,
+    borderRadius: 18,
     paddingHorizontal: 12,
     paddingTop: 10,
     paddingBottom: 8,
@@ -428,13 +564,13 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
   messageMetaMine: {
-    color: "rgba(255,255,255,0.85)",
+    color: "rgba(255,255,255,0.88)",
   },
   inputBar: {
     paddingTop: 8,
     paddingHorizontal: 10,
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-end",
     gap: 8,
     borderTopWidth: 1,
     borderTopColor: appTheme.colors.border,
@@ -446,16 +582,18 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
+    marginBottom: 6,
   },
   input: {
     flex: 1,
     backgroundColor: "#EEF2F7",
-    borderRadius: 20,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: "#D4DEE9",
     paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 10,
     color: appTheme.colors.text,
-    minHeight: 42,
     fontFamily: appTheme.fonts.body,
     fontSize: 15,
   },
@@ -466,6 +604,9 @@ const styles = StyleSheet.create({
     backgroundColor: appTheme.colors.primary,
     alignItems: "center",
     justifyContent: "center",
+    marginBottom: 2,
+  },
+  sendButtonDisabled: {
+    opacity: 0.45,
   },
 });
-

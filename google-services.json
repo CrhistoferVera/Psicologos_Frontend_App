@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "646478722214",
-    "project_id": "pachamama-f69e8",
-    "storage_bucket": "pachamama-f69e8.firebasestorage.app"
+    "project_number": "449243342864",
+    "project_id": "app-psicologos-78ca5",
+    "storage_bucket": "app-psicologos-78ca5.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:646478722214:android:c02559792cae3faf05f067",
+        "mobilesdk_app_id": "1:449243342864:android:b540b3eb355c5aef7fc295",
         "android_client_info": {
-          "package_name": "com.pachamama.app"
+          "package_name": "com.psyconnect.app"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyAhfqqMBHcGCiQ2pYj5mGsEFpSdNikX8iE"
+          "current_key": "AIzaSyCk-8YxlEk-yTSRYyABZiSYNwUIdlrIlrE"
         }
       ],
       "services": {

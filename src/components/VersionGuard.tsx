@@ -3,7 +3,7 @@ import { View, Text, ActivityIndicator, TouchableOpacity, Linking } from 'react-
 import Constants from 'expo-constants';
 import { API_URL } from '../config';
 
-const DOWNLOAD_URL = 'https://app.pachamama.chat/#descargar';
+const DOWNLOAD_URL = 'https://app.psyconnect.app/#descargar';
 
 // Convierte "5.0" → [5, 0] para comparación numérica
 function parseVersion(v: string): number[] {
@@ -66,7 +66,7 @@ export default function VersionGuard({ children }: Props) {
         </Text>
         <Text style={{ color: '#aaa', fontSize: 16, textAlign: 'center', lineHeight: 26, marginBottom: 40 }}>
           Esta versión de la app ya no está disponible.{'\n'}
-          Descarga la última versión para seguir disfrutando de Pachamama.
+          Descarga la última versión para seguir disfrutando de PsyConnect.
         </Text>
         <TouchableOpacity
           onPress={() => Linking.openURL(DOWNLOAD_URL)}

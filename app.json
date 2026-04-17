@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Pachamama",
-    "slug": "Lima",
-    "scheme": "pachamama",
+    "name": "PsyConnect",
+    "slug": "psyconnect",
+    "scheme": "psyconnect",
     "version": "7.0",
     "orientation": "portrait",
     "icon": "./assets/logofull.jpeg",
@@ -14,7 +14,7 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "bundleIdentifier": "com.pachamama.app",
+      "bundleIdentifier": "com.psyconnect.app",
       "googleServicesFile": "./GoogleService-Info.plist",
       "supportsTablet": true,
       "infoPlist": {
@@ -31,7 +31,7 @@
     },
     "android": {
       "softwareKeyboardLayoutMode": "resize",
-      "package": "com.pachamama.app",
+      "package": "com.psyconnect.app",
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/logofull.jpeg",

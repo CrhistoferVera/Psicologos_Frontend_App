@@ -2,7 +2,7 @@ import apiClient from './client';
 import { PackageData } from '../types/package';
 
 /**
- * Servicio para la gestion de paquetes en Pachamama
+ * Servicio para la gestion de paquetes en PsyConnect
  */
 function parseApiError(error: any, fallback: string) {
     const rawMessage = error?.response?.data?.message ?? error?.message;
