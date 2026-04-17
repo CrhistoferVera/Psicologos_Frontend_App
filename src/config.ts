@@ -8,7 +8,7 @@ const sharedApiUrl = process.env.EXPO_PUBLIC_API_URL;
 
 export const API_URL =
   Platform.OS === "web"
-    ? webApiUrl ?? sharedApiUrl ?? "http://localhost:4000"
+    ? webApiUrl ?? sharedApiUrl ?? fallbackRemoteApi
     : nativeApiUrl ?? sharedApiUrl ?? fallbackRemoteApi;
 
 export const AGORA_APP_ID = process.env.EXPO_PUBLIC_AGORA_APP_ID;
