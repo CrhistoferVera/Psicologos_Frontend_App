@@ -1,6 +1,6 @@
 ﻿import { Platform } from "react-native";
 
-const fallbackRemoteApi = "https://paginas-pachamama-backend.pk1ooa.easypanel.host";
+const fallbackRemoteApi = "https://caja-negra-psico-back.wkhbmg.easypanel.host/";
 
 const webApiUrl = process.env.EXPO_PUBLIC_API_URL_WEB;
 const nativeApiUrl = process.env.EXPO_PUBLIC_API_URL_NATIVE;
@@ -11,4 +11,4 @@ export const API_URL =
     ? webApiUrl ?? sharedApiUrl ?? "http://localhost:4000"
     : nativeApiUrl ?? sharedApiUrl ?? fallbackRemoteApi;
 
-export const AGORA_APP_ID = process.env.EXPO_PUBLIC_AGORA_APP_ID ?? "0f5a7945c4de4aeaa704902064e1f8f9";
+export const AGORA_APP_ID = process.env.EXPO_PUBLIC_AGORA_APP_ID;
