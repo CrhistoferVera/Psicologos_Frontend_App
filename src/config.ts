@@ -1,4 +1,4 @@
-﻿import { Platform } from "react-native";
+﻿import { Platform } from "react-native"; 
 
 const fallbackRemoteApi = "https://caja-negra-psico-back.wkhbmg.easypanel.host/";
 
