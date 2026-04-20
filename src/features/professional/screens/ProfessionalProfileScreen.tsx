@@ -49,7 +49,7 @@ export default function ProfessionalProfileScreen() {
 
   const [editingBio, setEditingBio] = useState(false);
   const [editingSpecialties, setEditingSpecialties] = useState(false);
-  const [editingPrices, setEditingPrices] = useState(false);
+
   const [editingAvailability, setEditingAvailability] = useState(false);
 
   useEffect(() => {
@@ -169,7 +169,6 @@ export default function ProfessionalProfileScreen() {
       Alert.alert("Perfil actualizado", "Tus cambios se guardaron correctamente.");
       setEditingBio(false);
       setEditingSpecialties(false);
-      setEditingPrices(false);
       setEditingAvailability(false);
     } catch (err: any) {
       const raw = err?.response?.data?.message ?? err?.message;
@@ -276,58 +275,26 @@ export default function ProfessionalProfileScreen() {
         <AppCard style={styles.sectionCard}>
           <View style={styles.cardHead}>
             <Text style={styles.cardTitle}>Tarifas</Text>
-            <Pressable onPress={() => setEditingPrices((prev) => !prev)}>
-              <Text style={styles.editLink}>{editingPrices ? "Listo" : "Editar"}</Text>
-            </Pressable>
           </View>
 
-          {editingPrices ? (
-            <View style={{ gap: 8 }}>
-              <TextInput
-                value={chatPrice}
-                onChangeText={setChatPrice}
-                placeholder="Chat"
-                keyboardType="number-pad"
-                placeholderTextColor="#7A8EA8"
-                style={styles.inlineInput}
-              />
-              <TextInput
-                value={callPrice}
-                onChangeText={setCallPrice}
-                placeholder="Llamada"
-                keyboardType="number-pad"
-                placeholderTextColor="#7A8EA8"
-                style={styles.inlineInput}
-              />
-              <TextInput
-                value={videoPrice}
-                onChangeText={setVideoPrice}
-                placeholder="Video"
-                keyboardType="number-pad"
-                placeholderTextColor="#7A8EA8"
-                style={styles.inlineInput}
-              />
-            </View>
-          ) : (
-            <View style={styles.rateRows}>
-              <View style={styles.rateRow}>
-                <Text style={styles.rateLeft}>Chat</Text>
-                <Text style={styles.rateRight}>{Number(chatPrice || 0).toFixed(0)} crd/mensaje</Text>
-              </View>
-              <View style={styles.divider} />
-
-              <View style={styles.rateRow}>
-                <Text style={styles.rateLeft}>Llamada</Text>
-                <Text style={styles.rateRight}>{Number(callPrice || 0).toFixed(0)} crd/min</Text>
-              </View>
-              <View style={styles.divider} />
-
-              <View style={styles.rateRow}>
-                <Text style={styles.rateLeft}>Video</Text>
-                <Text style={styles.rateRight}>{Number(videoPrice || 0).toFixed(0)} crd/min</Text>
-              </View>
-            </View>
-          )}
+          <View style={styles.priceRow}>
+            {([
+              { label: "Chat", value: chatPrice, icon: "chatbubble-ellipses-outline", suffix: "crd/msg" },
+              { label: "Llamada", value: callPrice, icon: "call-outline", suffix: "crd/min" },
+              { label: "Video", value: videoPrice, icon: "videocam-outline", suffix: "crd/min" },
+            ] as const).map((item) => (
+              <Pressable
+                key={item.label}
+                style={styles.priceCard}
+                onPress={() => Alert.alert("Campo bloqueado", "Este campo no es editable.")}
+              >
+                <Ionicons name={item.icon} size={22} color={appTheme.colors.primary} />
+                <Text style={styles.priceAmount}>{Number(item.value || 0).toFixed(0)}</Text>
+                <Text style={styles.priceLabel}>{item.label}</Text>
+                <Text style={styles.priceSuffix}>{item.suffix}</Text>
+              </Pressable>
+            ))}
+          </View>
         </AppCard>
 
         <AppCard style={styles.sectionCard}>
@@ -568,6 +535,37 @@ const styles = StyleSheet.create({
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.body,
     fontSize: 14,
+  },
+  priceRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  priceCard: {
+    flex: 1,
+    backgroundColor: appTheme.colors.surface,
+    borderRadius: appTheme.radius.lg,
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+    paddingVertical: 14,
+    alignItems: "center",
+    gap: 3,
+  },
+  priceAmount: {
+    color: "#000000",
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  priceLabel: {
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 11,
+  },
+  priceSuffix: {
+    color: appTheme.colors.primary,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 10,
+    fontWeight: "600",
   },
   rateRows: {
     gap: 8,

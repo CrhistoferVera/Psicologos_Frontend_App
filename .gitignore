@@ -9,6 +9,9 @@ dist/
 web-build/
 expo-env.d.ts
 
+#comandos de instalacion
+comandos_instalacion_new_project.txt
+
 # Native
 .kotlin/
 *.orig.*

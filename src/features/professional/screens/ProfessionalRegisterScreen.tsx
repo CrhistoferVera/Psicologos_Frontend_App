@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import AppButton from "../../../components/ui/AppButton";
 import AppChip from "../../../components/ui/AppChip";
 import AppInput from "../../../components/ui/AppInput";
@@ -317,11 +318,23 @@ export default function ProfessionalRegisterScreen() {
               ))}
             </View>
 
-            <Text style={styles.sectionTitle}>Tarifas base (créditos)</Text>
+            <Text style={styles.sectionTitle}>Tarifas (créditos)</Text>
             <View style={styles.priceRow}>
-              <AppInput label="Chat" value={chatPrice} onChangeText={setChatPrice} keyboardType="number-pad" />
-              <AppInput label="Llamada" value={callPrice} onChangeText={setCallPrice} keyboardType="number-pad" />
-              <AppInput label="Video" value={videoPrice} onChangeText={setVideoPrice} keyboardType="number-pad" />
+              {([
+                { label: "Chat", value: chatPrice, icon: "chatbubble-ellipses-outline" },
+                { label: "Llamada", value: callPrice, icon: "call-outline" },
+                { label: "Video", value: videoPrice, icon: "videocam-outline" },
+              ] as const).map((item) => (
+                <Pressable
+                  key={item.label}
+                  style={styles.priceCard}
+                  onPress={() => Alert.alert("Campo bloqueado", "Este campo no es editable.")}
+                >
+                  <Ionicons name={item.icon} size={22} color={appTheme.colors.primary} />
+                  <Text style={styles.priceAmount}>{item.value}</Text>
+                  <Text style={styles.priceLabel}>{item.label}</Text>
+                </Pressable>
+              ))}
             </View>
           </View>
         ) : null}
@@ -421,7 +434,29 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   priceRow: {
+    flexDirection: "row",
     gap: 8,
+  },
+  priceCard: {
+    flex: 1,
+    backgroundColor: appTheme.colors.surface,
+    borderRadius: appTheme.radius.lg,
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+    paddingVertical: 14,
+    alignItems: "center",
+    gap: 4,
+  },
+  priceAmount: {
+    color: "#000000",
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  priceLabel: {
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 11,
   },
   uploadCard: {
     borderWidth: 1,
