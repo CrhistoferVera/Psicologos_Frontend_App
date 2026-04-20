@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useCallDuration } from "../../../hooks/useCallDuration";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   Animated,
@@ -25,13 +26,6 @@ import {
   type IRtcEngineEventHandler,
 } from "../../../lib/agora";
 
-function formatDuration(totalSeconds: number) {
-  const safe = Math.max(0, Math.floor(totalSeconds));
-  const m = Math.floor(safe / 60);
-  const s = safe % 60;
-  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-}
-
 function toNumericUid(id: string | number): number {
   const n = Number(String(id).replace(/\D/g, "").slice(0, 9));
   return n || Math.floor(Math.random() * 1_000_000);
@@ -56,8 +50,11 @@ export default function CallSessionScreen() {
   const [remoteUid, setRemoteUid] = useState<number | null>(null);
   const [channelError, setChannelError] = useState<string | null>(null);
 
-  // Call timer
-  const [duration, setDuration] = useState(0);
+  // Timestamp real de conexión Agora (onJoinChannelSuccess). Null mientras no esté unido.
+  const [agoraConnectedAt, setAgoraConnectedAt] = useState<number | null>(null);
+  // Evita que onJoinChannelSuccess sobreescriba el timestamp si se re-llama internamente.
+  const hasConnectedRef = useRef(false);
+  const durationLabel = useCallDuration(agoraConnectedAt);
 
   // Controls
   const [muted, setMuted] = useState(false);
@@ -87,16 +84,6 @@ export default function CallSessionScreen() {
   // Remote stream = VideoSourceRemote        = 9 (Agora v4)
   const srcLocal: number = (VideoSourceType as any)?.VideoSourceCameraPrimary ?? 0;
   const srcRemote: number = (VideoSourceType as any)?.VideoSourceRemote ?? 9;
-
-  // Duration timer
-  useEffect(() => {
-    if (!session || session.status !== "connected") return;
-    const startedAt = session.startedAt ?? Date.now();
-    const tick = () => setDuration(Math.floor((Date.now() - startedAt) / 1000));
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [session?.startedAt, session?.status]);
 
   // Controls auto-hide: only active during video calls
   const showControls = () => {
@@ -130,7 +117,14 @@ export default function CallSessionScreen() {
 
     const events: IRtcEngineEventHandler = {
       onJoinChannelSuccess: () => {
-        if (!cancelled) setEngineReady(true);
+        if (!cancelled) {
+          setEngineReady(true);
+          // Guarda el timestamp solo la primera vez (inmune a re-joins internos de Agora).
+          if (!hasConnectedRef.current) {
+            hasConnectedRef.current = true;
+            setAgoraConnectedAt(Date.now());
+          }
+        }
       },
       onUserJoined: (_conn: unknown, uid: number) => {
         if (!cancelled) setRemoteUid(uid);
@@ -184,6 +178,7 @@ export default function CallSessionScreen() {
 
     return () => {
       cancelled = true;
+      hasConnectedRef.current = false;
       try {
         if (eventsRef.current) engine.unregisterEventHandler(eventsRef.current);
         if (isVideoCall) engine.stopPreview?.();
@@ -196,6 +191,7 @@ export default function CallSessionScreen() {
       eventsRef.current = null;
       setEngineReady(false);
       setRemoteUid(null);
+      setAgoraConnectedAt(null);
     };
   }, [isVideoCall, session?.callId, session?.status, user?.id]);
 
@@ -254,7 +250,9 @@ export default function CallSessionScreen() {
     session.status === "ringing"
       ? "Llamando..."
       : session.status === "connected"
-        ? formatDuration(duration)
+        ? engineReady
+          ? durationLabel
+          : "Conectando..."
         : session.status === "rejected"
           ? "Rechazada"
           : "Finalizada";
@@ -284,11 +282,18 @@ export default function CallSessionScreen() {
           </View>
         )}
 
-        {/* Top bar: name + timer */}
+        {/* Top bar: name + timer — visible con los controles */}
         {controlsVisible && (
           <View style={styles.topBar} pointerEvents="none">
             <Text style={styles.topName}>{session.otherUserName}</Text>
             <Text style={styles.topTimer}>{statusLabel}</Text>
+          </View>
+        )}
+
+        {/* Timer flotante — siempre visible aunque los controles se oculten */}
+        {!controlsVisible && agoraConnectedAt !== null && (
+          <View style={styles.floatingTimer} pointerEvents="none">
+            <Text style={styles.floatingTimerText}>{durationLabel}</Text>
           </View>
         )}
 
@@ -545,6 +550,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: appTheme.fonts.body,
     marginTop: 2,
+  },
+  floatingTimer: {
+    position: "absolute",
+    top: 52,
+    alignSelf: "center",
+    backgroundColor: "rgba(0,0,0,0.40)",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  floatingTimerText: {
+    color: "#E2E8F0",
+    fontSize: 13,
+    fontWeight: "600",
+    fontFamily: appTheme.fonts.body,
+    letterSpacing: 0.5,
   },
 
   // PiP self-view
