@@ -47,6 +47,7 @@ export default function ProfessionalRegisterScreen() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [bio, setBio] = useState("");
+  const [referralCode, setReferralCode] = useState("");
 
   const [specialtiesCatalog, setSpecialtiesCatalog] = useState<{ id: string; name: string }[]>([]);
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
@@ -276,6 +277,7 @@ export default function ProfessionalRegisterScreen() {
         username: username.trim(),
         dateOfBirth: dateOfBirth.trim(),
         cedula: cedula.trim(),
+        referralCode: referralCode.trim() || undefined,
         idDoc: idDoc ?? undefined,
         kycVideo: kycVideo ?? undefined,
         kycSelfie: kycSelfie ?? undefined,
@@ -375,6 +377,13 @@ export default function ProfessionalRegisterScreen() {
               onChangeText={setBio}
               placeholder="Psicóloga clínica con enfoque cognitivo-conductual"
             />
+            <AppInput
+              label="Código de referido (opcional)"
+              value={referralCode}
+              onChangeText={(v) => setReferralCode(v.toUpperCase())}
+              placeholder="Ej: CAMILA4X2B"
+              autoCapitalize="characters"
+            />
           </View>
         ) : null}
 
@@ -467,6 +476,7 @@ export default function ProfessionalRegisterScreen() {
               <Text style={styles.summaryText}>Documento de identidad: {idDoc ? "Adjunto" : "Pendiente"}</Text>
               <Text style={styles.summaryText}>Matrícula profesional: {matricula ? "Adjunta" : "Pendiente"}</Text>
               <Text style={styles.summaryText}>Título profesional: {tituloProfesional ? "Adjunto" : "No adjuntado"}</Text>
+              {referralCode.trim() ? <Text style={styles.summaryText}>Código de referido: {referralCode.trim()}</Text> : null}
             </View>
             <Text style={styles.hint}>Al enviar, tu perfil quedará en revisión KYC. El equipo cotejará el video con tu documento antes de aprobar tu cuenta.</Text>
           </View>

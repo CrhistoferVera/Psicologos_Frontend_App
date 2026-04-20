@@ -56,6 +56,7 @@ export type ProfessionalRegisterPayload = {
   username: string;
   dateOfBirth: string;
   cedula: string;
+  referralCode?: string;
   idDoc?: KycFileAsset;
   kycVideo?: KycFileAsset;
   kycSelfie?: KycFileAsset;

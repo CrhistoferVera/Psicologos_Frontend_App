@@ -94,6 +94,7 @@ export async function completeProfessionalRegistration(payload: ProfessionalRegi
   form.append("username", payload.username);
   form.append("dateOfBirth", payload.dateOfBirth);
   form.append("cedula", payload.cedula);
+  if (payload.referralCode?.trim()) form.append("referralCode", payload.referralCode.trim().toUpperCase());
 
   if (payload.idDoc) {
     form.append("idDoc", { uri: payload.idDoc.uri, name: payload.idDoc.name, type: payload.idDoc.type } as any);

@@ -19,6 +19,7 @@ export default function AdminConfigScreen() {
   const [platformFeePercent, setPlatformFeePercent] = useState("50");
   const [creditToSolesRate, setCreditToSolesRate] = useState("1");
   const [minAppVersion, setMinAppVersion] = useState("1.0");
+  const [referralPercentage, setReferralPercentage] = useState("2.5");
   const [referralRewardCredits, setReferralRewardCredits] = useState("10");
   const [referralMinDepositAmount, setReferralMinDepositAmount] = useState("0");
   const [referralEnabled, setReferralEnabled] = useState(true);
@@ -42,6 +43,7 @@ export default function AdminConfigScreen() {
       setPlatformFeePercent(String(config.platformFeePercent));
       setCreditToSolesRate(String(config.creditToSolesRate));
       setMinAppVersion(config.minAppVersion);
+      setReferralPercentage(String(config.referralPercentage ?? 2.5));
       setReferralRewardCredits(String(config.referralRewardCredits));
       setReferralMinDepositAmount(String(config.referralMinDepositAmount));
       setReferralEnabled(Boolean(config.referralEnabled));
@@ -63,6 +65,7 @@ export default function AdminConfigScreen() {
   async function handleSaveConfig() {
     const platform = Number(platformFeePercent);
     const creditRate = Number(creditToSolesRate);
+    const refPct = Number(referralPercentage);
     const rewardCredits = Number(referralRewardCredits);
     const minDeposit = Number(referralMinDepositAmount);
 
@@ -73,6 +76,11 @@ export default function AdminConfigScreen() {
 
     if (!Number.isFinite(creditRate) || creditRate < 0) {
       Alert.alert("Rate inválido", "El rate de crédito debe ser un número mayor o igual a 0.");
+      return;
+    }
+
+    if (!Number.isFinite(refPct) || refPct < 0 || refPct > 100) {
+      Alert.alert("Porcentaje de referido inválido", "Debe estar entre 0 y 100.");
       return;
     }
 
@@ -92,6 +100,7 @@ export default function AdminConfigScreen() {
         platformFeePercent: platform,
         creditToSolesRate: creditRate,
         minAppVersion: minAppVersion.trim() || "1.0",
+        referralPercentage: refPct,
         referralRewardCredits: rewardCredits,
         referralMinDepositAmount: minDeposit,
         referralEnabled,
@@ -169,9 +178,17 @@ export default function AdminConfigScreen() {
             style={styles.input}
           />
           <TextInput
+            value={referralPercentage}
+            onChangeText={setReferralPercentage}
+            placeholder="% referido (ej: 2.5)"
+            placeholderTextColor={appTheme.colors.textMuted}
+            keyboardType="decimal-pad"
+            style={styles.input}
+          />
+          <TextInput
             value={referralRewardCredits}
             onChangeText={setReferralRewardCredits}
-            placeholder="Reward referido"
+            placeholder="Reward fijo referido (legado)"
             placeholderTextColor={appTheme.colors.textMuted}
             keyboardType="decimal-pad"
             style={styles.input}

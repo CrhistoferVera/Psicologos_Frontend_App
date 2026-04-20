@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Alert, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Clipboard, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import AppCard from "../../../components/ui/AppCard";
 import AppScreen from "../../../components/ui/AppScreen";
 import { appTheme } from "../../../theme/appTheme";
 import { getProfessionalEarningsData } from "../api/professionalApi";
+import { getMyReferrals } from "../../referrals/api/referralsApi";
 
 function formatMoney(value: number) {
   return `$${Number(value || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -39,14 +40,19 @@ export default function ProfessionalEarningsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [earnings, setEarnings] = useState<any>(null);
+  const [referralCode, setReferralCode] = useState<string>("");
 
   useEffect(() => {
     void (async () => {
       try {
         setLoading(true);
         setError(null);
-        const data = await getProfessionalEarningsData();
+        const [data, referralData] = await Promise.all([
+          getProfessionalEarningsData(),
+          getMyReferrals().catch(() => null),
+        ]);
         setEarnings(data);
+        if (referralData?.code) setReferralCode(referralData.code);
       } catch {
         setError("No se pudo cargar la información de ganancias.");
       } finally {
@@ -54,6 +60,12 @@ export default function ProfessionalEarningsScreen() {
       }
     })();
   }, []);
+
+  function handleCopyCode() {
+    if (!referralCode) return;
+    Clipboard.setString(referralCode);
+    Alert.alert("Copiado", `Tu código ${referralCode} fue copiado al portapapeles.`);
+  }
 
   const gross = useMemo(() => {
     if (!Array.isArray(earnings?.transactions)) return 0;
@@ -139,6 +151,17 @@ export default function ProfessionalEarningsScreen() {
             <Text style={styles.kpiLabel}>Total histórico</Text>
           </AppCard>
         </View>
+
+        {referralCode ? (
+          <AppCard style={styles.referralCard}>
+            <Text style={styles.referralTitle}>Tu código de referido</Text>
+            <Text style={styles.referralSubtitle}>Comparte tu código. Ganas el 2.5% de las ganancias reales de cada profesional que registres.</Text>
+            <Pressable style={styles.codeRow} onPress={handleCopyCode}>
+              <Text style={styles.codeText}>{referralCode}</Text>
+              <Ionicons name="copy-outline" size={18} color={appTheme.colors.primary} />
+            </Pressable>
+          </AppCard>
+        ) : null}
 
         <Text style={styles.sectionTitle}>Movimientos recientes</Text>
 
@@ -383,5 +406,41 @@ const styles = StyleSheet.create({
     color: "#8AA0BA",
     fontFamily: appTheme.fonts.body,
     fontSize: 13,
+  },
+  referralCard: {
+    marginHorizontal: 14,
+    gap: 6,
+  },
+  referralTitle: {
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  referralSubtitle: {
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  codeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: appTheme.colors.background,
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  codeText: {
+    flex: 1,
+    color: appTheme.colors.primary,
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 17,
+    fontWeight: "700",
+    letterSpacing: 2,
   },
 });
