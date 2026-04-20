@@ -50,7 +50,6 @@ export default function Layout() {
     <VersionGuard>
       <AuthProvider>
         <ActiveChatProvider>
-          <ScreenCaptureGuard />
           <BackHandlerGuard />
           <View className="flex-1" style={{ backgroundColor: appTheme.colors.background }}>
             <StatusBar style="dark" />
