@@ -57,6 +57,14 @@ export type AdminProfessionalRecord = {
     rateCredits?: number | null;
     isOnline?: boolean;
     idDocUrl?: string | null;
+    reviewStatus?: "PENDING" | "APPROVED" | "REJECTED" | null;
+    reviewNotes?: string | null;
+    kycVideoUrl?: string | null;
+    kycSelfieUrl?: string | null;
+    matriculaUrl?: string | null;
+    tituloProfesionalUrl?: string | null;
+    kycFaceMatchScore?: number | null;
+    kycFaceMatchStatus?: "PENDING" | "PASSED" | "FAILED" | "SKIPPED" | null;
   } | null;
 };
 

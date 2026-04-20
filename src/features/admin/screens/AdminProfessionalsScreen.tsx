@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import AppCard from "../../../components/ui/AppCard";
 import AppChip from "../../../components/ui/AppChip";
 import { appTheme } from "../../../theme/appTheme";
@@ -111,14 +111,41 @@ export default function AdminProfessionalsScreen() {
   }
 
   async function handleOpenDetails(row: AdminProfessionalRecord) {
+    const p = row.professionalProfile;
+    const faceScore = p?.kycFaceMatchScore != null ? `${Number(p.kycFaceMatchScore).toFixed(1)}%` : "N/A";
+    const faceStatus = p?.kycFaceMatchStatus ?? "PENDING";
+
+    const docs: { label: string; url: string | null | undefined }[] = [
+      { label: "Documento de identidad", url: p?.idDocUrl },
+      { label: "Video de rostro", url: p?.kycVideoUrl },
+      { label: "Matrícula profesional", url: p?.matriculaUrl },
+      { label: "Título profesional", url: p?.tituloProfesionalUrl },
+    ];
+
+    const availableDocs = docs.filter((d) => d.url);
+    const docCount = availableDocs.length;
+
+    const buttons = [
+      { text: "Cerrar", style: "cancel" as const },
+      ...availableDocs.map((d) => ({
+        text: `Ver ${d.label}`,
+        onPress: () => { void Linking.openURL(d.url!); },
+      })),
+    ];
+
     try {
       const stats = await getAdminProfessionalStats(row.id);
       Alert.alert(
         fullName(row),
-        `Balance: ${Number(stats?.balance?.credits ?? 0).toFixed(2)} cr\nHoy: ${Number(stats?.earnings?.today?.credits ?? 0).toFixed(2)} cr\nMes: ${Number(stats?.earnings?.thisMonth?.credits ?? 0).toFixed(2)} cr`,
+        `Balance: ${Number(stats?.balance?.credits ?? 0).toFixed(2)} cr\nHoy: ${Number(stats?.earnings?.today?.credits ?? 0).toFixed(2)} cr\nMes: ${Number(stats?.earnings?.thisMonth?.credits ?? 0).toFixed(2)} cr\n\n— KYC —\nCotejo facial: ${faceScore} (${faceStatus})\nDocs: ${docCount}/4`,
+        buttons,
       );
     } catch {
-      Alert.alert(fullName(row), "No se pudieron cargar estadísticas detalladas.");
+      Alert.alert(
+        fullName(row),
+        `— KYC —\nCotejo facial: ${faceScore} (${faceStatus})\nDocs: ${docCount}/4`,
+        buttons,
+      );
     }
   }
 
@@ -269,7 +296,18 @@ export default function AdminProfessionalsScreen() {
               key: "docs",
               title: "Docs",
               width: 100,
-              render: (row) => <Text style={[styles.cellMuted, { color: appTheme.colors.success }]}>{row.professionalProfile?.idDocUrl ? "4/4" : "0/4"}</Text>,
+              render: (row) => {
+                const p = row.professionalProfile;
+                const count = [p?.idDocUrl, p?.kycVideoUrl, p?.matriculaUrl, p?.tituloProfesionalUrl].filter(Boolean).length;
+                const faceStatus = p?.kycFaceMatchStatus;
+                const faceColor = faceStatus === "PASSED" ? appTheme.colors.success : faceStatus === "FAILED" ? appTheme.colors.danger : appTheme.colors.textMuted;
+                return (
+                  <View>
+                    <Text style={[styles.cellMuted, { color: count >= 3 ? appTheme.colors.success : appTheme.colors.danger }]}>{count}/4 docs</Text>
+                    <Text style={[styles.cellMuted, { fontSize: 10, color: faceColor }]}>{faceStatus ?? "PENDING"}</Text>
+                  </View>
+                );
+              },
             },
             {
               key: "joined",
