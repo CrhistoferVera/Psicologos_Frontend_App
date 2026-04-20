@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import AppButton from "../../../components/ui/AppButton";
 import AppChip from "../../../components/ui/AppChip";
 import AppInput from "../../../components/ui/AppInput";
@@ -63,7 +64,7 @@ export default function ProfessionalRegisterScreen() {
       } catch {
         setSpecialtiesCatalog([
           { id: "fallback-anxiety", name: "Ansiedad" },
-          { id: "fallback-depression", name: "DepresiÛn" },
+          { id: "fallback-depression", name: "Depresi√≥n" },
           { id: "fallback-couple", name: "Terapia de pareja" },
           { id: "fallback-self", name: "Autoestima" },
         ]);
@@ -74,7 +75,7 @@ export default function ProfessionalRegisterScreen() {
   }, [step, specialtiesCatalog.length]);
 
   const currentStepTitle = useMemo(() => {
-    if (step === 1) return "Datos personales y verificaciÛn";
+    if (step === 1) return "Datos personales y verificaci√≥n";
     if (step === 2) return "Cuenta profesional";
     if (step === 3) return "Especialidades y tarifas";
     if (step === 4) return "Documentos";
@@ -98,21 +99,21 @@ export default function ProfessionalRegisterScreen() {
     if (nextStep === 1) {
       if (!firstName.trim()) return "Completa tu nombre.";
       if (!lastName.trim()) return "Completa tu apellido.";
-      if (!phone.trim() || phone.trim().length < 8) return "Ingresa un telÈfono v·lido.";
+      if (!phone.trim() || phone.trim().length < 8) return "Ingresa un tel√©fono v√°lido.";
       if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth.trim())) return "Usa fecha de nacimiento YYYY-MM-DD.";
-      if (!tempToken) return "Verifica tu telÈfono con OTP para continuar.";
+      if (!tempToken) return "Verifica tu tel√©fono con OTP para continuar.";
     }
     if (nextStep === 2) {
       if (!email.trim()) return "Ingresa un email.";
       if (!username.trim()) return "Ingresa un username profesional.";
       if (!cedula.trim()) return "Ingresa tu documento/carnet.";
-      if (password.length < 6) return "La contraseÒa debe tener al menos 6 caracteres.";
-      if (password !== confirmPassword) return "Las contraseÒas no coinciden.";
+      if (password.length < 6) return "La contrase√±a debe tener al menos 6 caracteres.";
+      if (password !== confirmPassword) return "Las contrase√±as no coinciden.";
     }
     if (nextStep === 3) {
       if (selectedSpecialties.length === 0) return "Selecciona al menos una especialidad.";
       if (Number(chatPrice || 0) < 0 || Number(callPrice || 0) < 0 || Number(videoPrice || 0) < 0) {
-        return "Las tarifas deben ser n˙meros v·lidos.";
+        return "Las tarifas deben ser n√∫meros v√°lidos.";
       }
     }
     return null;
@@ -124,9 +125,9 @@ export default function ProfessionalRegisterScreen() {
       setError(null);
       await sendProfessionalVerificationOtp(phone.trim());
       setOtpSent(true);
-      Alert.alert("CÛdigo enviado", "Te enviamos un cÛdigo OTP por WhatsApp.");
+      Alert.alert("C√≥digo enviado", "Te enviamos un c√≥digo OTP por WhatsApp.");
     } catch (err: any) {
-      setError(err?.message ?? "No pudimos enviar el cÛdigo OTP.");
+      setError(err?.message ?? "No pudimos enviar el c√≥digo OTP.");
     } finally {
       setLoading(false);
     }
@@ -138,9 +139,9 @@ export default function ProfessionalRegisterScreen() {
       setError(null);
       const token = await verifyProfessionalOtp(phone.trim(), otpCode.trim());
       setTempToken(token);
-      Alert.alert("TelÈfono verificado", "Ya puedes continuar con el registro profesional.");
+      Alert.alert("Tel√©fono verificado", "Ya puedes continuar con el registro profesional.");
     } catch (err: any) {
-      setError(err?.message ?? "No pudimos verificar el cÛdigo.");
+      setError(err?.message ?? "No pudimos verificar el c√≥digo.");
     } finally {
       setLoading(false);
     }
@@ -189,7 +190,7 @@ export default function ProfessionalRegisterScreen() {
     }
 
     if (!tempToken) {
-      setError("No hay token de verificaciÛn. Repite la verificaciÛn OTP.");
+      setError("No hay token de verificaci√≥n. Repite la verificaci√≥n OTP.");
       setStep(1);
       return;
     }
@@ -223,7 +224,7 @@ export default function ProfessionalRegisterScreen() {
           updateMyProfessionalSpecialties(selectedSpecialties),
         ]);
       } catch {
-        // Si falla esta sincronizaciÛn, el registro base se mantiene y se podr· completar desde perfil.
+        // Si falla esta sincronizaci√≥n, el registro base se mantiene y se podr√° completar desde perfil.
       }
 
       router.replace("/(public)/professional-review-status");
@@ -246,7 +247,7 @@ export default function ProfessionalRegisterScreen() {
             <AppInput label="Nombre" value={firstName} onChangeText={setFirstName} placeholder="Camila" />
             <AppInput label="Apellido" value={lastName} onChangeText={setLastName} placeholder="Rojas" />
             <AppInput
-              label="TelÈfono"
+              label="Tel√©fono"
               value={phone}
               onChangeText={setPhone}
               placeholder="+59170000000"
@@ -273,14 +274,14 @@ export default function ProfessionalRegisterScreen() {
             {otpSent ? (
               <View style={styles.otpBox}>
                 <AppInput
-                  label="CÛdigo OTP"
+                  label="C√≥digo OTP"
                   value={otpCode}
                   onChangeText={setOtpCode}
                   placeholder="123456"
                   keyboardType="number-pad"
                 />
                 <AppButton
-                  title="Verificar cÛdigo"
+                  title="Verificar c√≥digo"
                   onPress={handleVerifyOtp}
                   disabled={otpCode.trim().length < 4 || loading}
                   loading={loading}
@@ -294,14 +295,14 @@ export default function ProfessionalRegisterScreen() {
           <View style={styles.form}>
             <AppInput label="Email" value={email} onChangeText={setEmail} placeholder="profesional@email.com" keyboardType="email-address" />
             <AppInput label="Username profesional" value={username} onChangeText={setUsername} placeholder="camila.psicologa" />
-            <AppInput label="Documento/CÈdula" value={cedula} onChangeText={setCedula} placeholder="12345678" />
-            <AppInput label="ContraseÒa" value={password} onChangeText={setPassword} secureTextEntry />
-            <AppInput label="Confirmar contraseÒa" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
+            <AppInput label="Documento/C√©dula" value={cedula} onChangeText={setCedula} placeholder="12345678" />
+            <AppInput label="Contrase√±a" value={password} onChangeText={setPassword} secureTextEntry />
+            <AppInput label="Confirmar contrase√±a" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
             <AppInput
               label="Bio profesional"
               value={bio}
               onChangeText={setBio}
-              placeholder="PsicÛloga clÌnica con enfoque cognitivo-conductual"
+              placeholder="Psic√≥loga cl√≠nica con enfoque cognitivo-conductual"
             />
           </View>
         ) : null}
@@ -309,7 +310,7 @@ export default function ProfessionalRegisterScreen() {
         {step === 3 ? (
           <View style={styles.form}>
             <Text style={styles.sectionTitle}>Especialidades</Text>
-            <Text style={styles.sectionHint}>Selecciona tus principales ·reas de atenciÛn.</Text>
+            <Text style={styles.sectionHint}>Selecciona tus principales √°reas de atenci√≥n.</Text>
             {catalogLoading ? <Text style={styles.hint}>Cargando especialidades...</Text> : null}
             <View style={styles.tagsWrap}>
               {specialtiesCatalog.map((tag) => (
@@ -317,11 +318,23 @@ export default function ProfessionalRegisterScreen() {
               ))}
             </View>
 
-            <Text style={styles.sectionTitle}>Tarifas base (crÈditos)</Text>
+            <Text style={styles.sectionTitle}>Tarifas (cr√©ditos)</Text>
             <View style={styles.priceRow}>
-              <AppInput label="Chat" value={chatPrice} onChangeText={setChatPrice} keyboardType="number-pad" />
-              <AppInput label="Llamada" value={callPrice} onChangeText={setCallPrice} keyboardType="number-pad" />
-              <AppInput label="Video" value={videoPrice} onChangeText={setVideoPrice} keyboardType="number-pad" />
+              {([
+                { label: "Chat", value: chatPrice, icon: "chatbubble-ellipses-outline" },
+                { label: "Llamada", value: callPrice, icon: "call-outline" },
+                { label: "Video", value: videoPrice, icon: "videocam-outline" },
+              ] as const).map((item) => (
+                <Pressable
+                  key={item.label}
+                  style={styles.priceCard}
+                  onPress={() => Alert.alert("Campo bloqueado", "Este campo no es editable.")}
+                >
+                  <Ionicons name={item.icon} size={22} color={appTheme.colors.primary} />
+                  <Text style={styles.priceAmount}>{item.value}</Text>
+                  <Text style={styles.priceLabel}>{item.label}</Text>
+                </Pressable>
+              ))}
             </View>
           </View>
         ) : null}
@@ -329,26 +342,26 @@ export default function ProfessionalRegisterScreen() {
         {step === 4 ? (
           <View style={styles.form}>
             <Text style={styles.sectionTitle}>Documento de identidad</Text>
-            <Text style={styles.sectionHint}>Sube una imagen o PDF de tu documento para validaciÛn.</Text>
+            <Text style={styles.sectionHint}>Sube una imagen o PDF de tu documento para validaci√≥n.</Text>
             <Pressable style={styles.uploadCard} onPress={handlePickIdDoc}>
               <Text style={styles.uploadTitle}>{idDoc ? "Documento seleccionado" : "Seleccionar archivo"}</Text>
               <Text style={styles.uploadMeta}>{idDoc?.name ?? "Formato permitido: imagen o PDF"}</Text>
             </Pressable>
-            <Text style={styles.hint}>Puedes continuar sin archivo y completarlo despuÈs en perfil.</Text>
+            <Text style={styles.hint}>Puedes continuar sin archivo y completarlo despu√©s en perfil.</Text>
           </View>
         ) : null}
 
         {step === 5 ? (
           <View style={styles.form}>
             <View style={styles.summaryCard}>
-              <Text style={styles.summaryTitle}>Resumen del envÌo</Text>
+              <Text style={styles.summaryTitle}>Resumen del env√≠o</Text>
               <Text style={styles.summaryText}>Profesional: {firstName} {lastName}</Text>
               <Text style={styles.summaryText}>Username: {username}</Text>
               <Text style={styles.summaryText}>Especialidades: {selectedSpecialtyNames.join(", ") || "Sin seleccionar"}</Text>
               <Text style={styles.summaryText}>Tarifas: Chat {chatPrice} / Llamada {callPrice} / Video {videoPrice}</Text>
               <Text style={styles.summaryText}>Documento: {idDoc ? "Adjunto" : "Pendiente"}</Text>
             </View>
-            <Text style={styles.hint}>Al enviar, tu perfil quedar· en revisiÛn y podr·s usar el panel profesional.</Text>
+            <Text style={styles.hint}>Al enviar, tu perfil quedar√° en revisi√≥n y podr√°s usar el panel profesional.</Text>
           </View>
         ) : null}
 
@@ -364,7 +377,7 @@ export default function ProfessionalRegisterScreen() {
         </View>
 
         <Pressable onPress={() => router.replace("/(public)/auth")}>
-          <Text style={styles.loginLink}>Ya tengo una cuenta, iniciar sesiÛn</Text>
+          <Text style={styles.loginLink}>Ya tengo una cuenta, iniciar sesi√≥n</Text>
         </Pressable>
       </View>
     </AppScreen>
@@ -421,7 +434,29 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   priceRow: {
+    flexDirection: "row",
     gap: 8,
+  },
+  priceCard: {
+    flex: 1,
+    backgroundColor: appTheme.colors.surface,
+    borderRadius: appTheme.radius.lg,
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+    paddingVertical: 14,
+    alignItems: "center",
+    gap: 4,
+  },
+  priceAmount: {
+    color: "#000000",
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  priceLabel: {
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 11,
   },
   uploadCard: {
     borderWidth: 1,

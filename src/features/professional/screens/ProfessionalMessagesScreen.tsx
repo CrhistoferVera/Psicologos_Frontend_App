@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "expo-router";
 import { FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import AppScreen from "../../../components/ui/AppScreen";
 import { appTheme } from "../../../theme/appTheme";
 import { getMyProfessionalPrices, getProfessionalChats } from "../api/professionalApi";
@@ -126,9 +127,11 @@ export default function ProfessionalMessagesScreen() {
               {error ? <Text style={styles.error}>{error}</Text> : null}
             </View>
           }
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
           ListEmptyComponent={
             !loading ? (
               <View style={styles.emptyWrap}>
+                <Ionicons name="chatbubble-ellipses-outline" size={20} color={appTheme.colors.textMuted} />
                 <Text style={styles.emptyText}>
                   {mode === "archived"
                     ? "No tienes conversaciones archivadas."
@@ -137,7 +140,6 @@ export default function ProfessionalMessagesScreen() {
               </View>
             ) : null
           }
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
           renderItem={({ item }) => {
             const credits = rowCredits(item);
 
@@ -170,7 +172,9 @@ export default function ProfessionalMessagesScreen() {
 
                 <View style={{ flex: 1 }}>
                   <View style={styles.rowHead}>
-                    <Text style={styles.name}>{item.otherUserName}</Text>
+                    <Text style={styles.name} numberOfLines={1}>
+                      {item.otherUserName}
+                    </Text>
                     <Text style={styles.time}>{formatConversationDate(item.lastMessageAt)}</Text>
                   </View>
 
@@ -207,9 +211,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: appTheme.colors.border,
-    backgroundColor: "#FFFFFF",
   },
   titleRow: {
     flexDirection: "row",
@@ -219,7 +220,7 @@ const styles = StyleSheet.create({
   title: {
     color: "#1F3651",
     fontFamily: appTheme.fonts.heading,
-    fontSize: 18,
+    fontSize: 28,
     fontWeight: "700",
   },
   counterBadge: {
@@ -280,17 +281,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: "center",
   },
+  separator: {
+    height: 10,
+  },
   row: {
     backgroundColor: "#FFFFFF",
-    paddingHorizontal: 16,
+    marginHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-  },
-  separator: {
-    height: 1,
-    backgroundColor: "#E8EEF5",
+    borderWidth: 1,
+    borderColor: "#E8EEF5",
+    borderRadius: 16,
   },
   avatarWrap: {
     width: 58,
@@ -344,7 +348,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     color: "#5F7896",
     fontFamily: appTheme.fonts.body,
-    fontSize: 17,
+    fontSize: 16,
   },
   creditPill: {
     borderRadius: 999,
@@ -359,9 +363,16 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   emptyWrap: {
-    paddingVertical: 32,
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: "#E8EEF5",
+    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
+    paddingVertical: 28,
     paddingHorizontal: 16,
     alignItems: "center",
+    gap: 6,
   },
   emptyText: {
     color: appTheme.colors.textMuted,

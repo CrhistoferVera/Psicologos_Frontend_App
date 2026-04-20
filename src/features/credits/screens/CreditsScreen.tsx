@@ -134,7 +134,8 @@ export default function CreditsScreen() {
     })();
   }, []);
 
-  const totalBalance = useMemo(() => balance + promoBalance, [balance, promoBalance]);
+  // Backend contract: `balance` is already the total available balance.
+  const totalBalance = useMemo(() => balance, [balance]);
 
   const selectedPackage = useMemo(
     () => packages.find((pkg) => pkg.id === selectedPackageId) ?? null,

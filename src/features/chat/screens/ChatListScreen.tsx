@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
@@ -59,7 +59,7 @@ export default function ChatListScreen() {
         if (chatData.status === "fulfilled") {
           setChats(chatData.value);
         } else {
-          setError("No se pudo cargar tus chats.");
+          setError("No se pudieron cargar tus chats.");
         }
 
         if (walletData.status === "fulfilled") {
@@ -87,13 +87,13 @@ export default function ChatListScreen() {
                 <View style={styles.balanceLeft}>
                   <Ionicons name="card-outline" size={16} color={appTheme.colors.primary} />
                   <View>
-                    <Text style={styles.balanceLabel}>Saldo disponible:</Text>
-                    <Text style={styles.balanceValue}>{Math.floor(balance)} creditos</Text>
+                    <Text style={styles.balanceLabel}>Saldo disponible</Text>
+                    <Text style={styles.balanceValue}>{Math.floor(balance)} créditos</Text>
                   </View>
                 </View>
                 <View style={styles.balanceRight}>
                   <Text style={styles.rechargeText}>Recargar</Text>
-                  <Text style={styles.rechargeArrow}>→</Text>
+                  <Ionicons name="arrow-forward" size={14} color={appTheme.colors.primary} />
                 </View>
               </Pressable>
 
@@ -101,10 +101,11 @@ export default function ChatListScreen() {
               {error ? <Text style={styles.error}>{error}</Text> : null}
             </View>
           }
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
           ListFooterComponent={
             <View style={styles.footerWrap}>
               <Ionicons name="bulb-outline" size={16} color="#B45309" />
-              <Text style={styles.footerText}>Cada mensaje consume creditos. Asegurate de tener saldo suficiente.</Text>
+              <Text style={styles.footerText}>Cada mensaje consume créditos. Asegúrate de tener saldo suficiente.</Text>
             </View>
           }
           renderItem={({ item }) => (
@@ -131,9 +132,11 @@ export default function ChatListScreen() {
               </View>
 
               <View style={{ flex: 1 }}>
-                <Text style={styles.name}>{item.otherUserName}</Text>
+                <Text style={styles.name} numberOfLines={1}>
+                  {item.otherUserName}
+                </Text>
                 <Text style={styles.message} numberOfLines={1}>
-                  {item.lastMessage ?? "Aun no hay mensajes"}
+                  {item.lastMessage ?? "Aún no hay mensajes"}
                 </Text>
               </View>
 
@@ -150,7 +153,8 @@ export default function ChatListScreen() {
           ListEmptyComponent={
             !loading ? (
               <View style={styles.emptyWrap}>
-                <Text style={styles.helper}>Aun no tienes conversaciones activas.</Text>
+                <Ionicons name="chatbubble-ellipses-outline" size={20} color={appTheme.colors.textMuted} />
+                <Text style={styles.helper}>Aún no tienes conversaciones activas.</Text>
               </View>
             ) : null
           }
@@ -169,14 +173,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
-    paddingBottom: 0,
+    paddingBottom: 12,
   },
   headerBlock: {
     paddingHorizontal: 16,
     paddingTop: 10,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: appTheme.colors.border,
+    paddingBottom: 14,
   },
   title: {
     color: appTheme.colors.text,
@@ -195,6 +197,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 1,
   },
   balanceLeft: {
     flexDirection: "row",
@@ -209,22 +216,18 @@ const styles = StyleSheet.create({
   balanceValue: {
     color: appTheme.colors.primary,
     fontFamily: appTheme.fonts.heading,
-    fontSize: 21,
+    fontSize: 20,
     fontWeight: "700",
   },
   balanceRight: {
-    alignItems: "flex-end",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
   rechargeText: {
     color: appTheme.colors.primary,
     fontFamily: appTheme.fonts.body,
     fontSize: 15,
-    fontWeight: "700",
-  },
-  rechargeArrow: {
-    color: appTheme.colors.primary,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 16,
     fontWeight: "700",
   },
   helper: {
@@ -241,15 +244,20 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 12,
   },
+  separator: {
+    height: 10,
+  },
   row: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     backgroundColor: "#FFFFFF",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E9EEF5",
+    marginHorizontal: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: "#E9EEF5",
+    borderRadius: 16,
   },
   avatarWrap: {
     width: 54,
@@ -278,12 +286,12 @@ const styles = StyleSheet.create({
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.heading,
     fontWeight: "700",
-    fontSize: 17,
+    fontSize: 18,
   },
   message: {
     color: appTheme.colors.textMuted,
     fontFamily: appTheme.fonts.body,
-    fontSize: 17,
+    fontSize: 16,
     marginTop: 2,
   },
   rightCol: {
@@ -293,7 +301,7 @@ const styles = StyleSheet.create({
   date: {
     color: appTheme.colors.textMuted,
     fontFamily: appTheme.fonts.body,
-    fontSize: 15,
+    fontSize: 14,
   },
   unreadBadge: {
     minWidth: 22,
@@ -311,14 +319,20 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   emptyWrap: {
-    paddingHorizontal: 16,
-    paddingVertical: 22,
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: "#E9EEF5",
+    borderRadius: 16,
     backgroundColor: "#FFFFFF",
+    paddingVertical: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
   },
   footerWrap: {
     marginTop: 14,
     marginHorizontal: 16,
-    marginBottom: 10,
     borderRadius: 12,
     backgroundColor: "#FFF7E6",
     borderWidth: 1,

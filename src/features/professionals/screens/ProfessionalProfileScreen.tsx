@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -6,9 +6,11 @@ import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import AppCard from "../../../components/ui/AppCard";
 import AppScreen from "../../../components/ui/AppScreen";
 import { apiGetMyWallet } from "../../../api/userClient";
+import { getMyChats } from "../../../api/messages";
 import { appTheme } from "../../../theme/appTheme";
 import { getProfessionalById } from "../api/professionalsApi";
 import type { Professional } from "../types";
+import { useCallManager } from "../../../context/CallContext";
 
 type TabKey = "info" | "reviews";
 
@@ -21,6 +23,9 @@ export default function ProfessionalProfileScreen() {
   const [balance, setBalance] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("info");
+  const [openingChat, setOpeningChat] = useState(false);
+  const [requestingCall, setRequestingCall] = useState<"CALL" | "VIDEO_CALL" | null>(null);
+  const { startOutgoingCall } = useCallManager();
 
   useEffect(() => {
     if (!professionalId) return;
@@ -73,6 +78,58 @@ export default function ProfessionalProfileScreen() {
   const ratingText = professional.rating ? professional.rating.toFixed(1) : "4.9";
   const reviewCount = 142;
 
+  async function handleStartChat() {
+    if (openingChat) return;
+    if (!professional) return;
+    const targetProfessional = professional;
+    try {
+      setOpeningChat(true);
+      const chats = await getMyChats();
+      const existing = chats.find((chat) => chat.otherUserId === targetProfessional.id);
+      const existingConversationId = existing?.conversationId ?? "";
+
+      router.push({
+        pathname: "/(user)/chats/[id]",
+        params: {
+          id: existingConversationId || targetProfessional.id,
+          conversationId: existingConversationId,
+          professionalId: targetProfessional.id,
+          professionalName: targetProfessional.name,
+          professionalAvatar: targetProfessional.avatar,
+        },
+      } as any);
+    } catch {
+      router.push({
+        pathname: "/(user)/chats/[id]",
+        params: {
+          id: targetProfessional.id,
+          conversationId: "",
+          professionalId: targetProfessional.id,
+          professionalName: targetProfessional.name,
+          professionalAvatar: targetProfessional.avatar,
+        },
+      } as any);
+    } finally {
+      setOpeningChat(false);
+    }
+  }
+
+  function handleStartCall(callType: "CALL" | "VIDEO_CALL") {
+    if (!professional || requestingCall) return;
+    try {
+      setRequestingCall(callType);
+      startOutgoingCall({
+        receiverId: professional.id,
+        receiverName: professional.name,
+        receiverAvatar: professional.avatar || null,
+        callType,
+        pricePerMinute: callType === "VIDEO_CALL" ? Number(professional.prices.video ?? 25) : Number(professional.prices.call ?? 20),
+      });
+    } finally {
+      setRequestingCall(null);
+    }
+  }
+
   return (
     <AppScreen scroll contentPadding={0}>
       <View style={styles.page}>
@@ -108,13 +165,13 @@ export default function ProfessionalProfileScreen() {
               <View style={styles.ratingRow}>
                 <Text style={styles.star}>★</Text>
                 <Text style={styles.ratingValue}>{ratingText}</Text>
-                <Text style={styles.reviews}>({reviewCount} resenas)</Text>
+                <Text style={styles.reviews}>({reviewCount} reseñas)</Text>
               </View>
             </View>
 
             <View style={[styles.statusBadge, professional.isOnline ? styles.statusOnline : styles.statusOffline]}>
               <Text style={[styles.statusText, professional.isOnline ? styles.statusOnlineText : styles.statusOfflineText]}>
-                {professional.isOnline ? "En linea" : "Offline"}
+                {professional.isOnline ? "En línea" : "Offline"}
               </Text>
             </View>
           </View>
@@ -123,7 +180,7 @@ export default function ProfessionalProfileScreen() {
         <AppCard style={styles.creditsCard}>
           <View style={styles.creditInfo}>
             <Ionicons name="card-outline" size={18} color={appTheme.colors.primary} />
-            <Text style={styles.creditLabel}>Tus creditos:</Text>
+            <Text style={styles.creditLabel}>Tus créditos:</Text>
             <Text style={styles.creditValue}>{Math.floor(balance)}</Text>
           </View>
           <Pressable style={styles.creditBtn} onPress={() => router.push("/(user)/credits")}>
@@ -138,17 +195,25 @@ export default function ProfessionalProfileScreen() {
             <Text style={[styles.priceAmount, { color: "#FFFFFF" }]}>{professional.prices.chat ?? 15} crd/min</Text>
           </View>
 
-          <View style={[styles.priceCard, styles.callCard]}>
+          <Pressable
+            style={[styles.priceCard, styles.callCard, requestingCall === "CALL" && styles.priceCardDisabled]}
+            onPress={() => handleStartCall("CALL")}
+            disabled={requestingCall !== null}
+          >
             <Ionicons name="call-outline" size={20} color="#26A269" />
             <Text style={[styles.priceTitle, { color: "#2F855A" }]}>Llamada</Text>
             <Text style={[styles.priceAmount, { color: "#2F855A" }]}>{professional.prices.call ?? 20} crd</Text>
-          </View>
+          </Pressable>
 
-          <View style={[styles.priceCard, styles.videoCard]}>
+          <Pressable
+            style={[styles.priceCard, styles.videoCard, requestingCall === "VIDEO_CALL" && styles.priceCardDisabled]}
+            onPress={() => handleStartCall("VIDEO_CALL")}
+            disabled={requestingCall !== null}
+          >
             <Ionicons name="videocam-outline" size={20} color="#7E6CCF" />
             <Text style={[styles.priceTitle, { color: "#6C5BB6" }]}>Video</Text>
             <Text style={[styles.priceAmount, { color: "#6C5BB6" }]}>{professional.prices.video ?? 25} crd</Text>
-          </View>
+          </Pressable>
         </View>
 
         <View style={styles.tabsRow}>
@@ -187,26 +252,17 @@ export default function ProfessionalProfileScreen() {
         ) : (
           <AppCard>
             <Text style={styles.blockTitle}>Resenas</Text>
-            <Text style={styles.bio}>Aun no hay resenas publicadas para este profesional.</Text>
+            <Text style={styles.bio}>Aún no hay reseñas publicadas para este profesional.</Text>
           </AppCard>
         )}
 
         <Pressable
-          style={styles.chatBtn}
-          onPress={() =>
-            router.push({
-              pathname: "/(user)/chats/[id]",
-              params: {
-                id: professional.id,
-                professionalId: professional.id,
-                professionalName: professional.name,
-                professionalAvatar: professional.avatar,
-              },
-            } as any)
-          }
+          style={[styles.chatBtn, openingChat && styles.chatBtnDisabled]}
+          onPress={handleStartChat}
+          disabled={openingChat}
         >
           <Ionicons name="chatbubble-ellipses-outline" size={18} color="#FFFFFF" />
-          <Text style={styles.chatBtnText}>Iniciar chat</Text>
+          <Text style={styles.chatBtnText}>{openingChat ? "Abriendo..." : "Iniciar chat"}</Text>
         </Pressable>
       </View>
     </AppScreen>
@@ -390,6 +446,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
   },
+  priceCardDisabled: {
+    opacity: 0.6,
+  },
   chatCard: {
     backgroundColor: "#5B9BD5",
     borderColor: "#5B9BD5",
@@ -480,6 +539,9 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 13,
   },
+  chatBtnDisabled: {
+    opacity: 0.6,
+  },
   chatBtnText: {
     color: "#FFFFFF",
     fontFamily: appTheme.fonts.body,
@@ -487,3 +549,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 });
+

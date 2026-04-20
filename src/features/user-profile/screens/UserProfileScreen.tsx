@@ -42,7 +42,7 @@ export default function UserProfileScreen() {
         }
 
         if (walletData.status === "fulfilled") {
-          const available = Number(walletData.value.balance ?? 0) + Number(walletData.value.promotionalBalance ?? 0);
+          const available = Number(walletData.value.balance ?? 0);
           setBalance(available);
         }
       } finally {
@@ -424,4 +424,5 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 });
+
 

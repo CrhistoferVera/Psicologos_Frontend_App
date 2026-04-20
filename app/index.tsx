@@ -1,10 +1,14 @@
-import { View, ActivityIndicator } from "react-native";
+import { View, ActivityIndicator, Platform } from "react-native";
 import { Redirect } from "expo-router";
 import { useAuth } from "../src/context/AuthContext";
 import { appTheme } from "../src/theme/appTheme";
 
 export default function Home() {
   const { user, isHydrated } = useAuth();
+
+  if (Platform.OS === "web") {
+    return <Redirect href="/admin" />;
+  }
 
   if (!isHydrated) {
     return (

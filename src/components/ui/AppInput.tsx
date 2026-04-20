@@ -1,4 +1,4 @@
-import { StyleSheet, Text, TextInput, View } from "react-native";
+import { StyleSheet, Text, TextInput, TextStyle, View } from "react-native";
 import { appTheme } from "../../theme/appTheme";
 
 type Props = {
@@ -8,6 +8,8 @@ type Props = {
   onChangeText: (value: string) => void;
   secureTextEntry?: boolean;
   keyboardType?: "default" | "email-address" | "number-pad" | "phone-pad";
+  editable?: boolean;
+  valueStyle?: TextStyle;
 };
 
 export default function AppInput({
@@ -17,6 +19,8 @@ export default function AppInput({
   onChangeText,
   secureTextEntry = false,
   keyboardType = "default",
+  editable = true,
+  valueStyle,
 }: Props) {
   return (
     <View style={styles.wrapper}>
@@ -29,7 +33,8 @@ export default function AppInput({
         keyboardType={keyboardType}
         secureTextEntry={secureTextEntry}
         autoCapitalize="none"
-        style={styles.input}
+        editable={editable}
+        style={[styles.input, !editable && styles.inputDisabled, valueStyle]}
       />
     </View>
   );
@@ -44,6 +49,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: appTheme.fonts.body,
     fontWeight: "500",
+  },
+  inputDisabled: {
+    opacity: 0.5,
   },
   input: {
     backgroundColor: appTheme.colors.surface,

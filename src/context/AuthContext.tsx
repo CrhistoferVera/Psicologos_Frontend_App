@@ -70,8 +70,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await Promise.all([setAccessToken(token), setUser(nextUser)]);
     setAccessTokenState(token);
     setUserState(nextUser);
-    // Registrar FCM token despuÃ©s del login
-    //para registrar el token de FCM en el backend cada vez que el usuario inicia sesiÃ³n,
+    // Registrar FCM token después del login
+    //para registrar el token de FCM en el backend cada vez que el usuario inicia sesión,
     //lo que asegura que el backend tenga el token actualizado para enviar notificaciones push al dispositivo del usuario
     void registerForPushNotifications();
   }, []);
@@ -83,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   //sirve para cargar el perfil del usuario al iniciar la app,
-  //y tambiÃ©n para registrar el token de FCM y configurar los handlers de notificaciones push
+  //y también para registrar el token de FCM y configurar los handlers de notificaciones push
   useEffect(() => {
     void hydrate();
     void createNotificationChannel();

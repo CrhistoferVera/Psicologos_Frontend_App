@@ -1,10 +1,11 @@
 ﻿import "../global.css";
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Alert, BackHandler, Platform, View } from "react-native";
 import * as ScreenCapture from "expo-screen-capture";
 import { AuthProvider } from "../src/context/AuthContext";
 import { ActiveChatProvider } from "../src/context/ActiveChatContext";
+import { CallProvider } from "../src/context/CallContext";
 import Toast from "react-native-toast-message";
 import { toastConfig } from "../src/components/ToastConfig";
 import { useEffect } from "react";
@@ -12,8 +13,15 @@ import VersionGuard from "../src/components/VersionGuard";
 import { appTheme } from "../src/theme/appTheme";
 
 function BackHandlerGuard() {
+  const router = useRouter();
+
   useEffect(() => {
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (router.canGoBack()) {
+        // Allow native back navigation when there is navigation history.
+        return false;
+      }
+
       Alert.alert(
         "¿Salir de la app?",
         "¿Seguro que quieres salir de la aplicación?",
@@ -26,7 +34,7 @@ function BackHandlerGuard() {
       return true;
     });
     return () => subscription.remove();
-  }, []);
+  }, [router]);
 
   return null;
 }
@@ -49,14 +57,17 @@ export default function Layout() {
   return (
     <VersionGuard>
       <AuthProvider>
-        <ActiveChatProvider>
-          <BackHandlerGuard />
-          <View className="flex-1" style={{ backgroundColor: appTheme.colors.background }}>
-            <StatusBar style="dark" />
-            <Stack screenOptions={{ headerShown: false }} />
-            <Toast config={toastConfig} />
-          </View>
-        </ActiveChatProvider>
+        <CallProvider>
+          <ActiveChatProvider>
+            <ScreenCaptureGuard />
+            <BackHandlerGuard />
+            <View className="flex-1" style={{ backgroundColor: appTheme.colors.background }}>
+              <StatusBar style="dark" />
+              <Stack screenOptions={{ headerShown: false }} />
+              <Toast config={toastConfig} />
+            </View>
+          </ActiveChatProvider>
+        </CallProvider>
       </AuthProvider>
     </VersionGuard>
   );

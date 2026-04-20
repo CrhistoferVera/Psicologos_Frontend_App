@@ -1,6 +1,7 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import AppButton from "../../../components/ui/AppButton";
 import AppInput from "../../../components/ui/AppInput";
 import AppScreen from "../../../components/ui/AppScreen";
@@ -11,6 +12,7 @@ import { appTheme } from "../../../theme/appTheme";
 export default function CompleteProfileScreen() {
   const params = useLocalSearchParams<{ tempToken?: string | string[]; phone?: string | string[] }>();
   const tempToken = Array.isArray(params.tempToken) ? params.tempToken[0] : params.tempToken ?? "";
+  const phone = Array.isArray(params.phone) ? params.phone[0] : params.phone ?? "";
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -26,6 +28,20 @@ export default function CompleteProfileScreen() {
     !password ||
     !confirmPassword ||
     password !== confirmPassword;
+
+  function handleBack() {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
+    if (phone) {
+      router.replace({ pathname: "/(public)/verify-otp", params: { phone } });
+      return;
+    }
+
+    router.replace("/(public)/auth");
+  }
 
   async function handleSubmit() {
     if (!tempToken) {
@@ -55,6 +71,11 @@ export default function CompleteProfileScreen() {
   return (
     <AppScreen scroll>
       <View style={styles.container}>
+        <Pressable style={styles.backBtn} onPress={handleBack}>
+          <Ionicons name="arrow-back" size={18} color={appTheme.colors.text} />
+          <Text style={styles.backBtnText}>Volver</Text>
+        </Pressable>
+
         <Text style={styles.title}>Completa tu perfil</Text>
         <Text style={styles.subtitle}>Configura tu cuenta para empezar a usar la plataforma.</Text>
         <AppInput label="Nombre" value={firstName} onChangeText={setFirstName} />
@@ -77,6 +98,24 @@ const styles = StyleSheet.create({
   container: {
     gap: 12,
   },
+  backBtn: {
+    alignSelf: "flex-start",
+    minHeight: 32,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+    backgroundColor: appTheme.colors.surface,
+    paddingHorizontal: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  backBtnText: {
+    color: appTheme.colors.text,
+    fontSize: 13,
+    fontFamily: appTheme.fonts.body,
+    fontWeight: "600",
+  },
   title: {
     color: appTheme.colors.text,
     fontSize: 26,
@@ -91,4 +130,3 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
 });
-

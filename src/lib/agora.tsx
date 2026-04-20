@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
 import { View, type ViewProps } from "react-native";
+import * as AgoraModule from "react-native-agora";
 
 export type IRtcEngine = any;
 export type IRtcEngineEventHandler = any;
 
 function loadAgoraModule(): any {
-  const dynamicRequire = (globalThis as any).__non_webpack_require__ ?? eval("require");
-  return dynamicRequire("react-native-agora");
+  return AgoraModule;
 }
 
 export function createAgoraRtcEngine(): IRtcEngine {

@@ -1,6 +1,5 @@
 ﻿import type { ReactNode } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Layers, Monitor, Smartphone, Stethoscope, Palette } from "lucide-react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { appTheme } from "../../../theme/appTheme";
 import AdminHeader from "./AdminHeader";
 import AdminSidebar from "./AdminSidebar";
@@ -13,14 +12,6 @@ type Props = {
   children: ReactNode;
 };
 
-const topItems = [
-  { key: "resumen", label: "Resumen", icon: Layers },
-  { key: "usuario", label: "App Usuario", icon: Smartphone },
-  { key: "professional", label: "App Professional", icon: Stethoscope },
-  { key: "admin", label: "Panel Admin", icon: Monitor, active: true },
-  { key: "design", label: "Design System", icon: Palette },
-];
-
 export default function AdminLayout({ title, subtitle, showPeriodTabs = false, onRefresh, children }: Props) {
   return (
     <View style={styles.root}>
@@ -30,25 +21,6 @@ export default function AdminLayout({ title, subtitle, showPeriodTabs = false, o
             <Text style={styles.brandLogoText}>▶</Text>
           </View>
           <Text style={styles.brandTitle}>PsyConnect</Text>
-          <View style={styles.badgePill}>
-            <Text style={styles.badgeText}>Propuesta UX/UI</Text>
-          </View>
-        </View>
-
-        <View style={styles.topNav}>
-          {topItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <Pressable key={item.key} style={[styles.topNavItem, item.active && styles.topNavItemActive]}>
-                <Icon size={15} color={item.active ? appTheme.colors.primary : "#7087A5"} />
-                <Text style={[styles.topNavLabel, item.active && styles.topNavLabelActive]}>{item.label}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        <View style={styles.versionPill}>
-          <Text style={styles.versionText}>v1.0 · Abril 2026</Text>
         </View>
       </View>
 
@@ -81,7 +53,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
     paddingHorizontal: 22,
     gap: 16,
   },
@@ -89,7 +61,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    minWidth: 280,
+    minWidth: 220,
   },
   brandLogo: {
     width: 42,
@@ -108,61 +80,6 @@ const styles = StyleSheet.create({
     color: "#1F3656",
     fontFamily: appTheme.fonts.heading,
     fontSize: 30,
-    fontWeight: "700",
-  },
-  badgePill: {
-    borderRadius: 999,
-    backgroundColor: "#EAF3FF",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  badgeText: {
-    color: appTheme.colors.primary,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  topNav: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    flex: 1,
-    justifyContent: "center",
-    flexWrap: "wrap",
-  },
-  topNavItem: {
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  topNavItemActive: {
-    backgroundColor: "#EAF3FF",
-  },
-  topNavLabel: {
-    color: "#5E7695",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  topNavLabelActive: {
-    color: appTheme.colors.primary,
-    fontWeight: "700",
-  },
-  versionPill: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#B8DEC7",
-    backgroundColor: "#EAF8EF",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  versionText: {
-    color: appTheme.colors.success,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 12,
     fontWeight: "700",
   },
   breadcrumbBar: {

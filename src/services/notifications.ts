@@ -5,13 +5,13 @@ import Toast from 'react-native-toast-message';
 import { displayIncomingCall } from './callkeep';
 import notifee, { AndroidImportance } from '@notifee/react-native';
 
-// Ref global para saber si la app estÃ¡ en foreground
+// Ref global para saber si la app está en foreground
 // Se actualiza desde AuthContext
 export const appActiveRef = { current: true };
 // Se actualiza desde ChatScreen al entrar/salir
 export const activeChatRef = { current: null as string | null };
 
-// Ref global para saber en quÃ© pantalla estÃ¡ la profesional
+// Ref global para saber en qué pantalla está la profesional
 // Se actualiza desde chats.tsx y chat/[conversationId].tsx
 export const professionalChatScreenRef = { current: false };
 
@@ -41,11 +41,11 @@ export const registerForPushNotifications = async (): Promise<void> => {
             authStatus === messaging.AuthorizationStatus.PROVISIONAL;
 
         if (!enabled) {
-            console.log('Permisos de notificaciÃ³n denegados');
+            console.log('Permisos de notificación denegados');
             return;
         }
 
-        // En Android el registro es automÃ¡tico, en iOS necesita esto
+        // En Android el registro es automático, en iOS necesita esto
         if (Platform.OS === 'ios') {
             await messaging().registerDeviceForRemoteMessages();
         }
@@ -67,12 +67,12 @@ export const registerForPushNotifications = async (): Promise<void> => {
 };
 
 // MANEJAR NOTIFICACIONES EN FOREGROUND
-// Se activa cuando la app estÃ¡ ABIERTA y llega una notificaciÃ³n
-// Firebase no muestra nada automÃ¡ticamente en foreground, asÃ­ que lo hacemos nosotros con Toast
+// Se activa cuando la app está ABIERTA y llega una notificación
+// Firebase no muestra nada automáticamente en foreground, así que lo hacemos nosotros con Toast
 export const setupForegroundNotificationHandler = (): (() => void) => {
 
-    // Mapa de tipos â€” define quÃ© color de Toast mostrar segÃºn el tipo de notificaciÃ³n
-    // El backend envÃ­a el 'type' dentro del campo data del mensaje
+    // Mapa de tipos: define qué color de Toast mostrar según el tipo de notificación
+    // El backend envía el 'type' dentro del campo data del mensaje
     // 'success' = verde, 'error' = rojo, 'info' = azul
     const toastConfig: Record<string, 'success' | 'error' | 'info'> = {
         WITHDRAWAL_APPROVED: 'success',
@@ -92,28 +92,28 @@ export const setupForegroundNotificationHandler = (): (() => void) => {
 
     const unsubscribe = messaging().onMessage(async (remoteMessage) => {
         const type = remoteMessage.data?.type as string;
-        const title = remoteMessage.notification?.title ?? 'NotificaciÃ³n';
+        const title = remoteMessage.notification?.title ?? 'Notificación';
         const body = remoteMessage.notification?.body ?? '';
 
-        // Si es mensaje nuevo (normal o bloqueado o desbloqueado) y el usuario estÃ¡ viendo esa conversaciÃ³n, no mostrar Toast
+        // Si es mensaje nuevo (normal o bloqueado o desbloqueado) y el usuario está viendo esa conversación, no mostrar Toast
         if (
             (type === 'NEW_MESSAGE' || type === 'NEW_LOCKED_MESSAGE' || type === 'MESSAGE_UNLOCKED') &&
             activeChatRef.current === remoteMessage.data?.conversationId
         ) return;
 
-        // Si la profesional estÃ¡ en chats o dentro de un chat, ignorar notificaciones de llamada
+        // Si la profesional está en chats o dentro de un chat, ignorar notificaciones de llamada
         if (
             (type === 'INCOMING_CALL' || type === 'CALL_ACCEPTED' || type === 'CALL_REJECTED') &&
             professionalChatScreenRef.current
         ) return;
 
-        // INCOMING_CALL nunca se muestra en foreground â€” el UI de llamada entrante ya aparece en la app
+        // INCOMING_CALL nunca se muestra en foreground: el UI de llamada entrante ya aparece en la app
         if (type === 'INCOMING_CALL') return;
 
-        // CALL_WARNING solo se muestra en background â€” durante la llamada la UI ya estÃ¡ visible
+        // CALL_WARNING solo se muestra en background: durante la llamada la UI ya está visible
         if (type === 'CALL_WARNING') return;
 
-        console.log('ðŸ”” Toast type:', type, 'title:', title);
+        console.log('Toast type:', type, 'title:', title);
 
         Toast.show({
             type: toastConfig[type] ?? 'info',
@@ -124,7 +124,7 @@ export const setupForegroundNotificationHandler = (): (() => void) => {
             topOffset: 60,
         });
 
-        // Solo mostrar notificaciÃ³n del sistema si la app estÃ¡ en background
+        // Solo mostrar notificación del sistema si la app está en background
         if (!appActiveRef.current) {
             const channelId = 'default';
             await notifee.displayNotification({
@@ -141,33 +141,33 @@ export const setupForegroundNotificationHandler = (): (() => void) => {
         }
     });
 
-    // Retorna funciÃ³n para cancelar el listener (se llama en el useEffect cleanup)
+    // Retorna función para cancelar el listener (se llama en el useEffect cleanup)
     return unsubscribe;
 };
 
 // MANEJAR NOTIFICACIONES EN BACKGROUND/QUIT
-// Se activa cuando el usuario toca la notificaciÃ³n para abrir la app
+// Se activa cuando el usuario toca la notificación para abrir la app
 export const setupBackgroundNotificationHandler = (): void => {
-    // Cuando la app estÃ¡ CERRADA y el usuario toca la notificaciÃ³n
+    // Cuando la app está CERRADA y el usuario toca la notificación
     messaging()
         .getInitialNotification()
         .then((remoteMessage) => {
             if (remoteMessage) {
-                console.log('App abierta desde notificaciÃ³n (quit):', remoteMessage.data);
+                console.log('App abierta desde notificación (quit):', remoteMessage.data);
             }
         });
 
-    // Cuando la app estÃ¡ en BACKGROUND y el usuario toca la notificaciÃ³n
+    // Cuando la app está en BACKGROUND y el usuario toca la notificación
     messaging().onNotificationOpenedApp((remoteMessage) => {
-        console.log('App abierta desde notificaciÃ³n (background):', remoteMessage.data);
+        console.log('App abierta desde notificación (background):', remoteMessage.data);
     });
 };
 
 // HANDLER DE BACKGROUND
-// Procesa mensajes cuando la app estÃ¡ cerrada â€” debe registrarse en index.js antes de que la app cargue
+// Procesa mensajes cuando la app está cerrada: debe registrarse en index.js antes de que la app cargue
 export const setBackgroundMessageHandler = (): void => {
     messaging().setBackgroundMessageHandler(async (remoteMessage) => {
-        console.log('NotificaciÃ³n recibida en background:', remoteMessage);
+        console.log('Notificación recibida en background:', remoteMessage);
 
         const type = remoteMessage.data?.type as string;
 

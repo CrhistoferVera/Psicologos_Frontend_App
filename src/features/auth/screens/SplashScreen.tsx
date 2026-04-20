@@ -31,7 +31,7 @@ export default function SplashScreen() {
       <View style={styles.logoCircle}>
         <Text style={styles.logoText}>PSI</Text>
       </View>
-      <Text style={styles.title}>Pachamama Salud</Text>
+      <Text style={styles.title}>PsyConnect</Text>
       <Text style={styles.subtitle}>Conecta con profesionales verificados</Text>
       <ActivityIndicator color={appTheme.colors.primary} size="small" style={{ marginTop: 24 }} />
     </View>

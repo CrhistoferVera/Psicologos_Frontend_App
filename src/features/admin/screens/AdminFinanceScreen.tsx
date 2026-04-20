@@ -89,7 +89,7 @@ export default function AdminFinanceScreen() {
       <View style={styles.kpiGrid}>
         <AdminKpiCard label="Bruto" value={`${financial.gross.toFixed(2)} cr`} tone="positive" />
         <AdminKpiCard label="Plataforma" value={`${financial.platform.toFixed(2)} cr`} tone="positive" />
-        <AdminKpiCard label="Pagado a professionals" value={`S/ ${financial.professionalPaid.toFixed(2)}`} />
+        <AdminKpiCard label="Pagado a professionals" value={`Bs ${financial.professionalPaid.toFixed(2)}`} />
         <AdminKpiCard label="Promocional" value={`${financial.promotional.toFixed(2)} cr`} tone="warning" />
         <AdminKpiCard label="Referidos" value={`${financial.referrals}`} />
       </View>
@@ -183,15 +183,15 @@ export default function AdminFinanceScreen() {
             },
             {
               key: "soles",
-              title: "Equiv. Soles",
+              title: "Equiv. Bolivianos",
               width: 120,
-              render: (row) => <Text style={styles.cellMuted}>S/ {Number(row.soles).toFixed(2)}</Text>,
+              render: (row) => <Text style={styles.cellMuted}>Bs {Number(row.soles).toFixed(2)}</Text>,
             },
             {
               key: "account",
               title: "Cuenta",
               width: 210,
-              render: (row) => <Text style={styles.cellMuted}>{row.bankName} · {row.accountNumber}</Text>,
+              render: (row) => <Text style={styles.cellMuted}>{row.bankName} Â· {row.accountNumber}</Text>,
             },
             {
               key: "status",

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+ï»¿import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
@@ -7,6 +7,7 @@ import AppButton from "../../../components/ui/AppButton";
 import AppCard from "../../../components/ui/AppCard";
 import AppChip from "../../../components/ui/AppChip";
 import AppScreen from "../../../components/ui/AppScreen";
+import { useAuth } from "../../../context/AuthContext";
 import { appTheme } from "../../../theme/appTheme";
 import {
   getMyProfessionalPrices,
@@ -20,6 +21,7 @@ import {
 
 export default function ProfessionalProfileScreen() {
   const router = useRouter();
+  const { logout } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -47,7 +49,7 @@ export default function ProfessionalProfileScreen() {
 
   const [editingBio, setEditingBio] = useState(false);
   const [editingSpecialties, setEditingSpecialties] = useState(false);
-  const [editingPrices, setEditingPrices] = useState(false);
+
   const [editingAvailability, setEditingAvailability] = useState(false);
 
   useEffect(() => {
@@ -167,7 +169,6 @@ export default function ProfessionalProfileScreen() {
       Alert.alert("Perfil actualizado", "Tus cambios se guardaron correctamente.");
       setEditingBio(false);
       setEditingSpecialties(false);
-      setEditingPrices(false);
       setEditingAvailability(false);
     } catch (err: any) {
       const raw = err?.response?.data?.message ?? err?.message;
@@ -175,6 +176,11 @@ export default function ProfessionalProfileScreen() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleLogout() {
+    await logout();
+    router.replace("/(public)/auth");
   }
 
   return (
@@ -185,8 +191,8 @@ export default function ProfessionalProfileScreen() {
             <Ionicons name="arrow-back" size={18} color={appTheme.colors.text} />
           </Pressable>
           <Text style={styles.headerTitle}>Mi perfil</Text>
-          <Pressable onPress={() => Alert.alert("Próximamente", "Vista pública en la siguiente iteración.")}> 
-            <Text style={styles.publicLink}>Vista pública ?</Text>
+          <Pressable onPress={() => Alert.alert("PrÃ³ximamente", "Vista pÃºblica en la siguiente iteraciÃ³n.")}> 
+            <Text style={styles.publicLink}>Vista pÃºblica</Text>
           </Pressable>
         </View>
 
@@ -203,9 +209,9 @@ export default function ProfessionalProfileScreen() {
 
           <View style={{ flex: 1 }}>
             <Text style={styles.name}>{displayName}</Text>
-            <Text style={styles.roleSubtitle}>{visibleSpecialties[0] ?? "Psicología clínica"}</Text>
+            <Text style={styles.roleSubtitle}>{visibleSpecialties[0] ?? "PsicologÃ­a clÃ­nica"}</Text>
             <View style={styles.verifiedPill}>
-              <Text style={styles.verifiedText}>? Verificada</Text>
+              <Text style={styles.verifiedText}>Verificada</Text>
             </View>
           </View>
         </View>
@@ -227,7 +233,7 @@ export default function ProfessionalProfileScreen() {
                 value={bio}
                 onChangeText={setBio}
                 multiline
-                placeholder="Describe tu enfoque terapéutico"
+                placeholder="Describe tu enfoque terapÃ©utico"
                 placeholderTextColor="#7A8EA8"
                 style={styles.textArea}
               />
@@ -241,7 +247,7 @@ export default function ProfessionalProfileScreen() {
             </View>
           ) : (
             <Text style={styles.cardBodyText} numberOfLines={4}>
-              {bio || "Agrega una descripción profesional para que los clientes conozcan tu enfoque terapéutico."}
+              {bio || "Agrega una descripciÃ³n profesional para que los clientes conozcan tu enfoque terapÃ©utico."}
             </Text>
           )}
         </AppCard>
@@ -269,58 +275,26 @@ export default function ProfessionalProfileScreen() {
         <AppCard style={styles.sectionCard}>
           <View style={styles.cardHead}>
             <Text style={styles.cardTitle}>Tarifas</Text>
-            <Pressable onPress={() => setEditingPrices((prev) => !prev)}>
-              <Text style={styles.editLink}>{editingPrices ? "Listo" : "Editar"}</Text>
-            </Pressable>
           </View>
 
-          {editingPrices ? (
-            <View style={{ gap: 8 }}>
-              <TextInput
-                value={chatPrice}
-                onChangeText={setChatPrice}
-                placeholder="Chat"
-                keyboardType="number-pad"
-                placeholderTextColor="#7A8EA8"
-                style={styles.inlineInput}
-              />
-              <TextInput
-                value={callPrice}
-                onChangeText={setCallPrice}
-                placeholder="Llamada"
-                keyboardType="number-pad"
-                placeholderTextColor="#7A8EA8"
-                style={styles.inlineInput}
-              />
-              <TextInput
-                value={videoPrice}
-                onChangeText={setVideoPrice}
-                placeholder="Video"
-                keyboardType="number-pad"
-                placeholderTextColor="#7A8EA8"
-                style={styles.inlineInput}
-              />
-            </View>
-          ) : (
-            <View style={styles.rateRows}>
-              <View style={styles.rateRow}>
-                <Text style={styles.rateLeft}>?? Chat</Text>
-                <Text style={styles.rateRight}>{Number(chatPrice || 0).toFixed(0)} crd/mensaje</Text>
-              </View>
-              <View style={styles.divider} />
-
-              <View style={styles.rateRow}>
-                <Text style={styles.rateLeft}>?? Llamada</Text>
-                <Text style={styles.rateRight}>{Number(callPrice || 0).toFixed(0)} crd/min</Text>
-              </View>
-              <View style={styles.divider} />
-
-              <View style={styles.rateRow}>
-                <Text style={styles.rateLeft}>?? Video</Text>
-                <Text style={styles.rateRight}>{Number(videoPrice || 0).toFixed(0)} crd/min</Text>
-              </View>
-            </View>
-          )}
+          <View style={styles.priceRow}>
+            {([
+              { label: "Chat", value: chatPrice, icon: "chatbubble-ellipses-outline", suffix: "crd/msg" },
+              { label: "Llamada", value: callPrice, icon: "call-outline", suffix: "crd/min" },
+              { label: "Video", value: videoPrice, icon: "videocam-outline", suffix: "crd/min" },
+            ] as const).map((item) => (
+              <Pressable
+                key={item.label}
+                style={styles.priceCard}
+                onPress={() => Alert.alert("Campo bloqueado", "Este campo no es editable.")}
+              >
+                <Ionicons name={item.icon} size={22} color={appTheme.colors.primary} />
+                <Text style={styles.priceAmount}>{Number(item.value || 0).toFixed(0)}</Text>
+                <Text style={styles.priceLabel}>{item.label}</Text>
+                <Text style={styles.priceSuffix}>{item.suffix}</Text>
+              </Pressable>
+            ))}
+          </View>
         </AppCard>
 
         <AppCard style={styles.sectionCard}>
@@ -343,7 +317,7 @@ export default function ProfessionalProfileScreen() {
               <TextInput
                 value={satHours}
                 onChangeText={setSatHours}
-                placeholder="Sáb"
+                placeholder="SÃ¡b"
                 placeholderTextColor="#7A8EA8"
                 style={styles.inlineInput}
               />
@@ -356,7 +330,7 @@ export default function ProfessionalProfileScreen() {
               />
 
               <View style={styles.onlineRow}>
-                <Text style={styles.onlineLabel}>Estado en línea</Text>
+                <Text style={styles.onlineLabel}>Estado en lÃ­nea</Text>
                 <Switch
                   value={isOnline}
                   onValueChange={setIsOnline}
@@ -368,11 +342,11 @@ export default function ProfessionalProfileScreen() {
           ) : (
             <View style={styles.scheduleRows}>
               <View style={styles.scheduleRow}>
-                <Text style={styles.scheduleLeft}>Lun–Vie</Text>
+                <Text style={styles.scheduleLeft}>Lunâ€“Vie</Text>
                 <Text style={styles.scheduleRight}>{monFriHours}</Text>
               </View>
               <View style={styles.scheduleRow}>
-                <Text style={styles.scheduleLeft}>Sáb</Text>
+                <Text style={styles.scheduleLeft}>SÃ¡b</Text>
                 <Text style={styles.scheduleRight}>{satHours}</Text>
               </View>
               <View style={styles.scheduleRow}>
@@ -384,6 +358,11 @@ export default function ProfessionalProfileScreen() {
         </AppCard>
 
         <AppButton title="Guardar cambios" onPress={handleSave} loading={saving} />
+
+        <Pressable style={styles.logoutBtn} onPress={() => void handleLogout()}>
+          <Ionicons name="log-out-outline" size={18} color="#DC2626" />
+          <Text style={styles.logoutText}>Cerrar sesiÃ³n</Text>
+        </Pressable>
       </View>
     </AppScreen>
   );
@@ -557,6 +536,37 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.body,
     fontSize: 14,
   },
+  priceRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  priceCard: {
+    flex: 1,
+    backgroundColor: appTheme.colors.surface,
+    borderRadius: appTheme.radius.lg,
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+    paddingVertical: 14,
+    alignItems: "center",
+    gap: 3,
+  },
+  priceAmount: {
+    color: "#000000",
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  priceLabel: {
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 11,
+  },
+  priceSuffix: {
+    color: appTheme.colors.primary,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 10,
+    fontWeight: "600",
+  },
   rateRows: {
     gap: 8,
   },
@@ -611,7 +621,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
   },
+  logoutBtn: {
+    marginHorizontal: 14,
+    minHeight: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#F5CACA",
+    backgroundColor: "#FFF4F4",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
+  logoutText: {
+    color: "#DC2626",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 15,
+    fontWeight: "700",
+  },
 });
-
-
 

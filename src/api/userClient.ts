@@ -26,7 +26,7 @@ function parseApiError(error: any, fallback: string) {
 
 
 
-// LISTAR Y BUSCAR CLIENTES (Soporta la barra roja de bÃºsqueda)
+// LISTAR Y BUSCAR CLIENTES (Soporta la barra roja de búsqueda)
 export const apiGetAllClients = async (search?: string, cursor?: string): Promise<PaginatedClients> => {
 
     try {
@@ -52,7 +52,7 @@ export const apiToggleClientStatus = async (id: string, isActive: boolean) => {
     }
 };
 
-// CONFIGURACIÃ“N DE LA PLATAFORMA
+// CONFIGURACIÓN DE LA PLATAFORMA
 export const apiGetConfig = async (): Promise<{ creditToSolesRate: number }> => {
     try {
         const response = await apiClient.get('users/config');
@@ -62,7 +62,7 @@ export const apiGetConfig = async (): Promise<{ creditToSolesRate: number }> => 
     }
 };
 
-// OBTENER WALLET DE UN USUARIO ESPECÃFICO (solo professionals/admin)
+// OBTENER WALLET DE UN USUARIO ESPECÍFICO (solo professionals/admin)
 export const apiGetUserWallet = async (userId: string): Promise<WalletResponse> => {
     try {
         const response = await apiClient.get(`users/${userId}/wallet`);
