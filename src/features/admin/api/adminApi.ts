@@ -274,6 +274,7 @@ export type AdminConfigPayload = {
   platformFeePercent?: number;
   creditToSolesRate?: number;
   minAppVersion?: string;
+  referralPercentage?: number;
   referralRewardCredits?: number;
   referralMinDepositAmount?: number;
   referralEnabled?: boolean;
@@ -287,6 +288,7 @@ export async function getAdminConfig(): Promise<Required<AdminConfigPayload>> {
     platformFeePercent: Number(response.data?.platformFeePercent ?? 50),
     creditToSolesRate: Number(response.data?.creditToSolesRate ?? 1),
     minAppVersion: String(response.data?.minAppVersion ?? "1.0"),
+    referralPercentage: Number(response.data?.referralPercentage ?? 2.5),
     referralRewardCredits: Number(response.data?.referralRewardCredits ?? 10),
     referralMinDepositAmount: Number(response.data?.referralMinDepositAmount ?? 0),
     referralEnabled: Boolean(response.data?.referralEnabled ?? true),
@@ -301,6 +303,36 @@ export async function updateAdminConfig(payload: AdminConfigPayload) {
     return response.data;
   } catch (error: any) {
     throw new Error(normalizeError(error, "No se pudo guardar la configuración."));
+  }
+}
+
+export type BonusTier = {
+  id: string;
+  label: string;
+  minActiveReferrals: number;
+  bonusPercent: number;
+  isActive: boolean;
+};
+
+export async function getAdminBonusTiers(): Promise<BonusTier[]> {
+  const response = await apiClient.get("/admin/referrals/bonus-tiers");
+  return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function upsertAdminBonusTier(payload: Omit<BonusTier, "id"> & { id?: string }): Promise<BonusTier> {
+  try {
+    const response = await apiClient.post("/admin/referrals/bonus-tiers", payload);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(normalizeError(error, "No se pudo guardar el tier."));
+  }
+}
+
+export async function deleteAdminBonusTier(id: string): Promise<void> {
+  try {
+    await apiClient.delete(`/admin/referrals/bonus-tiers/${id}`);
+  } catch (error: any) {
+    throw new Error(normalizeError(error, "No se pudo eliminar el tier."));
   }
 }
 

@@ -30,7 +30,7 @@ function formatConversationDate(iso: string) {
 
   if (isYesterday(date, now)) return "Ayer";
 
-  const week = ["Dom", "Lun", "Mar", "Mie", "Jue", "Vie", "Sab"];
+  const week = ["Dom", "Lun", "Mie", "Jue", "Vie", "Sab"];
   return week[date.getDay()] ?? "";
 }
 
@@ -189,15 +189,15 @@ const styles = StyleSheet.create({
   },
   balanceCard: {
     borderWidth: 1,
-    borderColor: "#D1DAE6",
+    borderColor: appTheme.colors.border,
     borderRadius: 16,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    backgroundColor: "#F7FAFE",
+    backgroundColor: "#F8FAFC",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    shadowColor: "#0F172A",
+    shadowColor: "#000",
     shadowOpacity: 0.04,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   balanceValue: {
-    color: appTheme.colors.primary,
+    color: appTheme.colors.text,
     fontFamily: appTheme.fonts.heading,
     fontSize: 20,
     fontWeight: "700",
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
   },
   helper: {
     marginTop: 8,
-    color: appTheme.colors.textMuted,
+    color: "#475569",
     fontFamily: appTheme.fonts.body,
     fontSize: 13,
     textAlign: "center",
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
     borderWidth: 1,
-    borderColor: "#E9EEF5",
+    borderColor: appTheme.colors.border,
     borderRadius: 16,
   },
   avatarWrap: {
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   message: {
-    color: appTheme.colors.textMuted,
+    color: "#475569",
     fontFamily: appTheme.fonts.body,
     fontSize: 16,
     marginTop: 2,
@@ -322,7 +322,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 8,
     borderWidth: 1,
-    borderColor: "#E9EEF5",
+    borderColor: appTheme.colors.border,
     borderRadius: 16,
     backgroundColor: "#FFFFFF",
     paddingVertical: 20,
@@ -351,3 +351,4 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
 });
+

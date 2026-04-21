@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
+import * as ImagePicker from "expo-image-picker";
+import * as VideoThumbnails from "expo-video-thumbnails";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AppButton from "../../../components/ui/AppButton";
@@ -45,6 +47,7 @@ export default function ProfessionalRegisterScreen() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [bio, setBio] = useState("");
+  const [referralCode, setReferralCode] = useState("");
 
   const [specialtiesCatalog, setSpecialtiesCatalog] = useState<{ id: string; name: string }[]>([]);
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
@@ -52,7 +55,13 @@ export default function ProfessionalRegisterScreen() {
   const [callPrice, setCallPrice] = useState("35");
   const [videoPrice, setVideoPrice] = useState("50");
 
-  const [idDoc, setIdDoc] = useState<{ uri: string; name: string; type: string } | null>(null);
+  type FileAsset = { uri: string; name: string; type: string };
+
+  const [idDoc, setIdDoc] = useState<FileAsset | null>(null);
+  const [kycVideo, setKycVideo] = useState<FileAsset | null>(null);
+  const [kycSelfie, setKycSelfie] = useState<FileAsset | null>(null);
+  const [matricula, setMatricula] = useState<FileAsset | null>(null);
+  const [tituloProfesional, setTituloProfesional] = useState<FileAsset | null>(null);
 
   useEffect(() => {
     if (step !== 3 || specialtiesCatalog.length > 0) return;
@@ -78,7 +87,7 @@ export default function ProfessionalRegisterScreen() {
     if (step === 1) return "Datos personales y verificación";
     if (step === 2) return "Cuenta profesional";
     if (step === 3) return "Especialidades y tarifas";
-    if (step === 4) return "Documentos";
+    if (step === 4) return "Verificación de identidad (KYC)";
     return "Revisar y enviar";
   }, [step]);
 
@@ -156,13 +165,72 @@ export default function ProfessionalRegisterScreen() {
       if (result.canceled) return;
       const asset = result.assets?.[0];
       if (!asset) return;
-      setIdDoc({
-        uri: asset.uri,
-        name: asset.name ?? "id-doc",
-        type: asset.mimeType ?? "application/octet-stream",
-      });
+      setIdDoc({ uri: asset.uri, name: asset.name ?? "id-doc", type: asset.mimeType ?? "application/octet-stream" });
     } catch {
       setError("No se pudo seleccionar el documento.");
+    }
+  }
+
+  async function handleRecordFaceVideo() {
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert("Permiso requerido", "Necesitamos acceso a tu cámara para grabar el video.");
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: "videos",
+        videoMaxDuration: 10,
+        quality: 0.7,
+        allowsEditing: false,
+      });
+      if (result.canceled) return;
+      const asset = result.assets?.[0];
+      if (!asset?.uri) return;
+
+      setKycVideo({ uri: asset.uri, name: "kyc_video.mp4", type: "video/mp4" });
+
+      // Extract a thumbnail frame for automated face comparison
+      try {
+        const thumb = await VideoThumbnails.getThumbnailAsync(asset.uri, { time: 500 });
+        setKycSelfie({ uri: thumb.uri, name: "kyc_selfie.jpg", type: "image/jpeg" });
+      } catch {
+        // Thumbnail extraction failed — face comparison will be SKIPPED on backend
+      }
+
+      Alert.alert("Video grabado", "Video de rostro registrado correctamente.");
+    } catch {
+      setError("No se pudo grabar el video.");
+    }
+  }
+
+  async function handlePickMatricula() {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["image/*", "application/pdf"],
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled) return;
+      const asset = result.assets?.[0];
+      if (!asset) return;
+      setMatricula({ uri: asset.uri, name: asset.name ?? "matricula", type: asset.mimeType ?? "application/octet-stream" });
+    } catch {
+      setError("No se pudo seleccionar la matrícula.");
+    }
+  }
+
+  async function handlePickTitulo() {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["image/*", "application/pdf"],
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled) return;
+      const asset = result.assets?.[0];
+      if (!asset) return;
+      setTituloProfesional({ uri: asset.uri, name: asset.name ?? "titulo", type: asset.mimeType ?? "application/octet-stream" });
+    } catch {
+      setError("No se pudo seleccionar el título.");
     }
   }
 
@@ -209,7 +277,12 @@ export default function ProfessionalRegisterScreen() {
         username: username.trim(),
         dateOfBirth: dateOfBirth.trim(),
         cedula: cedula.trim(),
+        referralCode: referralCode.trim() || undefined,
         idDoc: idDoc ?? undefined,
+        kycVideo: kycVideo ?? undefined,
+        kycSelfie: kycSelfie ?? undefined,
+        matricula: matricula ?? undefined,
+        tituloProfesional: tituloProfesional ?? undefined,
       });
 
       await setSession(registration.access_token, registration.user);
@@ -304,6 +377,13 @@ export default function ProfessionalRegisterScreen() {
               onChangeText={setBio}
               placeholder="Psicóloga clínica con enfoque cognitivo-conductual"
             />
+            <AppInput
+              label="Código de referido (opcional)"
+              value={referralCode}
+              onChangeText={(v) => setReferralCode(v.toUpperCase())}
+              placeholder="Ej: CAMILA4X2B"
+              autoCapitalize="characters"
+            />
           </View>
         ) : null}
 
@@ -341,13 +421,46 @@ export default function ProfessionalRegisterScreen() {
 
         {step === 4 ? (
           <View style={styles.form}>
-            <Text style={styles.sectionTitle}>Documento de identidad</Text>
-            <Text style={styles.sectionHint}>Sube una imagen o PDF de tu documento para validación.</Text>
-            <Pressable style={styles.uploadCard} onPress={handlePickIdDoc}>
-              <Text style={styles.uploadTitle}>{idDoc ? "Documento seleccionado" : "Seleccionar archivo"}</Text>
-              <Text style={styles.uploadMeta}>{idDoc?.name ?? "Formato permitido: imagen o PDF"}</Text>
+            <Text style={styles.sectionTitle}>Verificación de identidad</Text>
+            <Text style={styles.sectionHint}>
+              Sube tus documentos para que el equipo pueda verificar tu identidad profesional.
+            </Text>
+
+            {/* Face video */}
+            <Text style={styles.docLabel}>Video de rostro *</Text>
+            <Text style={styles.sectionHint}>
+              Graba un video corto (máx. 10 seg) mirando de frente a la cámara. Se cotejarán automáticamente con tu documento.
+            </Text>
+            <Pressable style={[styles.uploadCard, kycVideo && styles.uploadCardDone]} onPress={() => void handleRecordFaceVideo()}>
+              <Text style={styles.uploadTitle}>{kycVideo ? "Video grabado" : "Grabar video de rostro"}</Text>
+              <Text style={styles.uploadMeta}>{kycVideo ? kycVideo.name : "Toca para abrir la cámara"}</Text>
             </Pressable>
-            <Text style={styles.hint}>Puedes continuar sin archivo y completarlo después en perfil.</Text>
+
+            {/* ID document */}
+            <Text style={styles.docLabel}>Documento de identidad *</Text>
+            <Text style={styles.sectionHint}>Licencia de conducir o pasaporte (imagen o PDF).</Text>
+            <Pressable style={[styles.uploadCard, idDoc && styles.uploadCardDone]} onPress={() => void handlePickIdDoc()}>
+              <Text style={styles.uploadTitle}>{idDoc ? "Documento seleccionado" : "Seleccionar archivo"}</Text>
+              <Text style={styles.uploadMeta}>{idDoc?.name ?? "Imagen o PDF"}</Text>
+            </Pressable>
+
+            {/* Matrícula profesional */}
+            <Text style={styles.docLabel}>Matrícula profesional vigente *</Text>
+            <Text style={styles.sectionHint}>Registro que acredita tu habilitación profesional.</Text>
+            <Pressable style={[styles.uploadCard, matricula && styles.uploadCardDone]} onPress={() => void handlePickMatricula()}>
+              <Text style={styles.uploadTitle}>{matricula ? "Matrícula seleccionada" : "Seleccionar archivo"}</Text>
+              <Text style={styles.uploadMeta}>{matricula?.name ?? "Imagen o PDF"}</Text>
+            </Pressable>
+
+            {/* Título profesional */}
+            <Text style={styles.docLabel}>Título profesional (opcional)</Text>
+            <Text style={styles.sectionHint}>Si aplica, sube tu título o diploma universitario.</Text>
+            <Pressable style={[styles.uploadCard, tituloProfesional && styles.uploadCardDone]} onPress={() => void handlePickTitulo()}>
+              <Text style={styles.uploadTitle}>{tituloProfesional ? "Título seleccionado" : "Seleccionar archivo (opcional)"}</Text>
+              <Text style={styles.uploadMeta}>{tituloProfesional?.name ?? "Imagen o PDF"}</Text>
+            </Pressable>
+
+            <Text style={styles.hint}>Los documentos marcados con * son obligatorios para la aprobación.</Text>
           </View>
         ) : null}
 
@@ -359,9 +472,13 @@ export default function ProfessionalRegisterScreen() {
               <Text style={styles.summaryText}>Username: {username}</Text>
               <Text style={styles.summaryText}>Especialidades: {selectedSpecialtyNames.join(", ") || "Sin seleccionar"}</Text>
               <Text style={styles.summaryText}>Tarifas: Chat {chatPrice} / Llamada {callPrice} / Video {videoPrice}</Text>
-              <Text style={styles.summaryText}>Documento: {idDoc ? "Adjunto" : "Pendiente"}</Text>
+              <Text style={styles.summaryText}>Video de rostro: {kycVideo ? "Grabado" : "Pendiente"}</Text>
+              <Text style={styles.summaryText}>Documento de identidad: {idDoc ? "Adjunto" : "Pendiente"}</Text>
+              <Text style={styles.summaryText}>Matrícula profesional: {matricula ? "Adjunta" : "Pendiente"}</Text>
+              <Text style={styles.summaryText}>Título profesional: {tituloProfesional ? "Adjunto" : "No adjuntado"}</Text>
+              {referralCode.trim() ? <Text style={styles.summaryText}>Código de referido: {referralCode.trim()}</Text> : null}
             </View>
-            <Text style={styles.hint}>Al enviar, tu perfil quedará en revisión y podrás usar el panel profesional.</Text>
+            <Text style={styles.hint}>Al enviar, tu perfil quedará en revisión KYC. El equipo cotejará el video con tu documento antes de aprobar tu cuenta.</Text>
           </View>
         ) : null}
 
@@ -465,6 +582,17 @@ const styles = StyleSheet.create({
     backgroundColor: appTheme.colors.surface,
     padding: 14,
     gap: 4,
+  },
+  uploadCardDone: {
+    borderColor: appTheme.colors.success,
+    backgroundColor: "rgba(107, 175, 138, 0.08)",
+  },
+  docLabel: {
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 14,
+    fontWeight: "700",
+    marginTop: 4,
   },
   uploadTitle: {
     color: appTheme.colors.text,

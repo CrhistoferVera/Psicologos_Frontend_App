@@ -10,6 +10,7 @@ export default function SplashScreen() {
 
   useEffect(() => {
     if (!isHydrated) return;
+
     const timer = setTimeout(() => {
       if (user) {
         if (user.role === "ADMIN") {
@@ -23,6 +24,7 @@ export default function SplashScreen() {
         router.replace("/(public)/onboarding");
       }
     }, 1200);
+
     return () => clearTimeout(timer);
   }, [isHydrated, user, router]);
 
@@ -31,9 +33,15 @@ export default function SplashScreen() {
       <View style={styles.logoCircle}>
         <Text style={styles.logoText}>PSI</Text>
       </View>
+
       <Text style={styles.title}>PsyConnect</Text>
       <Text style={styles.subtitle}>Conecta con profesionales verificados</Text>
-      <ActivityIndicator color={appTheme.colors.primary} size="small" style={{ marginTop: 24 }} />
+
+      <ActivityIndicator
+        color={appTheme.colors.primary}
+        size="small"
+        style={styles.loader}
+      />
     </View>
   );
 }
@@ -46,32 +54,43 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 24,
   },
+
   logoCircle: {
     width: 90,
     height: 90,
     borderRadius: 45,
-    backgroundColor: "#E8F1FA",
+    backgroundColor: "#EAF2FB",
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 20,
   },
+
   logoText: {
     color: appTheme.colors.primary,
     fontSize: 28,
     fontFamily: appTheme.fonts.heading,
     fontWeight: "800",
   },
+
   title: {
     color: appTheme.colors.text,
     fontSize: 28,
     fontFamily: appTheme.fonts.heading,
     fontWeight: "700",
   },
+
   subtitle: {
     marginTop: 8,
-    color: appTheme.colors.textMuted,
+    color: "#475569",
     fontSize: 15,
     fontFamily: appTheme.fonts.body,
+    textAlign: "center",
+  },
+
+  loader: {
+    marginTop: 24,
   },
 });
 

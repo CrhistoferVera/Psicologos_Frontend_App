@@ -94,16 +94,22 @@ export async function completeProfessionalRegistration(payload: ProfessionalRegi
   form.append("username", payload.username);
   form.append("dateOfBirth", payload.dateOfBirth);
   form.append("cedula", payload.cedula);
+  if (payload.referralCode?.trim()) form.append("referralCode", payload.referralCode.trim().toUpperCase());
 
   if (payload.idDoc) {
-    form.append(
-      "idDoc",
-      {
-        uri: payload.idDoc.uri,
-        name: payload.idDoc.name,
-        type: payload.idDoc.type,
-      } as any,
-    );
+    form.append("idDoc", { uri: payload.idDoc.uri, name: payload.idDoc.name, type: payload.idDoc.type } as any);
+  }
+  if (payload.kycVideo) {
+    form.append("kycVideo", { uri: payload.kycVideo.uri, name: payload.kycVideo.name, type: payload.kycVideo.type } as any);
+  }
+  if (payload.kycSelfie) {
+    form.append("kycSelfie", { uri: payload.kycSelfie.uri, name: payload.kycSelfie.name, type: payload.kycSelfie.type } as any);
+  }
+  if (payload.matricula) {
+    form.append("matricula", { uri: payload.matricula.uri, name: payload.matricula.name, type: payload.matricula.type } as any);
+  }
+  if (payload.tituloProfesional) {
+    form.append("tituloProfesional", { uri: payload.tituloProfesional.uri, name: payload.tituloProfesional.name, type: payload.tituloProfesional.type } as any);
   }
 
   const response = await apiClient.post("/auth/complete-professional-registration", form, {

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { FlatList, StyleSheet, Text, TextInput, View } from "react-native";
 import AppChip from "../../../components/ui/AppChip";
 import AppScreen from "../../../components/ui/AppScreen";
@@ -11,8 +12,10 @@ import type { Professional } from "../types";
 export default function ProfessionalsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ search?: string | string[]; specialty?: string | string[] }>();
+
   const initialSearch = Array.isArray(params.search) ? params.search[0] : params.search ?? "";
   const initialSpecialty = Array.isArray(params.specialty) ? params.specialty[0] : params.specialty ?? "Todos";
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState(initialSearch);
@@ -24,11 +27,13 @@ export default function ProfessionalsScreen() {
     void (async () => {
       setLoading(true);
       setError(null);
+
       try {
         const [list, catalog] = await Promise.all([
           getProfessionals({ search: initialSearch, specialty: initialSpecialty }),
           getSpecialtiesCatalog(),
         ]);
+
         setItems(list);
         setSpecialties(["Todos", ...catalog]);
       } catch {
@@ -41,30 +46,39 @@ export default function ProfessionalsScreen() {
 
   const filtered = useMemo(() => {
     return items.filter((item) => {
+      const normalizedSearch = search.trim().toLowerCase();
+
       const textMatch =
-        search.trim().length === 0 ||
-        item.name.toLowerCase().includes(search.toLowerCase()) ||
-        item.specialties.some((tag) => tag.toLowerCase().includes(search.toLowerCase()));
+        normalizedSearch.length === 0 ||
+        item.name.toLowerCase().includes(normalizedSearch) ||
+        item.specialties.some((tag) => tag.toLowerCase().includes(normalizedSearch));
+
       const specialtyMatch =
         selectedSpecialty === "Todos" ||
         item.specialties.some((tag) => tag.toLowerCase() === selectedSpecialty.toLowerCase());
+
       return textMatch && specialtyMatch;
     });
   }, [items, search, selectedSpecialty]);
 
   return (
-    <AppScreen scroll>
+    <AppScreen scroll contentPadding={16}>
       <View style={styles.container}>
         <Text style={styles.title}>Profesionales</Text>
-        <Text style={styles.subtitle}>Filtra por especialidad y encuentra el perfil que necesitas.</Text>
+        <Text style={styles.subtitle}>
+          Filtra por especialidad y encuentra el perfil que necesitas.
+        </Text>
 
-        <TextInput
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Buscar por nombre o especialidad"
-          placeholderTextColor={appTheme.colors.textMuted}
-          style={styles.search}
-        />
+        <View style={styles.searchWrap}>
+          <Ionicons name="search" size={18} color={appTheme.colors.textMuted} />
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Buscar por nombre o especialidad"
+            placeholderTextColor={appTheme.colors.textMuted}
+            style={styles.search}
+          />
+        </View>
 
         <FlatList
           horizontal
@@ -73,27 +87,42 @@ export default function ProfessionalsScreen() {
           keyExtractor={(item) => item}
           contentContainerStyle={styles.specialtyList}
           renderItem={({ item }) => (
-            <AppChip label={item} active={selectedSpecialty === item} onPress={() => setSelectedSpecialty(item)} />
+            <AppChip
+              label={item}
+              active={selectedSpecialty === item}
+              onPress={() => setSelectedSpecialty(item)}
+            />
           )}
         />
 
-        <Text style={styles.resultText}>{loading ? "Cargando..." : `${filtered.length} resultados`}</Text>
+        <Text style={styles.resultText}>
+          {loading ? "Cargando..." : `${filtered.length} resultados`}
+        </Text>
+
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         <FlatList
           data={filtered}
           keyExtractor={(item) => item.id}
-          ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+          scrollEnabled={false}
+          ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
           renderItem={({ item }) => (
             <ProfessionalCard
               professional={item}
-              onPress={() => router.push({ pathname: "/(user)/professionals/[id]", params: { id: item.id } } as any)}
+              onPress={() =>
+                router.push({
+                  pathname: "/(user)/professionals/[id]",
+                  params: { id: item.id },
+                } as any)
+              }
             />
           )}
-          scrollEnabled={false}
         />
+
         {!loading && filtered.length === 0 ? (
-          <Text style={styles.emptyText}>No encontramos profesionales con esos filtros.</Text>
+          <Text style={styles.emptyText}>
+            No encontramos profesionales con esos filtros.
+          </Text>
         ) : null}
       </View>
     </AppScreen>
@@ -104,42 +133,61 @@ const styles = StyleSheet.create({
   container: {
     gap: 12,
   },
+
   title: {
     color: appTheme.colors.text,
-    fontSize: 28,
+    fontSize: 30,
+    lineHeight: 34,
     fontFamily: appTheme.fonts.heading,
     fontWeight: "700",
   },
+
   subtitle: {
-    color: appTheme.colors.textMuted,
+    color: "#475569",
     fontSize: 14,
     lineHeight: 21,
     fontFamily: appTheme.fonts.body,
   },
-  search: {
-    backgroundColor: appTheme.colors.surface,
-    borderRadius: appTheme.radius.lg,
-    borderColor: appTheme.colors.border,
-    borderWidth: 1,
-    minHeight: 48,
+
+  searchWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    minHeight: 52,
     paddingHorizontal: 14,
+    borderRadius: appTheme.radius.lg,
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+    backgroundColor: "#F8FAFC",
+  },
+
+  search: {
+    flex: 1,
+    minHeight: 48,
     color: appTheme.colors.text,
+    fontSize: 15,
     fontFamily: appTheme.fonts.body,
   },
+
   specialtyList: {
     gap: 8,
     paddingVertical: 6,
+    paddingRight: 6,
   },
+
   resultText: {
-    color: appTheme.colors.textMuted,
+    color: "#475569",
     fontSize: 13,
     fontFamily: appTheme.fonts.body,
+    fontWeight: "500",
   },
+
   errorText: {
     color: appTheme.colors.danger,
     fontSize: 12,
     fontFamily: appTheme.fonts.body,
   },
+
   emptyText: {
     color: appTheme.colors.textMuted,
     fontSize: 13,

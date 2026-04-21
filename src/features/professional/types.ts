@@ -44,6 +44,8 @@ export type ProfessionalChatItem = {
   unreadCount: number;
 };
 
+export type KycFileAsset = { uri: string; name: string; type: string };
+
 export type ProfessionalRegisterPayload = {
   tempToken: string;
   firstName: string;
@@ -54,7 +56,12 @@ export type ProfessionalRegisterPayload = {
   username: string;
   dateOfBirth: string;
   cedula: string;
-  idDoc?: { uri: string; name: string; type: string };
+  referralCode?: string;
+  idDoc?: KycFileAsset;
+  kycVideo?: KycFileAsset;
+  kycSelfie?: KycFileAsset;
+  matricula?: KycFileAsset;
+  tituloProfesional?: KycFileAsset;
 };
 
 export type RegistrationProgress = {

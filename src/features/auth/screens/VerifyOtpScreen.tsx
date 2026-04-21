@@ -22,6 +22,7 @@ export default function VerifyOtpScreen() {
       router.back();
       return;
     }
+
     router.replace("/(public)/auth");
   }
 
@@ -29,6 +30,7 @@ export default function VerifyOtpScreen() {
     try {
       setLoading(true);
       const response = await verifyOtp(phone, code.trim());
+
       if ("access_token" in response) {
         await setSession(response.access_token, response.user);
         router.replace("/(user)/home");
@@ -58,7 +60,9 @@ export default function VerifyOtpScreen() {
         </Pressable>
 
         <Text style={styles.title}>Verifica tu código</Text>
-        <Text style={styles.subtitle}>Ingresa el código OTP enviado al número {phone}.</Text>
+        <Text style={styles.subtitle}>
+          Ingresa el código OTP enviado al número {phone}.
+        </Text>
 
         <AppInput
           label="Código OTP"
@@ -83,34 +87,39 @@ const styles = StyleSheet.create({
   container: {
     gap: 14,
   },
+
   backBtn: {
     alignSelf: "flex-start",
-    minHeight: 32,
+    minHeight: 36,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: appTheme.colors.border,
-    backgroundColor: appTheme.colors.surface,
+    backgroundColor: "#FFFFFF",
     paddingHorizontal: 10,
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
   },
+
   backBtnText: {
     color: appTheme.colors.text,
     fontSize: 13,
     fontFamily: appTheme.fonts.body,
     fontWeight: "600",
   },
+
   title: {
     color: appTheme.colors.text,
     fontSize: 26,
     fontFamily: appTheme.fonts.heading,
     fontWeight: "700",
   },
+
   subtitle: {
-    color: appTheme.colors.textMuted,
+    color: "#475569",
     fontSize: 14,
     lineHeight: 20,
     fontFamily: appTheme.fonts.body,
   },
 });
+
