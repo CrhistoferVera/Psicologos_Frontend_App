@@ -54,12 +54,14 @@ export default function AdminProfessionalsScreen() {
     try {
       setLoading(true);
       setError(null);
+
       const [professionals, specialtyList] = await Promise.all([
         getAdminProfessionals(search || undefined, initial ? undefined : nextCursor ?? undefined, 20),
         getAdminSpecialties(true),
       ]);
 
       const currentRows = initial ? professionals.data : [...rows, ...professionals.data];
+
       if (initial) setRows(professionals.data);
       else setRows((prev) => [...prev, ...professionals.data]);
 
@@ -67,6 +69,7 @@ export default function AdminProfessionalsScreen() {
       setSpecialties(specialtyList);
 
       const idsToResolve = professionals.data.map((p) => p.id);
+
       if (idsToResolve.length > 0) {
         const assigned = await Promise.all(
           idsToResolve.map(async (id) => {
@@ -79,6 +82,7 @@ export default function AdminProfessionalsScreen() {
             }
           }),
         );
+
         setSpecialtyNameByProfessionalId((prev) => {
           const next = { ...prev };
           assigned.forEach((item) => {
@@ -129,15 +133,22 @@ export default function AdminProfessionalsScreen() {
       { text: "Cerrar", style: "cancel" as const },
       ...availableDocs.map((d) => ({
         text: `Ver ${d.label}`,
-        onPress: () => { void Linking.openURL(d.url!); },
+        onPress: () => {
+          void Linking.openURL(d.url!);
+        },
       })),
     ];
 
     try {
       const stats = await getAdminProfessionalStats(row.id);
+
       Alert.alert(
         fullName(row),
-        `Balance: ${Number(stats?.balance?.credits ?? 0).toFixed(2)} cr\nHoy: ${Number(stats?.earnings?.today?.credits ?? 0).toFixed(2)} cr\nMes: ${Number(stats?.earnings?.thisMonth?.credits ?? 0).toFixed(2)} cr\n\n— KYC —\nCotejo facial: ${faceScore} (${faceStatus})\nDocs: ${docCount}/4`,
+        `Balance: ${Number(stats?.balance?.credits ?? 0).toFixed(2)} cr\nHoy: ${Number(
+          stats?.earnings?.today?.credits ?? 0,
+        ).toFixed(2)} cr\nMes: ${Number(stats?.earnings?.thisMonth?.credits ?? 0).toFixed(
+          2,
+        )} cr\n\n— KYC —\nCotejo facial: ${faceScore} (${faceStatus})\nDocs: ${docCount}/4`,
         buttons,
       );
     } catch {
@@ -151,6 +162,7 @@ export default function AdminProfessionalsScreen() {
 
   async function handleSelectProfessional(row: AdminProfessionalRecord) {
     setSelectedProfessional(row);
+
     try {
       const assigned = await getProfessionalSpecialtiesAdmin(row.id);
       const ids = assigned.map((item: any) => item?.specialty?.id).filter(Boolean);
@@ -161,16 +173,28 @@ export default function AdminProfessionalsScreen() {
   }
 
   function toggleSpecialty(id: string) {
-    setSelectedSpecialtyIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
+    setSelectedSpecialtyIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+    );
   }
 
   async function handleSaveSpecialties() {
     if (!selectedProfessional) return;
+
     try {
       setSavingSpecialties(true);
+
       await assignProfessionalSpecialtiesAdmin(selectedProfessional.id, selectedSpecialtyIds);
-      const resolvedNames = specialties.filter((item) => selectedSpecialtyIds.includes(item.id)).map((item) => item.name);
-      setSpecialtyNameByProfessionalId((prev) => ({ ...prev, [selectedProfessional.id]: resolvedNames[0] ?? "Sin asignar" }));
+
+      const resolvedNames = specialties
+        .filter((item) => selectedSpecialtyIds.includes(item.id))
+        .map((item) => item.name);
+
+      setSpecialtyNameByProfessionalId((prev) => ({
+        ...prev,
+        [selectedProfessional.id]: resolvedNames[0] ?? "Sin asignar",
+      }));
+
       Alert.alert("Especialidades guardadas", "Asignación actualizada correctamente.");
     } catch (err: any) {
       Alert.alert("No se pudo guardar", err?.message ?? "Intenta nuevamente.");
@@ -186,8 +210,13 @@ export default function AdminProfessionalsScreen() {
     const today = rows.filter((row) => {
       const date = new Date(row.createdAt);
       const now = new Date();
-      return date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+      return (
+        date.getDate() === now.getDate() &&
+        date.getMonth() === now.getMonth() &&
+        date.getFullYear() === now.getFullYear()
+      );
     }).length;
+
     return { approved, review, rejected, today };
   }, [rows]);
 
@@ -202,9 +231,15 @@ export default function AdminProfessionalsScreen() {
     <ScrollView style={styles.page} contentContainerStyle={styles.content}>
       <View style={styles.actionsRow}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.subtitle}>Total: {rows.length} profesionales · {metrics.review} pendientes de revisión</Text>
+          <Text style={styles.subtitle}>
+            Total: {rows.length} profesionales · {metrics.review} pendientes de revisión
+          </Text>
         </View>
-        <Pressable style={styles.exportBtn} onPress={() => Alert.alert("Exportar", "Exportación CSV disponible en siguiente iteración.")}>
+
+        <Pressable
+          style={styles.exportBtn}
+          onPress={() => Alert.alert("Exportar", "Exportación CSV disponible en siguiente iteración.")}
+        >
           <Text style={styles.exportText}>+ Exportar CSV</Text>
         </Pressable>
       </View>
@@ -214,14 +249,17 @@ export default function AdminProfessionalsScreen() {
           <Text style={[styles.metricValue, { color: appTheme.colors.success }]}>{metrics.approved}</Text>
           <Text style={styles.metricLabel}>Aprobados activos</Text>
         </AppCard>
+
         <AppCard style={styles.metricCard}>
           <Text style={[styles.metricValue, { color: "#D97706" }]}>{metrics.review}</Text>
           <Text style={styles.metricLabel}>En revisión</Text>
         </AppCard>
+
         <AppCard style={styles.metricCard}>
           <Text style={[styles.metricValue, { color: appTheme.colors.danger }]}>{metrics.rejected}</Text>
           <Text style={styles.metricLabel}>Rechazados</Text>
         </AppCard>
+
         <AppCard style={styles.metricCard}>
           <Text style={[styles.metricValue, { color: appTheme.colors.primary }]}>{metrics.today}</Text>
           <Text style={styles.metricLabel}>Solicitudes hoy</Text>
@@ -233,25 +271,36 @@ export default function AdminProfessionalsScreen() {
           value={searchInput}
           onChangeText={setSearchInput}
           onSubmitEditing={() => setSearch(searchInput.trim())}
-          placeholder="Buscar professional por nombre, email o teléfono"
+          placeholder="Buscar profesional por nombre, email o teléfono"
           placeholderTextColor={appTheme.colors.textMuted}
           style={styles.search}
         />
+
         {filters.map((item) => {
           const active = filter === item.key;
+
           return (
-            <Pressable key={item.key} style={[styles.filterChip, active && styles.filterChipActive]} onPress={() => setFilter(item.key)}>
-              <Text style={[styles.filterLabel, active && styles.filterLabelActive]}>{item.label}</Text>
+            <Pressable
+              key={item.key}
+              style={[styles.filterChip, active && styles.filterChipActive]}
+              onPress={() => setFilter(item.key)}
+            >
+              <Text style={[styles.filterLabel, active && styles.filterLabelActive]}>
+                {item.label}
+              </Text>
             </Pressable>
           );
         })}
       </View>
 
-      {loading ? <Text style={styles.info}>Cargando professionals...</Text> : null}
+      {loading ? <Text style={styles.info}>Cargando profesionales...</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       {!loading && filteredRows.length === 0 ? (
-        <AdminEmptyState title="Sin professionals" description="No hay resultados para el filtro actual." />
+        <AdminEmptyState
+          title="Sin profesionales"
+          description="No hay resultados para el filtro actual."
+        />
       ) : (
         <AdminDataTable
           rows={filteredRows}
@@ -266,31 +315,52 @@ export default function AdminProfessionalsScreen() {
               key: "specialty",
               title: "Especialidad",
               width: 190,
-              render: (row) => <Text style={styles.cellMuted}>{specialtyNameByProfessionalId[row.id] ?? "Sin asignar"}</Text>,
+              render: (row) => (
+                <Text style={styles.cellMuted}>
+                  {specialtyNameByProfessionalId[row.id] ?? "Sin asignar"}
+                </Text>
+              ),
             },
             {
               key: "state",
               title: "Estado",
               width: 130,
-              render: (row) => <AdminStatusBadge label={row.isActive ? "aprobado" : "revisión"} tone={row.isActive ? "positive" : "warning"} />,
+              render: (row) => (
+                <AdminStatusBadge
+                  label={row.isActive ? "aprobado" : "revisión"}
+                  tone={row.isActive ? "positive" : "warning"}
+                />
+              ),
             },
             {
               key: "earnings",
               title: "Ganancias",
               width: 130,
-              render: (row) => <Text style={[styles.cellPrimary, { color: appTheme.colors.success }]}>${Number(row.wallet?.balance ?? 0).toFixed(0)}</Text>,
+              render: (row) => (
+                <Text style={[styles.cellPrimary, { color: appTheme.colors.success }]}>
+                  ${Number(row.wallet?.balance ?? 0).toFixed(0)}
+                </Text>
+              ),
             },
             {
               key: "sessions",
               title: "Sesiones",
               width: 110,
-              render: (row) => <Text style={styles.cellMuted}>{(Number(row.wallet?.balance ?? 0) % 143).toFixed(0)}</Text>,
+              render: (row) => (
+                <Text style={styles.cellMuted}>
+                  {(Number(row.wallet?.balance ?? 0) % 143).toFixed(0)}
+                </Text>
+              ),
             },
             {
               key: "rating",
               title: "Rating",
               width: 100,
-              render: (row) => <Text style={[styles.cellMuted, { color: "#F59E0B" }]}>★ {(4 + (Number(row.wallet?.balance ?? 0) % 10) / 10).toFixed(1)}</Text>,
+              render: (row) => (
+                <Text style={[styles.cellMuted, { color: "#F59E0B" }]}>
+                  ★ {(4 + (Number(row.wallet?.balance ?? 0) % 10) / 10).toFixed(1)}
+                </Text>
+              ),
             },
             {
               key: "docs",
@@ -298,13 +368,34 @@ export default function AdminProfessionalsScreen() {
               width: 100,
               render: (row) => {
                 const p = row.professionalProfile;
-                const count = [p?.idDocUrl, p?.kycVideoUrl, p?.matriculaUrl, p?.tituloProfesionalUrl].filter(Boolean).length;
+                const count = [
+                  p?.idDocUrl,
+                  p?.kycVideoUrl,
+                  p?.matriculaUrl,
+                  p?.tituloProfesionalUrl,
+                ].filter(Boolean).length;
+
                 const faceStatus = p?.kycFaceMatchStatus;
-                const faceColor = faceStatus === "PASSED" ? appTheme.colors.success : faceStatus === "FAILED" ? appTheme.colors.danger : appTheme.colors.textMuted;
+                const faceColor =
+                  faceStatus === "PASSED"
+                    ? appTheme.colors.success
+                    : faceStatus === "FAILED"
+                      ? appTheme.colors.danger
+                      : appTheme.colors.textMuted;
+
                 return (
                   <View>
-                    <Text style={[styles.cellMuted, { color: count >= 3 ? appTheme.colors.success : appTheme.colors.danger }]}>{count}/4 docs</Text>
-                    <Text style={[styles.cellMuted, { fontSize: 10, color: faceColor }]}>{faceStatus ?? "PENDING"}</Text>
+                    <Text
+                      style={[
+                        styles.cellMuted,
+                        { color: count >= 3 ? appTheme.colors.success : appTheme.colors.danger },
+                      ]}
+                    >
+                      {count}/4 docs
+                    </Text>
+                    <Text style={[styles.cellMuted, { fontSize: 10, color: faceColor }]}>
+                      {faceStatus ?? "PENDING"}
+                    </Text>
                   </View>
                 );
               },
@@ -324,9 +415,11 @@ export default function AdminProfessionalsScreen() {
                   <Pressable style={styles.viewBtn} onPress={() => void handleOpenDetails(row)}>
                     <Text style={styles.viewText}>Ver</Text>
                   </Pressable>
+
                   <Pressable style={styles.viewBtn} onPress={() => void handleSelectProfessional(row)}>
                     <Text style={styles.viewText}>Editar</Text>
                   </Pressable>
+
                   {row.isActive ? (
                     <Pressable style={styles.rejectBtn} onPress={() => void handleToggleStatus(row, false)}>
                       <Text style={styles.rejectText}>Rechazar</Text>
@@ -345,18 +438,27 @@ export default function AdminProfessionalsScreen() {
 
       {nextCursor ? (
         <Pressable style={styles.moreBtn} onPress={() => void load(false)}>
-          <Text style={styles.moreBtnText}>Cargar más professionals</Text>
+          <Text style={styles.moreBtnText}>Cargar más profesionales</Text>
         </Pressable>
       ) : null}
 
       <AppCard>
         <Text style={styles.panelTitle}>Asignar especialidades</Text>
-        <Text style={styles.panelHint}>Selecciona un profesional y marca las especialidades que tendrá visibles en su perfil.</Text>
-        <Text style={styles.panelCurrent}>Seleccionado: {selectedProfessional ? fullName(selectedProfessional) : "Ninguno"}</Text>
+        <Text style={styles.panelHint}>
+          Selecciona un profesional y marca las especialidades que tendrá visibles en su perfil.
+        </Text>
+        <Text style={styles.panelCurrent}>
+          Seleccionado: {selectedProfessional ? fullName(selectedProfessional) : "Ninguno"}
+        </Text>
 
         <View style={styles.tagsWrap}>
           {specialties.map((tag) => (
-            <AppChip key={tag.id} label={tag.name} active={selectedSpecialtyIds.includes(tag.id)} onPress={() => toggleSpecialty(tag.id)} />
+            <AppChip
+              key={tag.id}
+              label={tag.name}
+              active={selectedSpecialtyIds.includes(tag.id)}
+              onPress={() => toggleSpecialty(tag.id)}
+            />
           ))}
         </View>
 
@@ -365,7 +467,9 @@ export default function AdminProfessionalsScreen() {
           disabled={!selectedProfessional || savingSpecialties}
           onPress={() => void handleSaveSpecialties()}
         >
-          <Text style={styles.saveSpecsText}>{savingSpecialties ? "Guardando..." : "Guardar especialidades"}</Text>
+          <Text style={styles.saveSpecsText}>
+            {savingSpecialties ? "Guardando..." : "Guardar especialidades"}
+          </Text>
         </Pressable>
       </AppCard>
     </ScrollView>
@@ -375,64 +479,79 @@ export default function AdminProfessionalsScreen() {
 const styles = StyleSheet.create({
   page: {
     flex: 1,
+    backgroundColor: appTheme.colors.background,
   },
+
   content: {
     paddingHorizontal: 30,
     paddingBottom: 28,
+    paddingTop: 10,
     gap: 14,
   },
+
   actionsRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
   },
+
   subtitle: {
-    color: "#607895",
+    color: "#475569",
     fontFamily: appTheme.fonts.body,
     fontSize: 16,
+    lineHeight: 22,
   },
+
   exportBtn: {
     borderRadius: 16,
     backgroundColor: appTheme.colors.primary,
     paddingHorizontal: 18,
     paddingVertical: 12,
   },
+
   exportText: {
     color: "#FFFFFF",
     fontFamily: appTheme.fonts.body,
     fontSize: 14,
     fontWeight: "700",
   },
+
   metricsRow: {
     flexDirection: "row",
     gap: 12,
   },
+
   metricCard: {
     flex: 1,
     minHeight: 110,
   },
+
   metricValue: {
-    color: "#1E3656",
+    color: appTheme.colors.text,
     fontFamily: appTheme.fonts.heading,
     fontSize: 34,
     fontWeight: "700",
     lineHeight: 40,
   },
+
   metricLabel: {
-    color: "#5F7898",
+    color: "#475569",
     fontFamily: appTheme.fonts.body,
     fontSize: 14,
+    lineHeight: 20,
   },
+
   filterRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
     flexWrap: "wrap",
   },
+
   search: {
     minWidth: 300,
     flexGrow: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#F8FAFC",
     borderWidth: 1,
     borderColor: appTheme.colors.border,
     borderRadius: 16,
@@ -442,6 +561,7 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.body,
     fontSize: 14,
   },
+
   filterChip: {
     borderRadius: 999,
     borderWidth: 1,
@@ -450,29 +570,36 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     backgroundColor: "#FFFFFF",
   },
+
   filterChipActive: {
     backgroundColor: appTheme.colors.primary,
     borderColor: appTheme.colors.primary,
   },
+
   filterLabel: {
-    color: "#5D7493",
+    color: appTheme.colors.text,
     fontFamily: appTheme.fonts.body,
     fontSize: 13,
     fontWeight: "700",
   },
+
   filterLabelActive: {
     color: "#FFFFFF",
   },
+
   info: {
-    color: appTheme.colors.textMuted,
+    color: "#475569",
     fontFamily: appTheme.fonts.body,
     fontSize: 13,
+    fontWeight: "500",
   },
+
   error: {
     color: appTheme.colors.danger,
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
   },
+
   cellPrimary: {
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.body,
@@ -480,90 +607,112 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     lineHeight: 22,
   },
+
   cellMuted: {
-    color: appTheme.colors.textMuted,
+    color: "#475569",
     fontFamily: appTheme.fonts.body,
     fontSize: 15,
     lineHeight: 22,
   },
+
   actionsCell: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
   },
+
   viewBtn: {
     borderRadius: 8,
-    backgroundColor: "#E9F1FC",
+    backgroundColor: "#EAF2FF",
+    borderWidth: 1,
+    borderColor: "#D6E4F5",
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
+
   viewText: {
     color: appTheme.colors.primary,
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
     fontWeight: "700",
   },
+
   approveBtn: {
     borderRadius: 8,
-    backgroundColor: "#E7F6EE",
+    backgroundColor: "#EAF7F0",
+    borderWidth: 1,
+    borderColor: "#CFE8D8",
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
+
   approveText: {
     color: appTheme.colors.success,
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
     fontWeight: "700",
   },
+
   rejectBtn: {
     borderRadius: 8,
-    backgroundColor: "#FDEBEC",
+    backgroundColor: "#FEECEC",
+    borderWidth: 1,
+    borderColor: "#F9D5D8",
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
+
   rejectText: {
     color: appTheme.colors.danger,
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
     fontWeight: "700",
   },
+
   moreBtn: {
     alignSelf: "flex-start",
     borderRadius: 12,
     borderWidth: 1,
     borderColor: appTheme.colors.border,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#F8FAFC",
     paddingHorizontal: 14,
     paddingVertical: 9,
   },
+
   moreBtnText: {
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.body,
     fontSize: 13,
     fontWeight: "600",
   },
+
   panelTitle: {
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.heading,
     fontSize: 20,
     fontWeight: "700",
   },
+
   panelHint: {
-    color: appTheme.colors.textMuted,
+    color: "#475569",
     fontFamily: appTheme.fonts.body,
     fontSize: 13,
+    lineHeight: 19,
   },
+
   panelCurrent: {
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.body,
     fontSize: 14,
     fontWeight: "600",
   },
+
   tagsWrap: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
   },
+
   saveSpecsBtn: {
     alignSelf: "flex-start",
     borderRadius: 12,
@@ -571,6 +720,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
+
   saveSpecsText: {
     color: "#FFFFFF",
     fontFamily: appTheme.fonts.body,

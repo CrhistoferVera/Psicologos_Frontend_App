@@ -35,7 +35,10 @@ export default function UserProfileScreen() {
     void (async () => {
       try {
         setLoading(true);
-        const [profileData, walletData] = await Promise.allSettled([apiGetMyProfileUser(), apiGetMyWallet()]);
+        const [profileData, walletData] = await Promise.allSettled([
+          apiGetMyProfileUser(),
+          apiGetMyWallet(),
+        ]);
 
         if (profileData.status === "fulfilled") {
           setProfile(profileData.value);
@@ -62,7 +65,10 @@ export default function UserProfileScreen() {
   const phone = profile?.phoneNumber ?? user?.phoneNumber ?? "Sin teléfono registrado";
   const roleLabel = normalizeRole(profile?.role ?? user?.role);
   const avatarUrl = profile?.UserProfile?.avatarUrl;
-  const initials = getInitials(profile?.firstName ?? user?.firstName, profile?.lastName ?? user?.lastName);
+  const initials = getInitials(
+    profile?.firstName ?? user?.firstName,
+    profile?.lastName ?? user?.lastName,
+  );
 
   async function handleLogout() {
     await logout();
@@ -74,7 +80,9 @@ export default function UserProfileScreen() {
       <View style={styles.page}>
         <View style={styles.headerBlock}>
           <Text style={styles.title}>Mi perfil</Text>
-          <Text style={styles.subtitle}>Gestiona tu cuenta, créditos y accesos principales.</Text>
+          <Text style={styles.subtitle}>
+            Gestiona tu cuenta, créditos y accesos principales.
+          </Text>
         </View>
 
         <LinearGradient
@@ -94,12 +102,18 @@ export default function UserProfileScreen() {
           </View>
 
           <View style={styles.heroContent}>
-            <Text style={styles.heroName} numberOfLines={1}>{displayName}</Text>
-            <Text style={styles.heroEmail} numberOfLines={1}>{email}</Text>
+            <Text style={styles.heroName} numberOfLines={1}>
+              {displayName}
+            </Text>
+            <Text style={styles.heroEmail} numberOfLines={1}>
+              {email}
+            </Text>
+
             <View style={styles.heroMetaRow}>
               <View style={styles.roleBadge}>
                 <Text style={styles.roleText}>{roleLabel}</Text>
               </View>
+
               <View style={styles.statusBadge}>
                 <Text style={styles.statusText}>Cuenta activa</Text>
               </View>
@@ -107,11 +121,15 @@ export default function UserProfileScreen() {
           </View>
         </LinearGradient>
 
-        <Pressable style={styles.balanceCard} onPress={() => router.push("/(user)/credits" as any)}>
+        <Pressable
+          style={styles.balanceCard}
+          onPress={() => router.push("/(user)/credits" as any)}
+        >
           <View style={styles.balanceLeft}>
             <View style={styles.balanceIconWrap}>
               <Ionicons name="card-outline" size={18} color={appTheme.colors.primary} />
             </View>
+
             <View>
               <Text style={styles.balanceLabel}>Saldo disponible</Text>
               <Text style={styles.balanceValue}>{Math.floor(balance)} créditos</Text>
@@ -127,40 +145,57 @@ export default function UserProfileScreen() {
         <AppCard>
           <Text style={styles.sectionTitle}>Accesos rápidos</Text>
 
-          <Pressable style={styles.menuRow} onPress={() => router.push("/(user)/credits" as any)}>
+          <Pressable
+            style={styles.menuRow}
+            onPress={() => router.push("/(user)/credits" as any)}
+          >
             <View style={[styles.menuIconWrap, { backgroundColor: "#E7F2FF" }]}>
               <Ionicons name="wallet-outline" size={18} color={appTheme.colors.primary} />
             </View>
+
             <View style={styles.menuTextWrap}>
               <Text style={styles.menuTitle}>Créditos</Text>
               <Text style={styles.menuSubtitle}>Gestiona saldo y recargas</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#7B8EA6" />
-          </Pressable>
 
-          <Pressable style={styles.menuRow} onPress={() => router.push("/(user)/referrals" as any)}>
-            <View style={[styles.menuIconWrap, { backgroundColor: "#EAF8EF" }]}>
-              <Ionicons name="people-outline" size={18} color={appTheme.colors.success} />
-            </View>
-            <View style={styles.menuTextWrap}>
-              <Text style={styles.menuTitle}>Referidos</Text>
-              <Text style={styles.menuSubtitle}>Comparte y gana beneficios</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color="#7B8EA6" />
+            <Ionicons name="chevron-forward" size={18} color="#64748B" />
           </Pressable>
 
           <Pressable
             style={styles.menuRow}
-            onPress={() => Alert.alert("Pendiente", "Configuración avanzada se habilitará en la siguiente iteración.")}
+            onPress={() => router.push("/(user)/referrals" as any)}
+          >
+            <View style={[styles.menuIconWrap, { backgroundColor: "#EAF8EF" }]}>
+              <Ionicons name="people-outline" size={18} color={appTheme.colors.success} />
+            </View>
+
+            <View style={styles.menuTextWrap}>
+              <Text style={styles.menuTitle}>Referidos</Text>
+              <Text style={styles.menuSubtitle}>Comparte y gana beneficios</Text>
+            </View>
+
+            <Ionicons name="chevron-forward" size={18} color="#64748B" />
+          </Pressable>
+
+          <Pressable
+            style={styles.menuRow}
+            onPress={() =>
+              Alert.alert(
+                "Pendiente",
+                "Configuración avanzada se habilitará en la siguiente iteración.",
+              )
+            }
           >
             <View style={[styles.menuIconWrap, { backgroundColor: "#F0F4F8" }]}>
               <Ionicons name="settings-outline" size={18} color="#60758E" />
             </View>
+
             <View style={styles.menuTextWrap}>
               <Text style={styles.menuTitle}>Configuración</Text>
               <Text style={styles.menuSubtitle}>Preferencias y privacidad</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#7B8EA6" />
+
+            <Ionicons name="chevron-forward" size={18} color="#64748B" />
           </Pressable>
         </AppCard>
 
@@ -169,7 +204,9 @@ export default function UserProfileScreen() {
 
           <View style={styles.dataRow}>
             <Text style={styles.dataLabel}>Correo</Text>
-            <Text style={styles.dataValue} numberOfLines={1}>{email}</Text>
+            <Text style={styles.dataValue} numberOfLines={1}>
+              {email}
+            </Text>
           </View>
 
           <View style={styles.dataRow}>
@@ -179,7 +216,9 @@ export default function UserProfileScreen() {
 
           <View style={styles.dataRow}>
             <Text style={styles.dataLabel}>Estado del perfil</Text>
-            <Text style={styles.dataValue}>{loading ? "Sincronizando..." : profile?.isProfileComplete ? "Completo" : "Pendiente"}</Text>
+            <Text style={styles.dataValue}>
+              {loading ? "Sincronizando..." : profile?.isProfileComplete ? "Completo" : "Pendiente"}
+            </Text>
           </View>
         </AppCard>
 
@@ -200,21 +239,25 @@ const styles = StyleSheet.create({
     gap: 14,
     backgroundColor: appTheme.colors.background,
   },
+
   headerBlock: {
     gap: 2,
   },
+
   title: {
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.heading,
     fontWeight: "700",
     fontSize: 32,
   },
+
   subtitle: {
-    color: appTheme.colors.textMuted,
+    color: "#475569",
     fontFamily: appTheme.fonts.body,
     fontSize: 14,
     lineHeight: 20,
   },
+
   profileHero: {
     borderRadius: 22,
     paddingHorizontal: 16,
@@ -223,6 +266,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
   },
+
   avatarContainer: {
     width: 72,
     height: 72,
@@ -230,11 +274,13 @@ const styles = StyleSheet.create({
     padding: 3,
     backgroundColor: "rgba(255,255,255,0.4)",
   },
+
   avatarImage: {
     width: "100%",
     height: "100%",
     borderRadius: 17,
   },
+
   avatarFallback: {
     width: "100%",
     height: "100%",
@@ -243,27 +289,32 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+
   avatarInitials: {
     color: "#FFFFFF",
     fontFamily: appTheme.fonts.heading,
     fontWeight: "700",
     fontSize: 24,
   },
+
   heroContent: {
     flex: 1,
     gap: 2,
   },
+
   heroName: {
     color: "#FFFFFF",
     fontFamily: appTheme.fonts.heading,
     fontWeight: "700",
     fontSize: 22,
   },
+
   heroEmail: {
     color: "#D7E8F7",
     fontFamily: appTheme.fonts.body,
     fontSize: 14,
   },
+
   heroMetaRow: {
     marginTop: 8,
     flexDirection: "row",
@@ -271,6 +322,7 @@ const styles = StyleSheet.create({
     gap: 8,
     flexWrap: "wrap",
   },
+
   roleBadge: {
     borderRadius: 999,
     borderWidth: 1,
@@ -279,27 +331,31 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     backgroundColor: "rgba(255,255,255,0.14)",
   },
+
   roleText: {
     color: "#EAF4FF",
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
     fontWeight: "700",
   },
+
   statusBadge: {
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 5,
     backgroundColor: "#8FD1A8",
   },
+
   statusText: {
     color: "#113C22",
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
     fontWeight: "700",
   },
+
   balanceCard: {
     borderWidth: 1,
-    borderColor: "#D4DEE9",
+    borderColor: appTheme.colors.border,
     borderRadius: 18,
     backgroundColor: "#FFFFFF",
     paddingVertical: 12,
@@ -308,12 +364,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
+
   balanceLeft: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     flex: 1,
   },
+
   balanceIconWrap: {
     width: 34,
     height: 34,
@@ -321,48 +379,57 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#EAF3FE",
+    borderWidth: 1,
+    borderColor: "#D6E4F5",
   },
+
   balanceLabel: {
     color: appTheme.colors.textMuted,
     fontFamily: appTheme.fonts.body,
     fontSize: 13,
   },
+
   balanceValue: {
-    color: appTheme.colors.primary,
+    color: appTheme.colors.text,
     fontFamily: appTheme.fonts.heading,
     fontSize: 22,
     fontWeight: "700",
   },
+
   balanceAction: {
     flexDirection: "row",
     alignItems: "center",
     gap: 2,
     marginLeft: 10,
   },
+
   balanceActionText: {
     color: appTheme.colors.primary,
     fontFamily: appTheme.fonts.body,
     fontSize: 15,
     fontWeight: "700",
   },
+
   sectionTitle: {
-    color: "#5F7896",
+    color: appTheme.colors.text,
     fontFamily: appTheme.fonts.heading,
     fontSize: 18,
     fontWeight: "700",
     marginBottom: 2,
   },
+
   menuRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     borderWidth: 1,
-    borderColor: "#E7EDF5",
+    borderColor: appTheme.colors.border,
     borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 11,
     backgroundColor: "#FFFFFF",
   },
+
   menuIconWrap: {
     width: 34,
     height: 34,
@@ -370,21 +437,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+
   menuTextWrap: {
     flex: 1,
   },
+
   menuTitle: {
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.body,
     fontSize: 15,
     fontWeight: "700",
   },
+
   menuSubtitle: {
-    color: appTheme.colors.textMuted,
+    color: "#475569",
     fontFamily: appTheme.fonts.body,
     fontSize: 13,
     marginTop: 2,
   },
+
   dataRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -392,12 +463,14 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     gap: 8,
   },
+
   dataLabel: {
-    color: appTheme.colors.textMuted,
+    color: "#475569",
     fontFamily: appTheme.fonts.body,
     fontSize: 14,
     flex: 1,
   },
+
   dataValue: {
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.body,
@@ -406,6 +479,7 @@ const styles = StyleSheet.create({
     flex: 1.4,
     textAlign: "right",
   },
+
   logoutBtn: {
     minHeight: 50,
     borderRadius: 14,
@@ -417,6 +491,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
   },
+
   logoutText: {
     color: "#DC2626",
     fontFamily: appTheme.fonts.body,
@@ -424,5 +499,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 });
-
 

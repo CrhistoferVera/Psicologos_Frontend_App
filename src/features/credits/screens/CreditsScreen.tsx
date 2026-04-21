@@ -134,7 +134,6 @@ export default function CreditsScreen() {
     })();
   }, []);
 
-  // Backend contract: `balance` is already the total available balance.
   const totalBalance = useMemo(() => balance, [balance]);
 
   const selectedPackage = useMemo(
@@ -196,16 +195,28 @@ export default function CreditsScreen() {
             style={[styles.tabBtn, activeTab === "wallet" && styles.tabBtnActive]}
             onPress={() => setActiveTab("wallet")}
           >
-            <Ionicons name="card-outline" size={15} color={activeTab === "wallet" ? "#FFFFFF" : appTheme.colors.primary} />
-            <Text style={[styles.tabText, activeTab === "wallet" && styles.tabTextActive]}>Mi wallet</Text>
+            <Ionicons
+              name="card-outline"
+              size={15}
+              color={activeTab === "wallet" ? "#FFFFFF" : appTheme.colors.primary}
+            />
+            <Text style={[styles.tabText, activeTab === "wallet" && styles.tabTextActive]}>
+              Mi wallet
+            </Text>
           </Pressable>
 
           <Pressable
             style={[styles.tabBtn, activeTab === "recharge" && styles.tabBtnActive]}
             onPress={() => setActiveTab("recharge")}
           >
-            <Ionicons name="cart-outline" size={15} color={activeTab === "recharge" ? "#FFFFFF" : appTheme.colors.primary} />
-            <Text style={[styles.tabText, activeTab === "recharge" && styles.tabTextActive]}>Recargar</Text>
+            <Ionicons
+              name="cart-outline"
+              size={15}
+              color={activeTab === "recharge" ? "#FFFFFF" : appTheme.colors.primary}
+            />
+            <Text style={[styles.tabText, activeTab === "recharge" && styles.tabTextActive]}>
+              Recargar
+            </Text>
           </Pressable>
         </View>
 
@@ -222,7 +233,9 @@ export default function CreditsScreen() {
               >
                 <Text style={styles.walletLabel}>Saldo disponible</Text>
                 <Text style={styles.walletBalance}>{Math.floor(totalBalance)}</Text>
-                <Text style={styles.walletHint}>créditos · ≈ ${(totalBalance * 0.042).toFixed(2)} USD</Text>
+                <Text style={styles.walletHint}>
+                  créditos · ≈ ${(totalBalance * 0.042).toFixed(2)} USD
+                </Text>
 
                 <Pressable style={styles.walletRechargeBtn} onPress={() => setActiveTab("recharge")}>
                   <Text style={styles.walletRechargeText}>+ Recargar créditos</Text>
@@ -248,7 +261,9 @@ export default function CreditsScreen() {
             {history.length === 0 ? (
               <View style={styles.sectionPad}>
                 <AppCard>
-                  <Text style={styles.emptyText}>{loading ? "Cargando historial..." : "Sin movimientos recientes."}</Text>
+                  <Text style={styles.emptyText}>
+                    {loading ? "Cargando historial..." : "Sin movimientos recientes."}
+                  </Text>
                 </AppCard>
               </View>
             ) : (
@@ -259,17 +274,34 @@ export default function CreditsScreen() {
 
                   return (
                     <View key={item.id} style={styles.moveCard}>
-                      <View style={[styles.moveIconWrap, isCredit ? styles.moveIconCredit : styles.moveIconDebit]}>
-                        <Ionicons name={isCredit ? "arrow-down" : "arrow-up"} size={16} color="#1E293B" />
+                      <View
+                        style={[
+                          styles.moveIconWrap,
+                          isCredit ? styles.moveIconCredit : styles.moveIconDebit,
+                        ]}
+                      >
+                        <Ionicons
+                          name={isCredit ? "arrow-down" : "arrow-up"}
+                          size={16}
+                          color="#1E293B"
+                        />
                       </View>
 
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.moveTitle} numberOfLines={2}>{item.detalle}</Text>
+                        <Text style={styles.moveTitle} numberOfLines={2}>
+                          {item.detalle}
+                        </Text>
                         <Text style={styles.moveDate}>{formatMoveDate(item.fecha)}</Text>
                       </View>
 
-                      <Text style={[styles.moveAmount, isCredit ? styles.creditAmount : styles.debitAmount]}>
-                        {isCredit ? "+" : "-"}{Math.abs(signed)} crd
+                      <Text
+                        style={[
+                          styles.moveAmount,
+                          isCredit ? styles.creditAmount : styles.debitAmount,
+                        ]}
+                      >
+                        {isCredit ? "+" : "-"}
+                        {Math.abs(signed)} crd
                       </Text>
                     </View>
                   );
@@ -354,56 +386,68 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     gap: 12,
   },
+
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
     paddingHorizontal: 16,
   },
+
   backBtn: {
-    width: 30,
-    height: 30,
+    width: 32,
+    height: 32,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 15,
+    borderRadius: 16,
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
   },
+
   title: {
     color: appTheme.colors.text,
     fontSize: 34,
     fontFamily: appTheme.fonts.heading,
     fontWeight: "700",
   },
+
   tabsRow: {
     flexDirection: "row",
     gap: 8,
     paddingHorizontal: 16,
   },
+
   tabBtn: {
     flex: 1,
     minHeight: 40,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: appTheme.colors.border,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#F8FAFC",
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
     gap: 6,
   },
+
   tabBtnActive: {
     backgroundColor: appTheme.colors.primary,
     borderColor: appTheme.colors.primary,
   },
+
   tabText: {
-    color: "#64748B",
+    color: "#475569",
     fontFamily: appTheme.fonts.body,
     fontSize: 15,
     fontWeight: "600",
   },
+
   tabTextActive: {
     color: "#FFFFFF",
     fontWeight: "700",
   },
+
   errorText: {
     color: appTheme.colors.danger,
     fontFamily: appTheme.fonts.body,
@@ -411,20 +455,24 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingHorizontal: 16,
   },
+
   sectionPad: {
     paddingHorizontal: 16,
   },
+
   walletHero: {
     borderRadius: 22,
     paddingHorizontal: 20,
     paddingVertical: 22,
   },
+
   walletLabel: {
-    color: "#DCEAFF",
+    color: "#E2ECFF",
     fontFamily: appTheme.fonts.body,
     fontSize: 16,
     fontWeight: "600",
   },
+
   walletBalance: {
     color: "#FFFFFF",
     fontFamily: appTheme.fonts.heading,
@@ -433,12 +481,14 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginTop: 2,
   },
+
   walletHint: {
     color: "#DCEAFF",
     fontFamily: appTheme.fonts.body,
     fontSize: 15,
     marginTop: 2,
   },
+
   walletRechargeBtn: {
     marginTop: 14,
     alignSelf: "flex-start",
@@ -449,17 +499,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
   },
+
   walletRechargeText: {
     color: "#FFFFFF",
     fontFamily: appTheme.fonts.body,
     fontSize: 16,
     fontWeight: "700",
   },
+
   statsRow: {
     flexDirection: "row",
     gap: 10,
     paddingHorizontal: 16,
   },
+
   statCard: {
     flex: 1,
     borderRadius: 18,
@@ -469,28 +522,33 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 14,
   },
+
   statValue: {
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.heading,
     fontSize: 21,
     fontWeight: "700",
   },
+
   statLabel: {
-    color: appTheme.colors.textMuted,
+    color: "#475569",
     fontFamily: appTheme.fonts.body,
     fontSize: 13,
     marginTop: 2,
   },
+
   sectionTitle: {
-    color: "#607A99",
+    color: appTheme.colors.text,
     fontFamily: appTheme.fonts.heading,
     fontSize: 18,
     fontWeight: "700",
   },
+
   movementsList: {
     gap: 10,
     paddingHorizontal: 16,
   },
+
   moveCard: {
     borderRadius: 18,
     borderWidth: 1,
@@ -502,6 +560,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
   },
+
   moveIconWrap: {
     width: 42,
     height: 42,
@@ -509,46 +568,56 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+
   moveIconCredit: {
     backgroundColor: "#EAF7F0",
   },
+
   moveIconDebit: {
     backgroundColor: "#F8EFEF",
   },
+
   moveTitle: {
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.body,
     fontSize: 15,
     fontWeight: "600",
   },
+
   moveDate: {
-    color: appTheme.colors.textMuted,
+    color: "#475569",
     fontFamily: appTheme.fonts.body,
     fontSize: 13,
     marginTop: 2,
   },
+
   moveAmount: {
     fontFamily: appTheme.fonts.heading,
     fontSize: 16,
     fontWeight: "700",
   },
+
   creditAmount: {
     color: "#5BAA82",
   },
+
   debitAmount: {
     color: "#EF4444",
   },
+
   emptyText: {
-    color: appTheme.colors.textMuted,
+    color: "#475569",
     fontFamily: appTheme.fonts.body,
     textAlign: "center",
   },
+
   packagesGrid: {
     paddingHorizontal: 16,
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 10,
   },
+
   packageCard: {
     width: "48%",
     borderRadius: 18,
@@ -559,11 +628,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     position: "relative",
   },
+
   packageCardSelected: {
     borderColor: appTheme.colors.primary,
     borderWidth: 2,
-    backgroundColor: "#F4F9FF",
+    backgroundColor: "#EEF6FF",
   },
+
   badgePill: {
     position: "absolute",
     top: -10,
@@ -573,12 +644,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 3,
   },
+
   badgeText: {
     color: "#FFFFFF",
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
     fontWeight: "700",
   },
+
   pkgCredits: {
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.heading,
@@ -586,11 +659,13 @@ const styles = StyleSheet.create({
     lineHeight: 42,
     fontWeight: "700",
   },
+
   pkgCreditsLabel: {
-    color: appTheme.colors.textMuted,
+    color: "#475569",
     fontFamily: appTheme.fonts.body,
     fontSize: 15,
   },
+
   pkgPrice: {
     marginTop: 4,
     color: appTheme.colors.primary,
@@ -598,19 +673,22 @@ const styles = StyleSheet.create({
     fontSize: 34,
     fontWeight: "700",
   },
+
   paymentTitle: {
-    color: "#607A99",
+    color: appTheme.colors.text,
     fontFamily: appTheme.fonts.heading,
     fontSize: 17,
     fontWeight: "700",
     marginBottom: 6,
   },
+
   paymentRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     paddingVertical: 8,
   },
+
   radio: {
     width: 18,
     height: 18,
@@ -619,15 +697,18 @@ const styles = StyleSheet.create({
     borderColor: appTheme.colors.primary,
     backgroundColor: "transparent",
   },
+
   radioActive: {
     backgroundColor: appTheme.colors.primary,
   },
+
   paymentText: {
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.body,
     fontSize: 17,
     fontWeight: "500",
   },
+
   buyBtn: {
     borderRadius: 16,
     backgroundColor: appTheme.colors.primary,
@@ -636,22 +717,20 @@ const styles = StyleSheet.create({
     minHeight: 54,
     paddingHorizontal: 14,
   },
+
   buyBtnText: {
     color: "#FFFFFF",
     fontFamily: appTheme.fonts.heading,
     fontSize: 17,
     fontWeight: "700",
   },
+
   secureText: {
     marginTop: 10,
-    color: appTheme.colors.textMuted,
+    color: "#475569",
     fontFamily: appTheme.fonts.body,
     fontSize: 14,
     textAlign: "center",
   },
 });
-
-
-
-
 

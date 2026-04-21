@@ -21,6 +21,7 @@ export default function CompleteProfileScreen() {
   const [loading, setLoading] = useState(false);
   const { setSession } = useAuth();
   const router = useRouter();
+
   const isFormInvalid =
     !firstName.trim() ||
     !lastName.trim() ||
@@ -59,6 +60,7 @@ export default function CompleteProfileScreen() {
         password,
         confirmPassword,
       });
+
       await setSession(response.access_token, response.user);
       router.replace("/(user)/home");
     } catch (error: any) {
@@ -77,18 +79,37 @@ export default function CompleteProfileScreen() {
         </Pressable>
 
         <Text style={styles.title}>Completa tu perfil</Text>
-        <Text style={styles.subtitle}>Configura tu cuenta para empezar a usar la plataforma.</Text>
+        <Text style={styles.subtitle}>
+          Configura tu cuenta para empezar a usar la plataforma.
+        </Text>
+
         <AppInput label="Nombre" value={firstName} onChangeText={setFirstName} />
         <AppInput label="Apellido" value={lastName} onChangeText={setLastName} />
-        <AppInput label="Correo" value={email} onChangeText={setEmail} keyboardType="email-address" />
-        <AppInput label="Contraseña" value={password} onChangeText={setPassword} secureTextEntry />
+        <AppInput
+          label="Correo"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+        />
+        <AppInput
+          label="Contraseña"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+        />
         <AppInput
           label="Confirmar contraseña"
           value={confirmPassword}
           onChangeText={setConfirmPassword}
           secureTextEntry
         />
-        <AppButton title="Crear cuenta" onPress={handleSubmit} loading={loading} disabled={isFormInvalid} />
+
+        <AppButton
+          title="Crear cuenta"
+          onPress={handleSubmit}
+          loading={loading}
+          disabled={isFormInvalid}
+        />
       </View>
     </AppScreen>
   );
@@ -98,35 +119,40 @@ const styles = StyleSheet.create({
   container: {
     gap: 12,
   },
+
   backBtn: {
     alignSelf: "flex-start",
-    minHeight: 32,
+    minHeight: 36,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: appTheme.colors.border,
-    backgroundColor: appTheme.colors.surface,
+    backgroundColor: "#FFFFFF",
     paddingHorizontal: 10,
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
   },
+
   backBtnText: {
     color: appTheme.colors.text,
     fontSize: 13,
     fontFamily: appTheme.fonts.body,
     fontWeight: "600",
   },
+
   title: {
     color: appTheme.colors.text,
     fontSize: 26,
     fontFamily: appTheme.fonts.heading,
     fontWeight: "700",
   },
+
   subtitle: {
-    color: appTheme.colors.textMuted,
+    color: "#475569",
     fontSize: 14,
     lineHeight: 20,
     fontFamily: appTheme.fonts.body,
     marginBottom: 6,
   },
 });
+

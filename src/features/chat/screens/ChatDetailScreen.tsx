@@ -299,6 +299,7 @@ export default function ChatDetailScreen() {
           ListHeaderComponent={<Text style={styles.timeSeparator}>Hoy</Text>}
           renderItem={({ item }) => {
             const mine = item.senderId === user?.id;
+
             return (
               <View style={[styles.messageRow, mine ? styles.messageRowMine : styles.messageRowTheirs]}>
                 {!mine ? (
@@ -356,6 +357,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: appTheme.colors.background,
   },
+
   header: {
     paddingBottom: 10,
     paddingHorizontal: 12,
@@ -364,101 +366,129 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    backgroundColor: appTheme.colors.surface,
+    backgroundColor: "#FFFFFF",
   },
+
   iconBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#EEF2F7",
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
   },
+
   iconBtnMuted: {
     width: 38,
     height: 38,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#F0EDF9",
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
   },
+
   iconBtnMutedDisabled: {
     opacity: 0.55,
   },
+
   headerActions: {
     flexDirection: "row",
     gap: 8,
   },
+
   avatar: {
     width: 46,
     height: 46,
     borderRadius: 16,
     backgroundColor: "#E2E8F0",
   },
+
   name: {
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.heading,
     fontSize: 17,
     fontWeight: "700",
   },
+
   sub: {
     color: appTheme.colors.success,
     fontFamily: appTheme.fonts.body,
     fontSize: 14,
+    fontWeight: "600",
   },
+
   balanceWrap: {
     paddingHorizontal: 12,
     paddingTop: 10,
     paddingBottom: 6,
-    backgroundColor: appTheme.colors.surface,
+    backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
     borderBottomColor: appTheme.colors.border,
   },
+
   balanceCard: {
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#A9D0F5",
-    backgroundColor: "#EEF6FF",
+    borderColor: appTheme.colors.border,
+    backgroundColor: "#F8FAFC",
     paddingHorizontal: 14,
     paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
+
   balanceLeft: {
     flexDirection: "row",
     alignItems: "center",
     flexShrink: 1,
   },
+
   balanceText: {
-    color: "#526780",
+    color: "#475569",
     fontFamily: appTheme.fonts.body,
     fontSize: 13,
   },
+
   balanceStrong: {
-    color: appTheme.colors.primary,
+    color: appTheme.colors.text,
     fontFamily: appTheme.fonts.heading,
     fontSize: 14,
     fontWeight: "700",
   },
+
   balanceAction: {
     color: appTheme.colors.primary,
     fontFamily: appTheme.fonts.body,
     fontSize: 14,
     fontWeight: "700",
   },
+
   warningWrap: {
+    marginHorizontal: 12,
+    marginTop: 8,
+    borderRadius: 12,
+    paddingVertical: 8,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    backgroundColor: "#FFF7E6",
+    borderWidth: 1,
+    borderColor: "#F8E6B8",
   },
+
   warningText: {
     color: "#9A4C00",
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
+    textAlign: "center",
   },
+
   errorWrap: {
     marginHorizontal: 12,
-    marginBottom: 8,
+    marginTop: 8,
     borderRadius: 12,
     paddingVertical: 8,
     paddingHorizontal: 12,
@@ -466,15 +496,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#FCA5A5",
   },
+
   errorText: {
     color: "#991B1B",
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
     textAlign: "center",
   },
+
   chatBody: {
     flex: 1,
   },
+
   loadingWrap: {
     paddingVertical: 8,
     flexDirection: "row",
@@ -482,29 +515,35 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 6,
   },
+
   loadingText: {
-    color: appTheme.colors.textMuted,
+    color: "#475569",
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
   },
+
   emptyWrap: {
     marginTop: 12,
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
   },
+
   emptyText: {
-    color: appTheme.colors.textMuted,
+    color: "#475569",
     fontFamily: appTheme.fonts.body,
     fontSize: 13,
   },
+
   timeSeparator: {
     alignSelf: "center",
     marginBottom: 10,
-    color: "#94A3B8",
+    color: "#64748B",
     fontFamily: appTheme.fonts.body,
     fontSize: 13,
+    fontWeight: "600",
   },
+
   messages: {
     paddingHorizontal: 12,
     paddingTop: 10,
@@ -512,17 +551,21 @@ const styles = StyleSheet.create({
     gap: 10,
     flexGrow: 1,
   },
+
   messageRow: {
     flexDirection: "row",
     alignItems: "flex-end",
     gap: 6,
   },
+
   messageRowMine: {
     justifyContent: "flex-end",
   },
+
   messageRowTheirs: {
     justifyContent: "flex-start",
   },
+
   bubbleAvatar: {
     width: 22,
     height: 22,
@@ -530,6 +573,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E2E8F0",
     marginBottom: 4,
   },
+
   bubble: {
     maxWidth: "82%",
     borderRadius: 18,
@@ -537,35 +581,42 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 8,
   },
+
   mine: {
     backgroundColor: appTheme.colors.primary,
     borderBottomRightRadius: 8,
   },
+
   theirs: {
-    backgroundColor: appTheme.colors.surface,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: appTheme.colors.border,
     borderBottomLeftRadius: 8,
   },
+
   messageText: {
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.body,
     fontSize: 15,
     lineHeight: 21,
   },
+
   messageTextMine: {
     color: "#FFFFFF",
   },
+
   messageMeta: {
     marginTop: 4,
-    color: "#94A3B8",
+    color: "#64748B",
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
     textAlign: "right",
   },
+
   messageMetaMine: {
     color: "rgba(255,255,255,0.88)",
   },
+
   inputBar: {
     paddingTop: 8,
     paddingHorizontal: 10,
@@ -574,8 +625,9 @@ const styles = StyleSheet.create({
     gap: 8,
     borderTopWidth: 1,
     borderTopColor: appTheme.colors.border,
-    backgroundColor: appTheme.colors.surface,
+    backgroundColor: "#FFFFFF",
   },
+
   leftIconBtn: {
     width: 30,
     height: 30,
@@ -584,12 +636,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 6,
   },
+
   input: {
     flex: 1,
-    backgroundColor: "#EEF2F7",
+    backgroundColor: "#F8FAFC",
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: "#D4DEE9",
+    borderColor: appTheme.colors.border,
     paddingHorizontal: 14,
     paddingTop: 10,
     paddingBottom: 10,
@@ -597,6 +650,7 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.body,
     fontSize: 15,
   },
+
   sendButton: {
     width: 42,
     height: 42,
@@ -606,7 +660,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 2,
   },
+
   sendButtonDisabled: {
     opacity: 0.45,
   },
 });
+

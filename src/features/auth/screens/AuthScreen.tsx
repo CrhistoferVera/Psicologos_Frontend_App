@@ -94,14 +94,18 @@ export default function AuthScreen() {
               style={[styles.segmentBtn, mode === "login" && styles.segmentBtnActive]}
               onPress={() => setMode("login")}
             >
-              <Text style={[styles.segmentText, mode === "login" && styles.segmentTextActive]}>Iniciar sesión</Text>
+              <Text style={[styles.segmentText, mode === "login" && styles.segmentTextActive]}>
+                Iniciar sesión
+              </Text>
             </Pressable>
 
             <Pressable
               style={[styles.segmentBtn, mode === "register" && styles.segmentBtnActive]}
               onPress={() => setMode("register")}
             >
-              <Text style={[styles.segmentText, mode === "register" && styles.segmentTextActive]}>Registrarse</Text>
+              <Text style={[styles.segmentText, mode === "register" && styles.segmentTextActive]}>
+                Registrarse
+              </Text>
             </Pressable>
           </View>
 
@@ -113,7 +117,7 @@ export default function AuthScreen() {
                   value={email}
                   onChangeText={setEmail}
                   placeholder="ana@ejemplo.com"
-                  placeholderTextColor="#7287A2"
+                  placeholderTextColor="#64748B"
                   keyboardType="email-address"
                   autoCapitalize="none"
                   style={styles.input}
@@ -127,7 +131,7 @@ export default function AuthScreen() {
                     value={password}
                     onChangeText={setPassword}
                     placeholder="********"
-                    placeholderTextColor="#7287A2"
+                    placeholderTextColor="#64748B"
                     secureTextEntry={!showPassword}
                     autoCapitalize="none"
                     style={styles.passwordInput}
@@ -138,7 +142,12 @@ export default function AuthScreen() {
                 </View>
               </View>
 
-              <Pressable style={styles.forgotWrap} onPress={() => Alert.alert("Próximamente", "La recuperación de contraseña se habilitará pronto.")}> 
+              <Pressable
+                style={styles.forgotWrap}
+                onPress={() =>
+                  Alert.alert("Próximamente", "La recuperación de contraseña se habilitará pronto.")
+                }
+              >
                 <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
               </Pressable>
 
@@ -167,22 +176,26 @@ export default function AuthScreen() {
                 <Text style={styles.label}>Número de teléfono</Text>
                 <View style={styles.phoneRow}>
                   <Pressable style={styles.countryBtn} onPress={() => setCountryModalVisible(true)}>
-                    <Text style={styles.countryBtnText}>{selectedCountry.code} +{selectedCountry.dialCode}</Text>
-                    <Ionicons name="chevron-down" size={16} color="#6A7E97" />
+                    <Text style={styles.countryBtnText}>
+                      {selectedCountry.code} +{selectedCountry.dialCode}
+                    </Text>
+                    <Ionicons name="chevron-down" size={16} color="#475569" />
                   </Pressable>
 
                   <TextInput
                     value={phone}
                     onChangeText={(value) => setPhone(value.replace(/\D/g, ""))}
                     placeholder="70000000"
-                    placeholderTextColor="#7287A2"
+                    placeholderTextColor="#64748B"
                     keyboardType="number-pad"
                     style={styles.phoneInput}
                   />
                 </View>
               </View>
 
-              <Text style={styles.registerHelp}>Te enviaremos un código OTP al {fullPhone} para validar tu cuenta.</Text>
+              <Text style={styles.registerHelp}>
+                Te enviaremos un código OTP al {fullPhone} para validar tu cuenta.
+              </Text>
 
               <Pressable
                 style={[styles.primaryBtn, registerDisabled && styles.primaryBtnDisabled]}
@@ -194,7 +207,10 @@ export default function AuthScreen() {
             </>
           )}
 
-          <Pressable style={styles.professionalCta} onPress={() => router.push("/(public)/professional-register" as any)}>
+          <Pressable
+            style={styles.professionalCta}
+            onPress={() => router.push("/(public)/professional-register" as any)}
+          >
             <Text style={styles.professionalText}>Soy professional · Crear cuenta profesional</Text>
           </Pressable>
 
@@ -211,9 +227,11 @@ export default function AuthScreen() {
         <Pressable style={styles.modalBackdrop} onPress={() => setCountryModalVisible(false)}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Selecciona país</Text>
+
             <ScrollView style={styles.countryList} showsVerticalScrollIndicator={false}>
               {COUNTRIES_LATAM.map((country) => {
                 const active = country.code === selectedCountry.code;
+
                 return (
                   <Pressable
                     key={country.code}
@@ -223,8 +241,12 @@ export default function AuthScreen() {
                       setCountryModalVisible(false);
                     }}
                   >
-                    <Text style={[styles.countryName, active && styles.countryNameActive]}>{country.name}</Text>
-                    <Text style={[styles.countryCode, active && styles.countryNameActive]}>+{country.dialCode}</Text>
+                    <Text style={[styles.countryName, active && styles.countryNameActive]}>
+                      {country.name}
+                    </Text>
+                    <Text style={[styles.countryCode, active && styles.countryNameActive]}>
+                      +{country.dialCode}
+                    </Text>
                   </Pressable>
                 );
               })}
@@ -244,45 +266,51 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 18,
   },
+
   card: {
     borderRadius: 20,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#E5ECF4",
+    borderColor: appTheme.colors.border,
     paddingHorizontal: 16,
     paddingVertical: 18,
     gap: 12,
   },
+
   iconWrap: {
     width: 50,
     height: 50,
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#6F8FC8",
+    backgroundColor: "#5B9BD5",
   },
+
   title: {
-    color: "#172B46",
+    color: appTheme.colors.text,
     fontFamily: appTheme.fonts.heading,
     fontWeight: "700",
     fontSize: 24,
     lineHeight: 31,
   },
+
   subtitle: {
-    color: "#6C819C",
+    color: "#475569",
     fontFamily: appTheme.fonts.body,
     fontSize: 16,
     lineHeight: 22,
   },
+
   segmentedWrap: {
     flexDirection: "row",
     borderRadius: 17,
     borderWidth: 1,
-    borderColor: "#D4DFEB",
-    backgroundColor: "#F2F6FB",
+    borderColor: appTheme.colors.border,
+    backgroundColor: "#F8FAFC",
     padding: 4,
     gap: 4,
   },
+
   segmentBtn: {
     flex: 1,
     minHeight: 42,
@@ -290,86 +318,98 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+
   segmentBtnActive: {
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#E4ECF5",
+    borderColor: appTheme.colors.border,
   },
+
   segmentText: {
-    color: "#6A7E97",
+    color: "#64748B",
     fontFamily: appTheme.fonts.body,
     fontSize: 14,
     fontWeight: "600",
   },
+
   segmentTextActive: {
-    color: "#172B46",
+    color: appTheme.colors.text,
     fontWeight: "700",
   },
+
   fieldWrap: {
     gap: 8,
   },
+
   label: {
-    color: "#253A56",
+    color: appTheme.colors.text,
     fontFamily: appTheme.fonts.body,
     fontSize: 15,
     fontWeight: "600",
   },
+
   input: {
     minHeight: 52,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: appTheme.colors.primary,
-    backgroundColor: "#F6FAFF",
+    borderColor: appTheme.colors.border,
+    backgroundColor: "#F8FAFC",
     paddingHorizontal: 14,
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.body,
     fontSize: 14,
   },
+
   phoneRow: {
     flexDirection: "row",
     gap: 8,
     alignItems: "center",
   },
+
   countryBtn: {
     minHeight: 52,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#D4DFEB",
-    backgroundColor: "#F4F7FB",
+    borderColor: appTheme.colors.border,
+    backgroundColor: "#F8FAFC",
     paddingHorizontal: 12,
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
   },
+
   countryBtnText: {
-    color: "#2B405B",
+    color: appTheme.colors.text,
     fontFamily: appTheme.fonts.body,
     fontSize: 14,
     fontWeight: "700",
   },
+
   phoneInput: {
     flex: 1,
     minHeight: 52,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: appTheme.colors.primary,
-    backgroundColor: "#F6FAFF",
+    borderColor: appTheme.colors.border,
+    backgroundColor: "#F8FAFC",
     paddingHorizontal: 14,
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.body,
     fontSize: 14,
   },
+
   passwordWrap: {
     minHeight: 52,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#D4DFEB",
-    backgroundColor: "#F4F7FB",
+    borderColor: appTheme.colors.border,
+    backgroundColor: "#F8FAFC",
     paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
   },
+
   passwordInput: {
     flex: 1,
     color: appTheme.colors.text,
@@ -377,22 +417,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     paddingVertical: 0,
   },
+
   passwordToggle: {
     color: appTheme.colors.primary,
     fontFamily: appTheme.fonts.body,
     fontSize: 14,
     fontWeight: "600",
   },
+
   forgotWrap: {
     alignItems: "center",
     marginTop: -2,
   },
+
   forgotText: {
     color: appTheme.colors.primary,
     fontFamily: appTheme.fonts.body,
     fontSize: 15,
     fontWeight: "500",
   },
+
   primaryBtn: {
     minHeight: 54,
     borderRadius: 18,
@@ -400,72 +444,83 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+
   primaryBtnDisabled: {
     opacity: 0.65,
   },
+
   primaryBtnText: {
     color: "#FFFFFF",
     fontFamily: appTheme.fonts.heading,
     fontSize: 17,
     fontWeight: "700",
   },
+
   dividerRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     marginTop: -2,
   },
+
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: "#DEE6F1",
+    backgroundColor: appTheme.colors.border,
   },
+
   dividerText: {
-    color: "#9BAABC",
+    color: "#64748B",
     fontFamily: appTheme.fonts.body,
     fontSize: 14,
     fontWeight: "600",
   },
+
   googleBtn: {
     minHeight: 52,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#D5E0EC",
+    borderColor: appTheme.colors.border,
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
     gap: 10,
   },
+
   googleDot: {
     width: 14,
     height: 14,
     borderRadius: 7,
-    backgroundColor: "#5B9BD5",
+    backgroundColor: appTheme.colors.primary,
   },
+
   googleText: {
-    color: "#2B405B",
+    color: appTheme.colors.text,
     fontFamily: appTheme.fonts.body,
     fontSize: 16,
     fontWeight: "600",
   },
+
   registerHelp: {
-    color: "#6B809C",
+    color: "#475569",
     fontFamily: appTheme.fonts.body,
     fontSize: 14,
     lineHeight: 20,
   },
+
   professionalCta: {
     minHeight: 44,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#CFE3D7",
+    borderColor: "#B7D9C5",
     backgroundColor: "#F4FAF6",
     alignItems: "center",
     justifyContent: "center",
     marginTop: 2,
     paddingHorizontal: 10,
   },
+
   professionalText: {
     color: appTheme.colors.success,
     fontFamily: appTheme.fonts.body,
@@ -473,36 +528,42 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontWeight: "700",
   },
+
   errorText: {
     color: appTheme.colors.danger,
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
     textAlign: "center",
   },
+
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(15, 23, 42, 0.35)",
     justifyContent: "center",
     paddingHorizontal: 20,
   },
+
   modalCard: {
     borderRadius: 18,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: appTheme.colors.border,
     maxHeight: "70%",
     padding: 14,
   },
+
   modalTitle: {
-    color: "#172B46",
+    color: appTheme.colors.text,
     fontFamily: appTheme.fonts.heading,
     fontSize: 18,
     fontWeight: "700",
     marginBottom: 10,
   },
+
   countryList: {
     maxHeight: 380,
   },
+
   countryItem: {
     minHeight: 44,
     borderRadius: 12,
@@ -511,22 +572,27 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
+
   countryItemActive: {
     backgroundColor: "#EEF5FF",
   },
+
   countryName: {
-    color: "#2B405B",
+    color: appTheme.colors.text,
     fontFamily: appTheme.fonts.body,
     fontSize: 14,
     fontWeight: "600",
   },
+
   countryCode: {
-    color: "#6A7E97",
+    color: "#64748B",
     fontFamily: appTheme.fonts.body,
     fontSize: 14,
     fontWeight: "700",
   },
+
   countryNameActive: {
     color: appTheme.colors.primary,
   },
 });
+

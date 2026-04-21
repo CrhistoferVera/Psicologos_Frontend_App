@@ -1,4 +1,4 @@
-import { StyleSheet, Text, TextInput, TextStyle, View } from "react-native";
+import { StyleSheet, Text, TextInput, type TextStyle, View } from "react-native";
 import { appTheme } from "../../theme/appTheme";
 
 type Props = {
@@ -25,6 +25,7 @@ export default function AppInput({
   return (
     <View style={styles.wrapper}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
+
       <TextInput
         value={value}
         onChangeText={onChangeText}
@@ -44,17 +45,20 @@ const styles = StyleSheet.create({
   wrapper: {
     gap: 8,
   },
+
   label: {
     color: appTheme.colors.text,
     fontSize: 13,
     fontFamily: appTheme.fonts.body,
-    fontWeight: "500",
+    fontWeight: "600",
   },
+
   inputDisabled: {
-    opacity: 0.5,
+    opacity: 0.55,
   },
+
   input: {
-    backgroundColor: appTheme.colors.surface,
+    backgroundColor: "#F8FAFC",
     borderRadius: appTheme.radius.lg,
     borderWidth: 1,
     borderColor: appTheme.colors.border,

@@ -17,13 +17,16 @@ export default function AppChip({ label, active = false, onPress }: Props) {
 
 const styles = StyleSheet.create({
   base: {
-    backgroundColor: "#EEF5FB",
+    backgroundColor: "#F1F5F9",
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
   },
   active: {
     backgroundColor: appTheme.colors.primary,
+    borderColor: appTheme.colors.primary,
   },
   label: {
     color: appTheme.colors.text,
@@ -33,6 +36,7 @@ const styles = StyleSheet.create({
   },
   activeLabel: {
     color: "#FFFFFF",
+    fontWeight: "700",
   },
 });
 
