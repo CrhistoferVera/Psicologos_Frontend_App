@@ -3,9 +3,11 @@ import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native"
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import { useStripe } from "@stripe/stripe-react-native";
 import AppCard from "../../../components/ui/AppCard";
 import AppScreen from "../../../components/ui/AppScreen";
-import { apiGetAllPackages, apiFlowCreatePayment } from "../../../api/package";
+import { apiGetAllPackages } from "../../../api/package";
+import { apiCreatePaymentIntent } from "../../../api/stripe";
 import { apiGetMyWallet } from "../../../api/userClient";
 import { apiGetExpenseHistory } from "../../../api/userProfile";
 import { appTheme } from "../../../theme/appTheme";
@@ -164,12 +166,33 @@ export default function CreditsScreen() {
       .reduce((acc, item) => acc + Math.abs(Math.min(signedAmount(item), 0)), 0);
   }, [history]);
 
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+
   async function handleBuy(packageId: string) {
     try {
-      const response = await apiFlowCreatePayment(packageId);
-      if (response?.paymentUrl) {
-        await Linking.openURL(response.paymentUrl);
+      const { clientSecret } = await apiCreatePaymentIntent(packageId);
+
+      const { error: initError } = await initPaymentSheet({
+        paymentIntentClientSecret: clientSecret,
+        merchantDisplayName: "PsyConnect",
+      });
+      if (initError) {
+        Alert.alert("Error", initError.message);
+        return;
       }
+
+      const { error: presentError } = await presentPaymentSheet();
+      if (presentError) {
+        if (presentError.code !== "Canceled") {
+          Alert.alert("Pago fallido", presentError.message);
+        }
+        return;
+      }
+
+      Alert.alert("¡Pago exitoso!", "Tus créditos serán acreditados en breve.");
+      const wallet = await apiGetMyWallet();
+      setBalance(Number(wallet?.balance ?? 0));
+      setActiveTab("wallet");
     } catch (err: any) {
       Alert.alert("No se pudo iniciar la recarga", err?.message ?? "Intenta nuevamente.");
     }
