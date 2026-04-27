@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -6,8 +6,8 @@ import { useRouter } from "expo-router";
 import { useStripe } from "@stripe/stripe-react-native";
 import AppCard from "../../../components/ui/AppCard";
 import AppScreen from "../../../components/ui/AppScreen";
-import { apiGetAllPackages } from "../../../api/package";
-import { apiCreatePaymentIntent } from "../../../api/stripe";
+import { apiGetAllPackages, apiFlowCreatePayment } from "../../../api/package";
+import { apiCreatePaymentIntent, apiCreateEphemeralKey } from "../../../api/stripe";
 import { apiGetMyWallet } from "../../../api/userClient";
 import { apiGetExpenseHistory } from "../../../api/userProfile";
 import { appTheme } from "../../../theme/appTheme";
@@ -27,7 +27,7 @@ type ExpenseItem = {
   tipo?: string;
 };
 
-type PaymentMethod = "card" | "paypal";
+type PaymentMethod = "card" | "paypal" | "stripe";
 type TabKey = "wallet" | "recharge";
 
 function asNumber(value: string | number | null | undefined) {
@@ -68,6 +68,8 @@ function signedAmount(item: ExpenseItem) {
 
 export default function CreditsScreen() {
   const router = useRouter();
+
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
   const [activeTab, setActiveTab] = useState<TabKey>("wallet");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
@@ -165,15 +167,30 @@ export default function CreditsScreen() {
       .reduce((acc, item) => acc + Math.abs(Math.min(signedAmount(item), 0)), 0);
   }, [history]);
 
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  async function handleFlowBuy(packageId: string) {
+    try {
+      const response = await apiFlowCreatePayment(packageId);
+      if (response?.paymentUrl) {
+        await Linking.openURL(response.paymentUrl);
+      }
+    } catch (err: any) {
+      Alert.alert("No se pudo iniciar la recarga", err?.message ?? "Intenta nuevamente.");
+    }
+  }
 
   async function handleBuy(packageId: string) {
     try {
-      const { clientSecret } = await apiCreatePaymentIntent(packageId);
+      const [{ clientSecret, customerId }, ephemeralKey] = await Promise.all([
+        apiCreatePaymentIntent(packageId, true),
+        apiCreateEphemeralKey(),
+      ]);
 
       const { error: initError } = await initPaymentSheet({
         paymentIntentClientSecret: clientSecret,
+        customerId,
+        customerEphemeralKeySecret: ephemeralKey.secret,
         merchantDisplayName: "PsyConnect",
+        setupIntentClientSecret: undefined,
       });
       if (initError) {
         Alert.alert("Error", initError.message);
@@ -377,6 +394,12 @@ export default function CreditsScreen() {
                   <Ionicons name="logo-paypal" size={16} color={appTheme.colors.primary} />
                   <Text style={styles.paymentText}>PayPal</Text>
                 </Pressable>
+
+                <Pressable style={styles.paymentRow} onPress={() => setPaymentMethod("stripe")}>
+                  <View style={[styles.radio, paymentMethod === "stripe" && styles.radioActive]} />
+                  <Ionicons name="card" size={16} color={appTheme.colors.primary} />
+                  <Text style={styles.paymentText}>Stripe</Text>
+                </Pressable>
               </AppCard>
             </View>
 
@@ -384,7 +407,14 @@ export default function CreditsScreen() {
               <Pressable
                 style={[styles.buyBtn, (!selectedPackage || loading) && { opacity: 0.6 }]}
                 disabled={!selectedPackage || loading}
-                onPress={() => selectedPackage && handleBuy(selectedPackage.id)}
+                onPress={() => {
+                  if (!selectedPackage) return;
+                  if (paymentMethod === "card" || paymentMethod === "paypal") {
+                    void handleFlowBuy(selectedPackage.id);
+                  } else {
+                    void handleBuy(selectedPackage.id);
+                  }
+                }}
               >
                 <Text style={styles.buyBtnText}>
                   {selectedPackage

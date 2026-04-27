@@ -1,7 +1,6 @@
 ﻿import { Platform } from "react-native"; 
 
 const fallbackRemoteApi = "https://caja-negra-psico-back.wkhbmg.easypanel.host/";
-
 const webApiUrl = process.env.EXPO_PUBLIC_API_URL_WEB;
 const nativeApiUrl = process.env.EXPO_PUBLIC_API_URL_NATIVE;
 const sharedApiUrl = process.env.EXPO_PUBLIC_API_URL;
