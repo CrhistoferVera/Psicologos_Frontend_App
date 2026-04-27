@@ -39,19 +39,22 @@ function parsePricesFromServicePrices(servicePrices: any[] | undefined): Profess
 function mapRawProfessional(item: any): Professional {
   const basePrice = Number(item?.rateCredits ?? item?.credits ?? 0);
   const servicePrices = parsePricesFromServicePrices(item?.servicePrices);
+  const coverImage: string | undefined =
+    item?.mainImage ?? item?.coverUrl ?? item?.coverImage ?? undefined;
   return {
     id: String(item?.id ?? ""),
     name: String(item?.name ?? item?.fullName ?? "Professional"),
     username: item?.username ?? undefined,
     avatar: item?.avatar ?? item?.avatarUrl ?? "",
+    coverImage: coverImage || undefined,
     bio: String(item?.bio ?? item?.shortDescription ?? "Perfil profesional disponible."),
     specialties: parseSpecialties(item?.specialties ?? item?.tags ?? item?.specialty),
     isOnline: Boolean(item?.isOnline ?? false),
     rating: typeof item?.rating === "number" ? item.rating : undefined,
     prices: {
-      chat: basePrice > 0 ? basePrice : servicePrices.chat,
-      call: servicePrices.call,
-      video: servicePrices.video,
+      chat: basePrice > 0 ? basePrice : (servicePrices.chat ?? null),
+      call: servicePrices.call ?? null,
+      video: servicePrices.video ?? null,
     },
   };
 }
