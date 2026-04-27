@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useState } from "react";
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import AppCard from "../../../components/ui/AppCard";
 import AppChip from "../../../components/ui/AppChip";
 import { appTheme } from "../../../theme/appTheme";
@@ -49,6 +49,8 @@ export default function AdminProfessionalsScreen() {
   const [selectedSpecialtyIds, setSelectedSpecialtyIds] = useState<string[]>([]);
   const [savingSpecialties, setSavingSpecialties] = useState(false);
   const [specialtyNameByProfessionalId, setSpecialtyNameByProfessionalId] = useState<Record<string, string>>({});
+  const [detailProfessional, setDetailProfessional] = useState<AdminProfessionalRecord | null>(null);
+  const [detailStats, setDetailStats] = useState<any>(null);
 
   async function load(initial = false) {
     try {
@@ -115,54 +117,19 @@ export default function AdminProfessionalsScreen() {
   }
 
   async function handleOpenDetails(row: AdminProfessionalRecord) {
-    const p = row.professionalProfile;
-    const faceScore = p?.kycFaceMatchScore != null ? `${Number(p.kycFaceMatchScore).toFixed(1)}%` : "N/A";
-    const faceStatus = p?.kycFaceMatchStatus ?? "PENDING";
-
-    const docs: { label: string; url: string | null | undefined }[] = [
-      { label: "Documento de identidad", url: p?.idDocUrl },
-      { label: "Video de rostro", url: p?.kycVideoUrl },
-      { label: "Matrícula profesional", url: p?.matriculaUrl },
-      { label: "Título profesional", url: p?.tituloProfesionalUrl },
-    ];
-
-    const availableDocs = docs.filter((d) => d.url);
-    const docCount = availableDocs.length;
-
-    const buttons = [
-      { text: "Cerrar", style: "cancel" as const },
-      ...availableDocs.map((d) => ({
-        text: `Ver ${d.label}`,
-        onPress: () => {
-          void Linking.openURL(d.url!);
-        },
-      })),
-    ];
-
+    setDetailProfessional(row);
+    setDetailStats(null);
     try {
       const stats = await getAdminProfessionalStats(row.id);
-
-      Alert.alert(
-        fullName(row),
-        `Balance: ${Number(stats?.balance?.credits ?? 0).toFixed(2)} cr\nHoy: ${Number(
-          stats?.earnings?.today?.credits ?? 0,
-        ).toFixed(2)} cr\nMes: ${Number(stats?.earnings?.thisMonth?.credits ?? 0).toFixed(
-          2,
-        )} cr\n\n— KYC —\nCotejo facial: ${faceScore} (${faceStatus})\nDocs: ${docCount}/4`,
-        buttons,
-      );
+      setDetailStats(stats);
     } catch {
-      Alert.alert(
-        fullName(row),
-        `— KYC —\nCotejo facial: ${faceScore} (${faceStatus})\nDocs: ${docCount}/4`,
-        buttons,
-      );
+      // stats no disponibles, panel igual se muestra
     }
   }
 
   async function handleSelectProfessional(row: AdminProfessionalRecord) {
     setSelectedProfessional(row);
-
+    setDetailProfessional(null);
     try {
       const assigned = await getProfessionalSpecialtiesAdmin(row.id);
       const ids = assigned.map((item: any) => item?.specialty?.id).filter(Boolean);
@@ -442,6 +409,99 @@ export default function AdminProfessionalsScreen() {
         </Pressable>
       ) : null}
 
+      {/* Modal de detalles KYC */}
+      <Modal
+        visible={detailProfessional !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDetailProfessional(null)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setDetailProfessional(null)}>
+          <Pressable style={styles.modalBox} onPress={(e) => e.stopPropagation()}>
+            {detailProfessional == null ? null : <>
+            <View style={styles.detailHeader}>
+              <Text style={styles.panelTitle}>{fullName(detailProfessional)}</Text>
+              <Pressable style={styles.closeBtn} onPress={() => setDetailProfessional(null)}>
+                <Text style={styles.closeBtnText}>✕</Text>
+              </Pressable>
+            </View>
+
+            {detailStats ? (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailStat}>Balance: <Text style={styles.detailValue}>{Number(detailStats?.balance?.credits ?? 0).toFixed(2)} cr</Text></Text>
+                <Text style={styles.detailStat}>Hoy: <Text style={styles.detailValue}>{Number(detailStats?.earnings?.today?.credits ?? 0).toFixed(2)} cr</Text></Text>
+                <Text style={styles.detailStat}>Mes: <Text style={styles.detailValue}>{Number(detailStats?.earnings?.thisMonth?.credits ?? 0).toFixed(2)} cr</Text></Text>
+              </View>
+            ) : null}
+
+            <Text style={styles.detailSection}>COTEJO FACIAL</Text>
+            <Text style={styles.detailStat}>
+              Score:{" "}
+              <Text style={[styles.detailValue, {
+                color: detailProfessional?.professionalProfile?.kycFaceMatchStatus === "PASSED"
+                  ? appTheme.colors.success
+                  : detailProfessional?.professionalProfile?.kycFaceMatchStatus === "FAILED"
+                    ? appTheme.colors.danger
+                    : appTheme.colors.textMuted,
+              }]}>
+                {detailProfessional?.professionalProfile?.kycFaceMatchScore != null
+                  ? `${Number(detailProfessional.professionalProfile.kycFaceMatchScore).toFixed(1)}%`
+                  : "N/A"}{" "}
+                ({detailProfessional?.professionalProfile?.kycFaceMatchStatus ?? "PENDING"})
+              </Text>
+            </Text>
+
+            <Text style={styles.detailSection}>DOCUMENTOS KYC</Text>
+            {[
+              { label: "Documento de identidad", url: detailProfessional?.professionalProfile?.idDocUrl },
+              { label: "Video de rostro", url: detailProfessional?.professionalProfile?.kycVideoUrl },
+              { label: "Matrícula profesional", url: detailProfessional?.professionalProfile?.matriculaUrl },
+              { label: "Título profesional", url: detailProfessional?.professionalProfile?.tituloProfesionalUrl },
+            ].map((doc) => (
+              <View key={doc.label} style={styles.docRow}>
+                <Text style={styles.detailStat}>{doc.label}:</Text>
+                {doc.url ? (
+                  <Pressable onPress={() => void Linking.openURL(doc.url!)}>
+                    <Text style={styles.docLink}>Ver documento ↗</Text>
+                  </Pressable>
+                ) : (
+                  <Text style={styles.docMissing}>No cargado</Text>
+                )}
+              </View>
+            ))}
+
+            <View style={styles.modalActions}>
+              {detailProfessional?.isActive ? (
+                <Pressable
+                  style={styles.rejectBtn}
+                  onPress={() => {
+                    void handleToggleStatus(detailProfessional!, false);
+                    setDetailProfessional(null);
+                  }}
+                >
+                  <Text style={styles.rejectText}>Rechazar</Text>
+                </Pressable>
+              ) : (
+                <Pressable
+                  style={styles.approveBtn}
+                  onPress={() => {
+                    void handleToggleStatus(detailProfessional!, true);
+                    setDetailProfessional(null);
+                  }}
+                >
+                  <Text style={styles.approveText}>Aprobar</Text>
+                </Pressable>
+              )}
+              <Pressable style={styles.closeBtn} onPress={() => setDetailProfessional(null)}>
+                <Text style={styles.closeBtnText}>Cerrar</Text>
+              </Pressable>
+            </View>
+            </>}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Panel de editar especialidades */}
       <AppCard>
         <Text style={styles.panelTitle}>Asignar especialidades</Text>
         <Text style={styles.panelHint}>
@@ -726,6 +786,113 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.body,
     fontSize: 13,
     fontWeight: "700",
+  },
+
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+
+  modalBox: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 24,
+    width: "100%",
+    maxWidth: 560,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+
+  closeBtn: {
+    borderRadius: 8,
+    backgroundColor: "#F1F5F9",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+
+  closeBtnText: {
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 10,
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: appTheme.colors.border,
+  },
+
+  detailHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+
+  detailClose: {
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+
+  detailRow: {
+    flexDirection: "row",
+    gap: 16,
+    flexWrap: "wrap",
+    marginBottom: 8,
+  },
+
+  detailSection: {
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 10,
+    marginBottom: 4,
+    letterSpacing: 0.5,
+  },
+
+  detailStat: {
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 13,
+  },
+
+  detailValue: {
+    fontWeight: "700",
+  },
+
+  docRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 3,
+  },
+
+  docLink: {
+    color: appTheme.colors.primary,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 13,
+    fontWeight: "600",
+    textDecorationLine: "underline",
+  },
+
+  docMissing: {
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 13,
   },
 });
 

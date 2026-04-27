@@ -1,498 +1,291 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useRouter } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import {
+  ActivityIndicator,
   FlatList,
-  Image,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
-import AppCard from "../../../components/ui/AppCard";
-import AppScreen from "../../../components/ui/AppScreen";
-import { useAuth } from "../../../context/AuthContext";
-import { apiGetMyWallet } from "../../../api/userClient";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { appTheme } from "../../../theme/appTheme";
+import { useAuth } from "../../../context/AuthContext";
+import { getMyChats } from "../../../api/messages";
 import { getProfessionals } from "../../professionals/api/professionalsApi";
 import type { Professional } from "../../professionals/types";
+import ProfessionalFeedCard from "../components/ProfessionalFeedCard";
 
-type QuickSpecialty = {
-  name: string;
-  icon: React.ComponentProps<typeof Ionicons>["name"];
-};
+const PAGE_SIZE = 10;
 
 export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const [search, setSearch] = useState("");
   const [professionals, setProfessionals] = useState<Professional[]>([]);
-  const [balance, setBalance] = useState<number>(0);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [chatLoadingId, setChatLoadingId] = useState<string | null>(null);
+  const [feedHeight, setFeedHeight] = useState(0);
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const [wallet, list] = await Promise.all([
-          apiGetMyWallet(),
-          getProfessionals(),
-        ]);
-        setBalance(wallet?.balance ?? 0);
-        setProfessionals(list.slice(0, 5));
-      } catch {
-        try {
-          const list = await getProfessionals();
-          setProfessionals(list.slice(0, 5));
-          setError("No se pudo cargar el saldo en este momento.");
-        } catch {
-          setError("No se pudieron cargar los profesionales.");
-        }
-      } finally {
-        setLoading(false);
+  const loadingRef = useRef(false);
+
+  async function loadFeed(targetPage: number, reset: boolean) {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
+    try {
+      if (reset) setLoading(true);
+      else setLoadingMore(true);
+      const results = await getProfessionals({ page: targetPage, limit: PAGE_SIZE });
+      if (reset) {
+        setProfessionals(results);
+      } else {
+        setProfessionals((prev) => {
+          const existingIds = new Set(prev.map((p) => p.id));
+          const fresh = results.filter((p) => !existingIds.has(p.id));
+          return [...prev, ...fresh];
+        });
       }
-    })();
-  }, []);
+      setHasMore(results.length === PAGE_SIZE);
+      setPage(targetPage);
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+      loadingRef.current = false;
+    }
+  }
 
-  const quickSpecialties = useMemo<QuickSpecialty[]>(
-    () => [
-      { name: "Ansiedad", icon: "leaf-outline" },
-      { name: "Depresión", icon: "heart-outline" },
-      { name: "Pareja", icon: "people-outline" },
-      { name: "Autoestima", icon: "sparkles-outline" },
-    ],
-    [],
+  useFocusEffect(
+    useCallback(() => {
+      void loadFeed(1, true);
+    }, []),
   );
 
+  function handleLoadMore() {
+    if (!hasMore || loadingMore || loadingRef.current) return;
+    void loadFeed(page + 1, false);
+  }
+
+  function handleProfile(pro: Professional) {
+    router.push({
+      pathname: "/(user)/professionals/[id]",
+      params: { id: pro.id },
+    } as any);
+  }
+
+  async function handleChat(pro: Professional) {
+    if (chatLoadingId) return;
+    setChatLoadingId(pro.id);
+    try {
+      const chats = await getMyChats();
+      const existing = chats.find((c) => c.otherUserId === pro.id);
+      router.push({
+        pathname: "/(user)/chats/[id]",
+        params: {
+          id: existing?.conversationId || pro.id,
+          conversationId: existing?.conversationId ?? "",
+          professionalId: pro.id,
+          professionalName: pro.name,
+          professionalAvatar: pro.avatar,
+        },
+      } as any);
+    } catch {
+      router.push({
+        pathname: "/(user)/chats/[id]",
+        params: {
+          id: pro.id,
+          conversationId: "",
+          professionalId: pro.id,
+          professionalName: pro.name,
+          professionalAvatar: pro.avatar,
+        },
+      } as any);
+    } finally {
+      setChatLoadingId(null);
+    }
+  }
+
+  const CARD_HEIGHT = feedHeight > 0 ? feedHeight : 500;
+
   return (
-    <AppScreen scroll contentPadding={16}>
-      <View style={styles.wrap}>
-        <View style={styles.headerRow}>
+    <View style={styles.root}>
+      {/* ── Header ── */}
+      <View style={[styles.header, { paddingTop: insets.top }]}>
+        <View style={styles.headerContent}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.greeting}>Buenos días,</Text>
-            <Text style={styles.heading}>{user?.firstName ?? "Usuario"}</Text>
-          </View>
-
-          <Pressable style={styles.notifyBtn}>
-            <Ionicons name="notifications" size={18} color="#F2AE22" />
-          </Pressable>
-
-          <View style={styles.avatarWrap}>
-            <Image
-              source={require("../../../../assets/no_image.jpg")}
-              style={styles.headerAvatar}
-            />
-          </View>
-        </View>
-
-        <View style={styles.searchWrap}>
-          <Ionicons name="search" size={18} color={appTheme.colors.textMuted} />
-          <TextInput
-            placeholder="Buscar..."
-            placeholderTextColor={appTheme.colors.textMuted}
-            value={search}
-            onChangeText={setSearch}
-            style={styles.search}
-            onSubmitEditing={() =>
-              router.push({
-                pathname: "/(user)/professionals",
-                params: { search: search.trim() },
-              } as any)
-            }
-          />
-        </View>
-
-        <LinearGradient
-          colors={["#6FA8DC", "#8E7CC3"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.creditsCard}
-        >
-          <View style={{ flex: 1 }}>
-            <Text style={styles.creditsLabel}>Tus créditos</Text>
-
-            <View style={styles.creditsRow}>
-              <Ionicons name="card-outline" size={24} color="#FFFFFF" />
-              <Text style={styles.creditsValue}>
-                {Math.floor(balance)} créditos
-              </Text>
-            </View>
-          </View>
-
-          <Pressable
-            style={styles.rechargeBtn}
-            onPress={() => router.push("/(user)/credits")}
-          >
-            <Text style={styles.rechargeText}>Recargar</Text>
-          </Pressable>
-        </LinearGradient>
-
-        <Text style={styles.sectionTitle}>Especialidades</Text>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.specialtiesRow}
-        >
-          {quickSpecialties.map((item) => (
-            <Pressable
-              key={item.name}
-              style={styles.specialtyCard}
-              onPress={() =>
-                router.push({
-                  pathname: "/(user)/professionals",
-                  params: { specialty: item.name },
-                } as any)
-              }
-            >
-              <Ionicons
-                name={item.icon}
-                size={22}
-                color={appTheme.colors.primary}
-              />
-              <Text style={styles.specialtyName}>{item.name}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-
-        <View style={styles.sliderHint} />
-
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Disponibles ahora</Text>
-          <Text
-            style={styles.link}
-            onPress={() => router.push("/(user)/professionals")}
-          >
-            Ver todos
-          </Text>
-        </View>
-
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-
-        <FlatList
-          data={professionals}
-          scrollEnabled={false}
-          keyExtractor={(item) => item.id}
-          ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
-          renderItem={({ item }) => (
-            <Pressable
-              onPress={() =>
-                router.push({
-                  pathname: "/(user)/professionals/[id]",
-                  params: { id: item.id },
-                } as any)
-              }
-            >
-              <AppCard style={styles.proCard}>
-                <Image
-                  source={
-                    item.avatar
-                      ? { uri: item.avatar }
-                      : require("../../../../assets/no_image.jpg")
-                  }
-                  style={styles.proAvatar}
-                />
-
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.proName} numberOfLines={2}>
-                    {item.name}
-                  </Text>
-
-                  <Text style={styles.proSpecialty} numberOfLines={2}>
-                    {item.specialties.length
-                      ? item.specialties[0]
-                      : "Psicología clínica"}
-                  </Text>
-
-                  <View style={styles.proMetaRow}>
-                    <Text style={styles.rating}>
-                      ★ {item.rating ? item.rating.toFixed(1) : "4.9"}
-                    </Text>
-                    <Text style={styles.price}>
-                      {item.prices.chat ?? 15} crd/min
-                    </Text>
-                  </View>
-                </View>
-
-                <Pressable
-                  style={styles.viewBtn}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/(user)/professionals/[id]",
-                      params: { id: item.id },
-                    } as any)
-                  }
-                >
-                  <Text style={styles.viewBtnText}>Ver</Text>
-                </Pressable>
-              </AppCard>
-            </Pressable>
-          )}
-        />
-
-        {!loading && professionals.length === 0 ? (
-          <AppCard>
-            <Text style={styles.emptyText}>
-              No hay profesionales disponibles por el momento.
+            <Text style={styles.headerGreeting}>
+              {user?.firstName ? `Hola, ${user.firstName}` : "Bienvenido"}
             </Text>
-          </AppCard>
-        ) : null}
+            <Text style={styles.headerTitle}>Psicólogos disponibles</Text>
+          </View>
+          <Pressable
+            style={styles.headerIconBtn}
+            onPress={() => router.push("/(user)/professionals" as any)}
+          >
+            <Ionicons name="search" size={20} color={appTheme.colors.primary} />
+          </Pressable>
+        </View>
       </View>
-    </AppScreen>
+
+      {/* ── Feed ── */}
+      <View
+        style={styles.feedContainer}
+        onLayout={(e) => {
+          const h = e.nativeEvent.layout.height;
+          if (h > 0) setFeedHeight(h);
+        }}
+      >
+        {loading ? (
+          <View style={styles.feedState}>
+            <ActivityIndicator size="large" color={appTheme.colors.primary} />
+            <Text style={styles.feedStateText}>Cargando profesionales...</Text>
+          </View>
+        ) : professionals.length === 0 ? (
+          <View style={styles.feedState}>
+            <Ionicons name="people-outline" size={48} color="rgba(255,255,255,0.3)" />
+            <Text style={styles.feedStateText}>
+              No hay profesionales disponibles en este momento.
+            </Text>
+            <Pressable style={styles.retryBtn} onPress={() => loadFeed(1, true)}>
+              <Text style={styles.retryText}>Reintentar</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <FlatList
+            data={professionals}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <ProfessionalFeedCard
+                professional={item}
+                cardHeight={CARD_HEIGHT}
+                onProfilePress={() => handleProfile(item)}
+                onChatPress={() => handleChat(item)}
+                chatLoading={chatLoadingId === item.id}
+              />
+            )}
+            snapToInterval={CARD_HEIGHT}
+            snapToAlignment="start"
+            decelerationRate="fast"
+            disableIntervalMomentum={true}
+            showsVerticalScrollIndicator={false}
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.5}
+            getItemLayout={(_, index) => ({
+              length: CARD_HEIGHT,
+              offset: CARD_HEIGHT * index,
+              index,
+            })}
+            ListFooterComponent={
+              loadingMore ? (
+                <View style={[styles.footerLoader, { height: CARD_HEIGHT }]}>
+                  <ActivityIndicator color={appTheme.colors.primary} size="large" />
+                  <Text style={styles.feedStateText}>Cargando más...</Text>
+                </View>
+              ) : null
+            }
+            windowSize={3}
+            maxToRenderPerBatch={3}
+            initialNumToRender={2}
+            removeClippedSubviews
+          />
+        )}
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: {
-    gap: 14,
+  root: {
+    flex: 1,
+    backgroundColor: "#0a0f1a",
   },
 
-  headerRow: {
+  // ── Header ──
+  header: {
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 1,
+    borderBottomColor: appTheme.colors.border,
+  },
+
+  headerContent: {
     flexDirection: "row",
     alignItems: "center",
+    paddingHorizontal: 18,
+    paddingVertical: 14,
     gap: 10,
   },
 
-  greeting: {
-    color: "#334155",
-    fontSize: 15,
+  headerGreeting: {
+    color: appTheme.colors.textMuted,
     fontFamily: appTheme.fonts.body,
-    fontWeight: "500",
+    fontSize: 12,
+    letterSpacing: 0.2,
   },
 
-  heading: {
+  headerTitle: {
     color: appTheme.colors.text,
-    fontSize: 33,
-    lineHeight: 36,
     fontFamily: appTheme.fonts.heading,
+    fontSize: 20,
     fontWeight: "700",
   },
 
-  notifyBtn: {
+  headerIconBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#E2E8F0",
-    borderWidth: 1,
-    borderColor: "#CBD5E1",
   },
 
-  avatarWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    borderWidth: 2,
-    borderColor: appTheme.colors.primary,
-    padding: 2,
-  },
-
-  headerAvatar: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 17,
-  },
-
-  searchWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
-    backgroundColor: "#F1F5F9",
-    paddingHorizontal: 16,
-    minHeight: 58,
-  },
-
-  search: {
+  // ── Feed ──
+  feedContainer: {
     flex: 1,
-    minHeight: 48,
-    color: appTheme.colors.text,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 19,
   },
 
-  creditsCard: {
-    borderRadius: 18,
-    minHeight: 118,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-
-  creditsLabel: {
-    color: "#EAF2FF",
-    fontSize: 12,
-    fontFamily: appTheme.fonts.body,
-    fontWeight: "500",
-  },
-
-  creditsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 4,
-  },
-
-  creditsValue: {
-    color: "#FFFFFF",
-    fontSize: 33,
-    fontFamily: appTheme.fonts.heading,
-    fontWeight: "700",
-  },
-
-  rechargeBtn: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.45)",
-    backgroundColor: "rgba(255,255,255,0.18)",
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-  },
-
-  rechargeText: {
-    color: "#FFFFFF",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 15,
-    fontWeight: "700",
-  },
-
-  specialtiesRow: {
-    flexDirection: "row",
-    gap: 8,
-    paddingRight: 10,
-  },
-
-  specialtyCard: {
-    width: 98,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
-    backgroundColor: appTheme.colors.surface,
+  feedState: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
-    gap: 6,
+    gap: 14,
+    paddingHorizontal: 32,
   },
 
-  specialtyName: {
-    color: appTheme.colors.text,
-    fontSize: 14,
+  feedStateText: {
+    color: "rgba(255,255,255,0.50)",
     fontFamily: appTheme.fonts.body,
-    fontWeight: "500",
+    fontSize: 14,
+    textAlign: "center",
+    lineHeight: 21,
   },
 
-  sliderHint: {
-    height: 6,
-    width: 120,
-    borderRadius: 99,
-    backgroundColor: "#94A3B8",
-    alignSelf: "center",
-  },
-
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+  retryBtn: {
     marginTop: 4,
+    paddingHorizontal: 22,
+    paddingVertical: 10,
+    borderRadius: 99,
+    backgroundColor: appTheme.colors.primary,
   },
 
-  sectionTitle: {
-    color: appTheme.colors.text,
-    fontSize: 18,
+  retryText: {
+    color: "#FFFFFF",
     fontFamily: appTheme.fonts.heading,
-    fontWeight: "700",
-  },
-
-  link: {
-    color: appTheme.colors.primary,
-    fontSize: 13,
-    fontFamily: appTheme.fonts.body,
-    fontWeight: "700",
-  },
-
-  proCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
-  },
-
-  proAvatar: {
-    width: 58,
-    height: 58,
-    borderRadius: 14,
-    backgroundColor: "#E2E8F0",
-  },
-
-  proName: {
-    color: appTheme.colors.text,
     fontSize: 15,
-    fontFamily: appTheme.fonts.heading,
     fontWeight: "700",
-    lineHeight: 20,
   },
 
-  proSpecialty: {
-    color: appTheme.colors.textMuted,
-    fontSize: 13,
-    fontFamily: appTheme.fonts.body,
-  },
-
-  proMetaRow: {
-    marginTop: 2,
-    flexDirection: "row",
-    gap: 10,
+  footerLoader: {
     alignItems: "center",
-  },
-
-  rating: {
-    color: "#F59E0B",
-    fontSize: 12,
-    fontFamily: appTheme.fonts.body,
-    fontWeight: "700",
-  },
-
-  price: {
-    color: appTheme.colors.primary,
-    fontSize: 14,
-    fontFamily: appTheme.fonts.body,
-    fontWeight: "700",
-  },
-
-  viewBtn: {
-    borderRadius: 14,
-    backgroundColor: "#DCEBFA",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-
-  viewBtnText: {
-    color: "#2563EB",
-    fontSize: 16,
-    fontFamily: appTheme.fonts.body,
-    fontWeight: "700",
-  },
-
-  error: {
-    color: appTheme.colors.danger,
-    fontSize: 12,
-    fontFamily: appTheme.fonts.body,
-  },
-
-  emptyText: {
-    color: appTheme.colors.textMuted,
-    fontFamily: appTheme.fonts.body,
+    justifyContent: "center",
+    gap: 12,
+    backgroundColor: "#0a0f1a",
   },
 });
-

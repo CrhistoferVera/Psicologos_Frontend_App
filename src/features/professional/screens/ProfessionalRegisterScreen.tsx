@@ -3,7 +3,7 @@ import { useRouter } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import * as VideoThumbnails from "expo-video-thumbnails";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, FlatList, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AppButton from "../../../components/ui/AppButton";
 import AppChip from "../../../components/ui/AppChip";
@@ -23,6 +23,24 @@ import {
 
 const totalSteps = 5;
 
+const COUNTRY_CODES = [
+  { code: "+591", flag: "🇧🇴", country: "Bolivia" },
+  { code: "+54",  flag: "🇦🇷", country: "Argentina" },
+  { code: "+55",  flag: "🇧🇷", country: "Brasil" },
+  { code: "+56",  flag: "🇨🇱", country: "Chile" },
+  { code: "+57",  flag: "🇨🇴", country: "Colombia" },
+  { code: "+593", flag: "🇪🇨", country: "Ecuador" },
+  { code: "+595", flag: "🇵🇾", country: "Paraguay" },
+  { code: "+51",  flag: "🇵🇪", country: "Perú" },
+  { code: "+598", flag: "🇺🇾", country: "Uruguay" },
+  { code: "+58",  flag: "🇻🇪", country: "Venezuela" },
+  { code: "+52",  flag: "🇲🇽", country: "México" },
+  { code: "+1",   flag: "🇺🇸", country: "USA / Canadá" },
+  { code: "+34",  flag: "🇪🇸", country: "España" },
+];
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export default function ProfessionalRegisterScreen() {
   const router = useRouter();
   const { setSession } = useAuth();
@@ -34,6 +52,8 @@ export default function ProfessionalRegisterScreen() {
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [countryCode, setCountryCode] = useState("+591");
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [phone, setPhone] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
 
@@ -62,6 +82,8 @@ export default function ProfessionalRegisterScreen() {
   const [kycSelfie, setKycSelfie] = useState<FileAsset | null>(null);
   const [matricula, setMatricula] = useState<FileAsset | null>(null);
   const [tituloProfesional, setTituloProfesional] = useState<FileAsset | null>(null);
+
+  const fullPhone = countryCode + phone.trim();
 
   useEffect(() => {
     if (step !== 3 || specialtiesCatalog.length > 0) return;
@@ -104,22 +126,23 @@ export default function ProfessionalRegisterScreen() {
     );
   }
 
-  function validateStep(nextStep = step): string | null {
-    if (nextStep === 1) {
+  function validateStep(currentStep = step): string | null {
+    if (currentStep === 1) {
       if (!firstName.trim()) return "Completa tu nombre.";
       if (!lastName.trim()) return "Completa tu apellido.";
-      if (!phone.trim() || phone.trim().length < 8) return "Ingresa un teléfono válido.";
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth.trim())) return "Usa fecha de nacimiento YYYY-MM-DD.";
-      if (!tempToken) return "Verifica tu teléfono con OTP para continuar.";
+      if (!phone.trim() || phone.trim().length < 6) return "Ingresa un número de teléfono válido.";
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth.trim())) return "Usa formato YYYY-MM-DD para la fecha de nacimiento.";
+      if (!tempToken) return "Verifica tu teléfono con el código OTP para continuar.";
     }
-    if (nextStep === 2) {
-      if (!email.trim()) return "Ingresa un email.";
+    if (currentStep === 2) {
+      if (!email.trim()) return "Ingresa tu email.";
+      if (!EMAIL_REGEX.test(email.trim())) return "El email no tiene un formato válido.";
       if (!username.trim()) return "Ingresa un username profesional.";
-      if (!cedula.trim()) return "Ingresa tu documento/carnet.";
+      if (!cedula.trim()) return "Ingresa tu documento / carnet de identidad.";
       if (password.length < 6) return "La contraseña debe tener al menos 6 caracteres.";
       if (password !== confirmPassword) return "Las contraseñas no coinciden.";
     }
-    if (nextStep === 3) {
+    if (currentStep === 3) {
       if (selectedSpecialties.length === 0) return "Selecciona al menos una especialidad.";
       if (Number(chatPrice || 0) < 0 || Number(callPrice || 0) < 0 || Number(videoPrice || 0) < 0) {
         return "Las tarifas deben ser números válidos.";
@@ -129,10 +152,14 @@ export default function ProfessionalRegisterScreen() {
   }
 
   async function handleSendOtp() {
+    if (!phone.trim() || phone.trim().length < 6) {
+      setError("Ingresa un número de teléfono válido antes de enviar el OTP.");
+      return;
+    }
     try {
       setLoading(true);
       setError(null);
-      await sendProfessionalVerificationOtp(phone.trim());
+      await sendProfessionalVerificationOtp(fullPhone);
       setOtpSent(true);
       Alert.alert("Código enviado", "Te enviamos un código OTP por WhatsApp.");
     } catch (err: any) {
@@ -146,7 +173,7 @@ export default function ProfessionalRegisterScreen() {
     try {
       setLoading(true);
       setError(null);
-      const token = await verifyProfessionalOtp(phone.trim(), otpCode.trim());
+      const token = await verifyProfessionalOtp(fullPhone, otpCode.trim());
       setTempToken(token);
       Alert.alert("Teléfono verificado", "Ya puedes continuar con el registro profesional.");
     } catch (err: any) {
@@ -190,7 +217,6 @@ export default function ProfessionalRegisterScreen() {
 
       setKycVideo({ uri: asset.uri, name: "kyc_video.mp4", type: "video/mp4" });
 
-      // Extract a thumbnail frame for automated face comparison
       try {
         const thumb = await VideoThumbnails.getThumbnailAsync(asset.uri, { time: 500 });
         setKycSelfie({ uri: thumb.uri, name: "kyc_selfie.jpg", type: "image/jpeg" });
@@ -297,7 +323,7 @@ export default function ProfessionalRegisterScreen() {
           updateMyProfessionalSpecialties(selectedSpecialties),
         ]);
       } catch {
-        // Si falla esta sincronización, el registro base se mantiene y se podrá completar desde perfil.
+        // Registro base completado; precios/especialidades se pueden actualizar desde perfil.
       }
 
       router.replace("/(public)/professional-review-status");
@@ -315,17 +341,36 @@ export default function ProfessionalRegisterScreen() {
       <View style={styles.container}>
         <ProfessionalStepHeader currentStep={step} totalSteps={totalSteps} title={currentStepTitle} />
 
+        {/* ── PASO 1: Datos personales ── */}
         {step === 1 ? (
           <View style={styles.form}>
             <AppInput label="Nombre" value={firstName} onChangeText={setFirstName} placeholder="Camila" />
             <AppInput label="Apellido" value={lastName} onChangeText={setLastName} placeholder="Rojas" />
-            <AppInput
-              label="Teléfono"
-              value={phone}
-              onChangeText={setPhone}
-              placeholder="+59170000000"
-              keyboardType="phone-pad"
-            />
+
+            {/* Phone row with country code picker */}
+            <Text style={styles.fieldLabel}>Teléfono</Text>
+            <View style={styles.phoneRow}>
+              <Pressable style={styles.countryCodeBtn} onPress={() => setShowCountryPicker(true)}>
+                <Text style={styles.countryCodeText}>
+                  {COUNTRY_CODES.find((c) => c.code === countryCode)?.flag ?? "🌐"} {countryCode}
+                </Text>
+                <Ionicons name="chevron-down" size={14} color={appTheme.colors.textMuted} />
+              </Pressable>
+              <View style={styles.phoneInputWrap}>
+                <AppInput
+                  value={phone}
+                  onChangeText={(v) => {
+                    setPhone(v);
+                    setTempToken(null);
+                    setOtpSent(false);
+                    setOtpCode("");
+                  }}
+                  placeholder="70000000"
+                  keyboardType="phone-pad"
+                />
+              </View>
+            </View>
+
             <AppInput
               label="Fecha de nacimiento"
               value={dateOfBirth}
@@ -341,7 +386,9 @@ export default function ProfessionalRegisterScreen() {
                 variant="secondary"
                 style={styles.otpAction}
               />
-              <Text style={styles.badge}>{tempToken ? "Verificado" : "Pendiente"}</Text>
+              <Text style={[styles.badge, tempToken && styles.badgeVerified]}>
+                {tempToken ? "Verificado ✓" : "Pendiente"}
+              </Text>
             </View>
 
             {otpSent ? (
@@ -364,13 +411,42 @@ export default function ProfessionalRegisterScreen() {
           </View>
         ) : null}
 
+        {/* ── PASO 2: Cuenta ── */}
         {step === 2 ? (
           <View style={styles.form}>
-            <AppInput label="Email" value={email} onChangeText={setEmail} placeholder="profesional@email.com" keyboardType="email-address" />
-            <AppInput label="Username profesional" value={username} onChangeText={setUsername} placeholder="camila.psicologa" />
-            <AppInput label="Documento/Cédula" value={cedula} onChangeText={setCedula} placeholder="12345678" />
-            <AppInput label="Contraseña" value={password} onChangeText={setPassword} secureTextEntry />
-            <AppInput label="Confirmar contraseña" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
+            <AppInput
+              label="Email"
+              value={email}
+              onChangeText={setEmail}
+              placeholder="profesional@email.com"
+              keyboardType="email-address"
+            />
+            <AppInput
+              label="Username profesional"
+              value={username}
+              onChangeText={setUsername}
+              placeholder="camila.psicologa"
+            />
+            <AppInput
+              label="Documento / Cédula"
+              value={cedula}
+              onChangeText={setCedula}
+              placeholder="12345678"
+            />
+            <AppInput
+              label="Contraseña"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              showPasswordToggle
+            />
+            <AppInput
+              label="Confirmar contraseña"
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry
+              showPasswordToggle
+            />
             <AppInput
               label="Bio profesional"
               value={bio}
@@ -387,6 +463,7 @@ export default function ProfessionalRegisterScreen() {
           </View>
         ) : null}
 
+        {/* ── PASO 3: Especialidades y tarifas ── */}
         {step === 3 ? (
           <View style={styles.form}>
             <Text style={styles.sectionTitle}>Especialidades</Text>
@@ -394,7 +471,12 @@ export default function ProfessionalRegisterScreen() {
             {catalogLoading ? <Text style={styles.hint}>Cargando especialidades...</Text> : null}
             <View style={styles.tagsWrap}>
               {specialtiesCatalog.map((tag) => (
-                <AppChip key={tag.id} label={tag.name} active={selectedSpecialties.includes(tag.id)} onPress={() => toggleSpecialty(tag.id)} />
+                <AppChip
+                  key={tag.id}
+                  label={tag.name}
+                  active={selectedSpecialties.includes(tag.id)}
+                  onPress={() => toggleSpecialty(tag.id)}
+                />
               ))}
             </View>
 
@@ -419,6 +501,7 @@ export default function ProfessionalRegisterScreen() {
           </View>
         ) : null}
 
+        {/* ── PASO 4: KYC ── */}
         {step === 4 ? (
           <View style={styles.form}>
             <Text style={styles.sectionTitle}>Verificación de identidad</Text>
@@ -426,7 +509,6 @@ export default function ProfessionalRegisterScreen() {
               Sube tus documentos para que el equipo pueda verificar tu identidad profesional.
             </Text>
 
-            {/* Face video */}
             <Text style={styles.docLabel}>Video de rostro *</Text>
             <Text style={styles.sectionHint}>
               Graba un video corto (máx. 10 seg) mirando de frente a la cámara. Se cotejarán automáticamente con tu documento.
@@ -436,7 +518,6 @@ export default function ProfessionalRegisterScreen() {
               <Text style={styles.uploadMeta}>{kycVideo ? kycVideo.name : "Toca para abrir la cámara"}</Text>
             </Pressable>
 
-            {/* ID document */}
             <Text style={styles.docLabel}>Documento de identidad *</Text>
             <Text style={styles.sectionHint}>Licencia de conducir o pasaporte (imagen o PDF).</Text>
             <Pressable style={[styles.uploadCard, idDoc && styles.uploadCardDone]} onPress={() => void handlePickIdDoc()}>
@@ -444,7 +525,6 @@ export default function ProfessionalRegisterScreen() {
               <Text style={styles.uploadMeta}>{idDoc?.name ?? "Imagen o PDF"}</Text>
             </Pressable>
 
-            {/* Matrícula profesional */}
             <Text style={styles.docLabel}>Matrícula profesional vigente *</Text>
             <Text style={styles.sectionHint}>Registro que acredita tu habilitación profesional.</Text>
             <Pressable style={[styles.uploadCard, matricula && styles.uploadCardDone]} onPress={() => void handlePickMatricula()}>
@@ -452,7 +532,6 @@ export default function ProfessionalRegisterScreen() {
               <Text style={styles.uploadMeta}>{matricula?.name ?? "Imagen o PDF"}</Text>
             </Pressable>
 
-            {/* Título profesional */}
             <Text style={styles.docLabel}>Título profesional (opcional)</Text>
             <Text style={styles.sectionHint}>Si aplica, sube tu título o diploma universitario.</Text>
             <Pressable style={[styles.uploadCard, tituloProfesional && styles.uploadCardDone]} onPress={() => void handlePickTitulo()}>
@@ -464,6 +543,7 @@ export default function ProfessionalRegisterScreen() {
           </View>
         ) : null}
 
+        {/* ── PASO 5: Resumen ── */}
         {step === 5 ? (
           <View style={styles.form}>
             <View style={styles.summaryCard}>
@@ -497,6 +577,41 @@ export default function ProfessionalRegisterScreen() {
           <Text style={styles.loginLink}>Ya tengo una cuenta, iniciar sesión</Text>
         </Pressable>
       </View>
+
+      {/* ── Modal selector de código de país ── */}
+      <Modal
+        visible={showCountryPicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCountryPicker(false)}
+      >
+        <Pressable style={styles.pickerBackdrop} onPress={() => setShowCountryPicker(false)}>
+          <Pressable style={styles.pickerBox} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.pickerTitle}>Seleccionar país</Text>
+            <FlatList
+              data={COUNTRY_CODES}
+              keyExtractor={(item) => item.code}
+              renderItem={({ item }) => (
+                <Pressable
+                  style={[styles.pickerItem, item.code === countryCode && styles.pickerItemActive]}
+                  onPress={() => {
+                    setCountryCode(item.code);
+                    setShowCountryPicker(false);
+                    setTempToken(null);
+                    setOtpSent(false);
+                    setOtpCode("");
+                  }}
+                >
+                  <Text style={styles.pickerItemText}>
+                    {item.flag}  {item.country}
+                  </Text>
+                  <Text style={styles.pickerItemCode}>{item.code}</Text>
+                </Pressable>
+              )}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
     </AppScreen>
   );
 }
@@ -508,6 +623,38 @@ const styles = StyleSheet.create({
   form: {
     gap: 12,
   },
+  fieldLabel: {
+    color: appTheme.colors.text,
+    fontSize: 13,
+    fontFamily: appTheme.fonts.body,
+    fontWeight: "600",
+    marginBottom: -4,
+  },
+  phoneRow: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "flex-end",
+  },
+  countryCodeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#F8FAFC",
+    borderRadius: appTheme.radius.lg,
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+    minHeight: 48,
+    paddingHorizontal: 12,
+  },
+  countryCodeText: {
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  phoneInputWrap: {
+    flex: 1,
+  },
   otpRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -517,14 +664,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   badge: {
-    backgroundColor: "rgba(107, 175, 138, 0.16)",
-    color: appTheme.colors.success,
+    backgroundColor: "#F1F5F9",
+    color: appTheme.colors.textMuted,
     paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 999,
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
     fontWeight: "700",
+    overflow: "hidden",
+  },
+  badgeVerified: {
+    backgroundColor: "rgba(107, 175, 138, 0.16)",
+    color: appTheme.colors.success,
   },
   otpBox: {
     backgroundColor: appTheme.colors.surface,
@@ -649,5 +801,56 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     marginTop: 6,
+  },
+
+  // Country code picker modal
+  pickerBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  pickerBox: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 20,
+    width: "100%",
+    maxWidth: 360,
+    maxHeight: 480,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  pickerTitle: {
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 17,
+    fontWeight: "700",
+    marginBottom: 12,
+  },
+  pickerItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+  },
+  pickerItemActive: {
+    backgroundColor: "rgba(107, 175, 138, 0.12)",
+  },
+  pickerItemText: {
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 15,
+  },
+  pickerItemCode: {
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 14,
+    fontWeight: "600",
   },
 });

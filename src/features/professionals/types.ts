@@ -9,6 +9,7 @@ export type Professional = {
   name: string;
   username?: string;
   avatar: string;
+  coverImage?: string;
   bio: string;
   specialties: string[];
   isOnline: boolean;
