@@ -3,7 +3,7 @@ import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Alert, BackHandler, Platform, View } from "react-native";
 import * as ScreenCapture from "expo-screen-capture";
-import { StripeProvider } from "@stripe/stripe-react-native";
+import StripeProviderWrapper from "../src/components/StripeProviderWrapper";
 import { AuthProvider } from "../src/context/AuthContext";
 import { ActiveChatProvider } from "../src/context/ActiveChatContext";
 import { CallProvider } from "../src/context/CallContext";
@@ -12,7 +12,7 @@ import { toastConfig } from "../src/components/ToastConfig";
 import { useEffect } from "react";
 import VersionGuard from "../src/components/VersionGuard";
 import { appTheme } from "../src/theme/appTheme";
-import { STRIPE_PUBLISHABLE_KEY } from "../src/config";
+
 
 function BackHandlerGuard() {
   const router = useRouter();
@@ -57,7 +57,7 @@ function ScreenCaptureGuard() {
 
 export default function Layout() {
   return (
-    <StripeProvider publishableKey={STRIPE_PUBLISHABLE_KEY}>
+    <StripeProviderWrapper>
       <VersionGuard>
         <AuthProvider>
           <CallProvider>
@@ -73,6 +73,6 @@ export default function Layout() {
           </CallProvider>
         </AuthProvider>
       </VersionGuard>
-    </StripeProvider>
+    </StripeProviderWrapper>
   );
 }

@@ -43,7 +43,13 @@
       "@react-native-firebase/app",
       "@react-native-firebase/messaging",
       "expo-font",
-      "@stripe/stripe-react-native"
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.psyconnect.app",
+          "enableGooglePay": false
+        }
+      ]
     ],
     "extra": {
       "router": {},

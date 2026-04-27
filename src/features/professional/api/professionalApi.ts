@@ -114,6 +114,7 @@ export async function completeProfessionalRegistration(payload: ProfessionalRegi
 
   const response = await apiClient.post("/auth/complete-professional-registration", form, {
     headers: { "Content-Type": "multipart/form-data" },
+    timeout: 120000,
   });
   return response.data;
 }
@@ -202,7 +203,7 @@ export async function getProfessionalSpecialtiesCatalog(): Promise<SpecialtyCata
       slug: item.slug ? String(item.slug) : undefined,
     }));
   } catch (error: any) {
-    if (error?.response?.status !== 404) throw error;
+    if (![401, 404].includes(error?.response?.status)) throw error;
     const response = await apiClient.get("/specialties/public");
     const list = Array.isArray(response.data) ? response.data : [];
     return list.map((item: any) => ({
