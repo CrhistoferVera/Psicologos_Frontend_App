@@ -1,19 +1,23 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import AppCard from "../../../components/ui/AppCard";
 import AppChip from "../../../components/ui/AppChip";
 import { appTheme } from "../../../theme/appTheme";
 import {
   assignProfessionalSpecialtiesAdmin,
+  editAdminProfessional,
+  getAdminProfessionalById,
   getAdminProfessionalStats,
   getAdminProfessionals,
   getAdminSpecialties,
   getProfessionalSpecialtiesAdmin,
+  updateAdminProfessionalProfile,
   updateAdminProfessionalStatus,
 } from "../api/adminApi";
 import AdminDataTable from "../components/AdminDataTable";
 import AdminEmptyState from "../components/AdminEmptyState";
 import AdminStatusBadge from "../components/AdminStatusBadge";
+import { useAdminResponsive } from "../hooks/useAdminResponsive";
 import type { AdminProfessionalRecord, AdminSpecialty } from "../types";
 
 type ProfessionalFilter = "all" | "approved" | "review" | "rejected";
@@ -36,6 +40,7 @@ function formatDate(value: string) {
 }
 
 export default function AdminProfessionalsScreen() {
+  const { isMobile, contentPadding } = useAdminResponsive();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -51,6 +56,15 @@ export default function AdminProfessionalsScreen() {
   const [specialtyNameByProfessionalId, setSpecialtyNameByProfessionalId] = useState<Record<string, string>>({});
   const [detailProfessional, setDetailProfessional] = useState<AdminProfessionalRecord | null>(null);
   const [detailStats, setDetailStats] = useState<any>(null);
+  const [editingProfessional, setEditingProfessional] = useState<AdminProfessionalRecord | null>(null);
+  const [editPhone, setEditPhone] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editUsername, setEditUsername] = useState("");
+  const [editBio, setEditBio] = useState("");
+  const [editRate, setEditRate] = useState("");
+  const [editFirstName, setEditFirstName] = useState("");
+  const [editLastName, setEditLastName] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
 
   async function load(initial = false) {
     try {
@@ -139,6 +153,55 @@ export default function AdminProfessionalsScreen() {
     }
   }
 
+  async function handleOpenEdit(row: AdminProfessionalRecord) {
+    try {
+      const detail = await getAdminProfessionalById(row.id);
+      setEditingProfessional(detail);
+      setEditPhone(detail.phoneNumber ?? "");
+      setEditEmail(detail.email ?? "");
+      setEditUsername(detail.professionalProfile?.username ?? "");
+      setEditBio(detail.professionalProfile?.bio ?? "");
+      setEditRate(String(Number(detail.professionalProfile?.rateCredits ?? 0)));
+      setEditFirstName(detail.firstName ?? "");
+      setEditLastName(detail.lastName ?? "");
+    } catch (err: any) {
+      Alert.alert("No se pudo cargar", err?.message ?? "No se pudo obtener detalle del profesional.");
+    }
+  }
+
+  async function handleSaveEdit() {
+    if (!editingProfessional) return;
+    const rateCredits = Number(editRate);
+    if (!Number.isFinite(rateCredits) || rateCredits < 0) {
+      Alert.alert("Tarifa inválida", "La tarifa base debe ser un número mayor o igual a 0.");
+      return;
+    }
+
+    try {
+      setSavingEdit(true);
+      await editAdminProfessional(editingProfessional.id, {
+        phoneNumber: editPhone.trim() || undefined,
+        email: editEmail.trim() || undefined,
+        username: editUsername.trim() || undefined,
+        bio: editBio.trim() || undefined,
+        rateCredits,
+      });
+      await updateAdminProfessionalProfile(editingProfessional.id, {
+        firstName: editFirstName.trim() || undefined,
+        lastName: editLastName.trim() || undefined,
+        username: editUsername.trim() || undefined,
+        bio: editBio.trim() || undefined,
+      });
+      setEditingProfessional(null);
+      await load(true);
+      Alert.alert("Guardado", "Datos del profesional actualizados.");
+    } catch (err: any) {
+      Alert.alert("No se pudo guardar", err?.message ?? "Intenta nuevamente.");
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
   function toggleSpecialty(id: string) {
     setSelectedSpecialtyIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
@@ -195,23 +258,16 @@ export default function AdminProfessionalsScreen() {
   }, [rows, filter]);
 
   return (
-    <ScrollView style={styles.page} contentContainerStyle={styles.content}>
-      <View style={styles.actionsRow}>
+    <ScrollView style={styles.page} contentContainerStyle={[styles.content, { paddingHorizontal: contentPadding }]}>
+      <View style={[styles.actionsRow, { flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "flex-start" : "center" }]}>
         <View style={{ flex: 1 }}>
           <Text style={styles.subtitle}>
             Total: {rows.length} profesionales · {metrics.review} pendientes de revisión
           </Text>
         </View>
-
-        <Pressable
-          style={styles.exportBtn}
-          onPress={() => Alert.alert("Exportar", "Exportación CSV disponible en siguiente iteración.")}
-        >
-          <Text style={styles.exportText}>+ Exportar CSV</Text>
-        </Pressable>
       </View>
 
-      <View style={styles.metricsRow}>
+      <View style={[styles.metricsRow, { flexWrap: "wrap" }]}>
         <AppCard style={styles.metricCard}>
           <Text style={[styles.metricValue, { color: appTheme.colors.success }]}>{metrics.approved}</Text>
           <Text style={styles.metricLabel}>Aprobados activos</Text>
@@ -240,7 +296,7 @@ export default function AdminProfessionalsScreen() {
           onSubmitEditing={() => setSearch(searchInput.trim())}
           placeholder="Buscar profesional por nombre, email o teléfono"
           placeholderTextColor={appTheme.colors.textMuted}
-          style={styles.search}
+          style={[styles.search, { minWidth: isMobile ? 0 : 300, width: isMobile ? "100%" : undefined }]}
         />
 
         {filters.map((item) => {
@@ -305,27 +361,7 @@ export default function AdminProfessionalsScreen() {
               width: 130,
               render: (row) => (
                 <Text style={[styles.cellPrimary, { color: appTheme.colors.success }]}>
-                  ${Number(row.wallet?.balance ?? 0).toFixed(0)}
-                </Text>
-              ),
-            },
-            {
-              key: "sessions",
-              title: "Sesiones",
-              width: 110,
-              render: (row) => (
-                <Text style={styles.cellMuted}>
-                  {(Number(row.wallet?.balance ?? 0) % 143).toFixed(0)}
-                </Text>
-              ),
-            },
-            {
-              key: "rating",
-              title: "Rating",
-              width: 100,
-              render: (row) => (
-                <Text style={[styles.cellMuted, { color: "#F59E0B" }]}>
-                  ★ {(4 + (Number(row.wallet?.balance ?? 0) % 10) / 10).toFixed(1)}
+                  {Number(row.wallet?.balance ?? 0).toFixed(2)} cr
                 </Text>
               ),
             },
@@ -383,8 +419,12 @@ export default function AdminProfessionalsScreen() {
                     <Text style={styles.viewText}>Ver</Text>
                   </Pressable>
 
-                  <Pressable style={styles.viewBtn} onPress={() => void handleSelectProfessional(row)}>
+                  <Pressable style={styles.viewBtn} onPress={() => void handleOpenEdit(row)}>
                     <Text style={styles.viewText}>Editar</Text>
+                  </Pressable>
+
+                  <Pressable style={styles.viewBtn} onPress={() => void handleSelectProfessional(row)}>
+                    <Text style={styles.viewText}>Especialidades</Text>
                   </Pressable>
 
                   {row.isActive ? (
@@ -532,6 +572,34 @@ export default function AdminProfessionalsScreen() {
           </Text>
         </Pressable>
       </AppCard>
+
+      <Modal
+        visible={editingProfessional !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEditingProfessional(null)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setEditingProfessional(null)}>
+          <Pressable style={styles.modalBox} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.panelTitle}>Editar profesional</Text>
+            <TextInput value={editFirstName} onChangeText={setEditFirstName} style={styles.input} placeholder="Nombre" placeholderTextColor={appTheme.colors.textMuted} />
+            <TextInput value={editLastName} onChangeText={setEditLastName} style={styles.input} placeholder="Apellido" placeholderTextColor={appTheme.colors.textMuted} />
+            <TextInput value={editPhone} onChangeText={setEditPhone} style={styles.input} placeholder="Teléfono" placeholderTextColor={appTheme.colors.textMuted} />
+            <TextInput value={editEmail} onChangeText={setEditEmail} style={styles.input} placeholder="Email" placeholderTextColor={appTheme.colors.textMuted} />
+            <TextInput value={editUsername} onChangeText={setEditUsername} style={styles.input} placeholder="Username" placeholderTextColor={appTheme.colors.textMuted} />
+            <TextInput value={editRate} onChangeText={setEditRate} style={styles.input} keyboardType="decimal-pad" placeholder="Tarifa base (cr)" placeholderTextColor={appTheme.colors.textMuted} />
+            <TextInput value={editBio} onChangeText={setEditBio} style={styles.input} multiline placeholder="Bio" placeholderTextColor={appTheme.colors.textMuted} />
+            <View style={styles.modalActions}>
+              <Pressable style={styles.closeBtn} onPress={() => setEditingProfessional(null)}>
+                <Text style={styles.closeBtnText}>Cancelar</Text>
+              </Pressable>
+              <Pressable style={styles.approveBtn} onPress={() => void handleSaveEdit()} disabled={savingEdit}>
+                <Text style={styles.approveText}>{savingEdit ? "Guardando..." : "Guardar"}</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ScrollView>
   );
 }
@@ -543,7 +611,6 @@ const styles = StyleSheet.create({
   },
 
   content: {
-    paddingHorizontal: 30,
     paddingBottom: 28,
     paddingTop: 10,
     gap: 14,
@@ -561,28 +628,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
   },
-
-  exportBtn: {
-    borderRadius: 16,
-    backgroundColor: appTheme.colors.primary,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-  },
-
-  exportText: {
-    color: "#FFFFFF",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 14,
-    fontWeight: "700",
-  },
-
   metricsRow: {
     flexDirection: "row",
     gap: 12,
   },
 
   metricCard: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 180,
     minHeight: 110,
   },
 

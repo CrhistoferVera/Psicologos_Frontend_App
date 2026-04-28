@@ -1,4 +1,4 @@
-﻿import apiClient from './client';
+import apiClient from './client';
 
 export type ServiceType = 'MESSAGE' | 'MESSAGE_SEND' | 'CALL' | 'VIDEO_CALL';
 

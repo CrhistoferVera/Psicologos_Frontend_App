@@ -1,13 +1,28 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useStripe } from "@stripe/stripe-react-native";
 import AppCard from "../../../components/ui/AppCard";
 import AppScreen from "../../../components/ui/AppScreen";
-import { apiGetAllPackages, apiFlowCreatePayment } from "../../../api/package";
+import { apiGetAllPackages } from "../../../api/package";
 import { apiCreatePaymentIntent, apiCreateEphemeralKey } from "../../../api/stripe";
+import {
+  apiCancelBanecoQr,
+  apiCreateBanecoQr,
+  apiGetBanecoQrStatus,
+  type BanecoQrCreateResponse,
+} from "../../../api/banecoQr";
 import { apiGetMyWallet } from "../../../api/userClient";
 import { apiGetExpenseHistory } from "../../../api/userProfile";
 import { appTheme } from "../../../theme/appTheme";
@@ -30,7 +45,7 @@ type ExpenseItem = {
   tipo?: string;
 };
 
-type PaymentMethod = "card" | "paypal" | "stripe";
+type PaymentMethod = "stripe" | "qr";
 type TabKey = "wallet" | "recharge";
 
 function asNumber(value: string | number | null | undefined) {
@@ -75,7 +90,7 @@ export default function CreditsScreen() {
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
   const [activeTab, setActiveTab] = useState<TabKey>("wallet");
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("stripe");
 
   const [balance, setBalance] = useState(0);
   const [promoBalance, setPromoBalance] = useState(0);
@@ -89,6 +104,10 @@ export default function CreditsScreen() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [qrData, setQrData] = useState<BanecoQrCreateResponse | null>(null);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrStatus, setQrStatus] = useState<"PENDING" | "PAID" | "CANCELED">("PENDING");
 
   useEffect(() => {
     void (async () => {
@@ -176,14 +195,67 @@ export default function CreditsScreen() {
       .reduce((acc, item) => acc + Math.abs(Math.min(signedAmount(item), 0)), 0);
   }, [history]);
 
-  async function handleFlowBuy(packageId: string) {
-    try {
-      const response = await apiFlowCreatePayment(packageId);
-      if (response?.paymentUrl) {
-        await Linking.openURL(response.paymentUrl);
+  useEffect(() => {
+    if (!qrData || qrStatus !== "PENDING") return;
+
+    let active = true;
+    const interval = setInterval(async () => {
+      try {
+        const res = await apiGetBanecoQrStatus(qrData.qrId);
+        if (!active) return;
+
+        if (res.status === "PAID") {
+          setQrStatus("PAID");
+          const wallet = await apiGetMyWallet();
+          if (!active) return;
+          setBalance(Number(wallet?.balance ?? 0));
+          setTimeout(() => {
+            if (!active) return;
+            setQrData(null);
+            setQrStatus("PENDING");
+            setActiveTab("wallet");
+          }, 1800);
+        } else if (res.status === "CANCELED") {
+          setQrStatus("CANCELED");
+        }
+      } catch {
+        // Silencioso: seguimos intentando hasta que el usuario cierre
       }
+    }, 5000);
+
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [qrData, qrStatus]);
+
+  async function handleQrBuy(packageId: string) {
+    try {
+      setQrLoading(true);
+      setQrStatus("PENDING");
+      const data = await apiCreateBanecoQr(packageId);
+      setQrData(data);
     } catch (err: any) {
-      Alert.alert("No se pudo iniciar la recarga", err?.message ?? "Intenta nuevamente.");
+      Alert.alert(
+        "No se pudo generar el QR",
+        err?.message ?? "Intenta nuevamente en unos minutos.",
+      );
+    } finally {
+      setQrLoading(false);
+    }
+  }
+
+  async function handleQrClose() {
+    const current = qrData;
+    setQrData(null);
+    setQrStatus("PENDING");
+
+    if (current && qrStatus === "PENDING") {
+      try {
+        await apiCancelBanecoQr(current.qrId);
+      } catch {
+        // Si falla la anulacion el QR vencera por dueDate
+      }
     }
   }
 
@@ -201,7 +273,7 @@ export default function CreditsScreen() {
         paymentIntentClientSecret: clientSecret, // contiene el monto que definió el backend
         customerId,
         customerEphemeralKeySecret: ephemeralKey.secret,
-        merchantDisplayName: "PsyConnect",
+        merchantDisplayName: "Sanamente",
         setupIntentClientSecret: undefined,
       });
       if (initError) {
@@ -255,7 +327,7 @@ export default function CreditsScreen() {
               color={activeTab === "wallet" ? "#FFFFFF" : appTheme.colors.primary}
             />
             <Text style={[styles.tabText, activeTab === "wallet" && styles.tabTextActive]}>
-              Mi wallet
+              Mi saldo
             </Text>
           </Pressable>
 
@@ -288,7 +360,7 @@ export default function CreditsScreen() {
                 <Text style={styles.walletLabel}>Saldo disponible</Text>
                 <Text style={styles.walletBalance}>{Math.floor(totalBalance)}</Text>
                 <Text style={styles.walletHint}>
-                  créditos · ≈ ${(totalBalance * 0.042).toFixed(2)} USD
+                  créditos · equiv. Bs {Math.max(totalBalance, 0).toFixed(2)}
                 </Text>
 
                 <Pressable style={styles.walletRechargeBtn} onPress={() => setActiveTab("recharge")}>
@@ -299,11 +371,11 @@ export default function CreditsScreen() {
 
             <View style={styles.statsRow}>
               <View style={styles.statCard}>
-                <Text style={styles.statValue}>{Math.round(usedToday)} crd</Text>
+                <Text style={styles.statValue}>{Math.round(usedToday)} cr</Text>
                 <Text style={styles.statLabel}>Usados hoy</Text>
               </View>
               <View style={styles.statCard}>
-                <Text style={styles.statValue}>{Math.round(usedThisMonth)} crd</Text>
+                <Text style={styles.statValue}>{Math.round(usedThisMonth)} cr</Text>
                 <Text style={styles.statLabel}>Este mes</Text>
               </View>
             </View>
@@ -355,7 +427,7 @@ export default function CreditsScreen() {
                         ]}
                       >
                         {isCredit ? "+" : "-"}
-                        {Math.abs(signed)} crd
+                        {Math.abs(signed)} cr
                       </Text>
                     </View>
                   );
@@ -398,34 +470,32 @@ export default function CreditsScreen() {
               <AppCard>
                 <Text style={styles.paymentTitle}>Método de pago</Text>
 
-                <Pressable style={styles.paymentRow} onPress={() => setPaymentMethod("card")}>
-                  <View style={[styles.radio, paymentMethod === "card" && styles.radioActive]} />
-                  <Ionicons name="card-outline" size={16} color={appTheme.colors.primary} />
-                  <Text style={styles.paymentText}>Tarjeta **** 4242</Text>
-                </Pressable>
-
-                <Pressable style={styles.paymentRow} onPress={() => setPaymentMethod("paypal")}>
-                  <View style={[styles.radio, paymentMethod === "paypal" && styles.radioActive]} />
-                  <Ionicons name="logo-paypal" size={16} color={appTheme.colors.primary} />
-                  <Text style={styles.paymentText}>PayPal</Text>
-                </Pressable>
-
                 <Pressable style={styles.paymentRow} onPress={() => setPaymentMethod("stripe")}>
                   <View style={[styles.radio, paymentMethod === "stripe" && styles.radioActive]} />
                   <Ionicons name="card" size={16} color={appTheme.colors.primary} />
                   <Text style={styles.paymentText}>Stripe</Text>
                 </Pressable>
+
+                <Pressable style={styles.paymentRow} onPress={() => setPaymentMethod("qr")}>
+                  <View style={[styles.radio, paymentMethod === "qr" && styles.radioActive]} />
+                  <Ionicons name="qr-code-outline" size={16} color={appTheme.colors.primary} />
+                  <Text style={styles.paymentText}>Pago con QR</Text>
+                </Pressable>
+
               </AppCard>
             </View>
 
             <View style={styles.sectionPad}>
               <Pressable
-                style={[styles.buyBtn, (!selectedPackage || loading) && { opacity: 0.6 }]}
-                disabled={!selectedPackage || loading}
+                style={[
+                  styles.buyBtn,
+                  (!selectedPackage || loading || qrLoading) && { opacity: 0.6 },
+                ]}
+                disabled={!selectedPackage || loading || qrLoading}
                 onPress={() => {
                   if (!selectedPackage) return;
-                  if (paymentMethod === "card" || paymentMethod === "paypal") {
-                    void handleFlowBuy(selectedPackage.id);
+                  if (paymentMethod === "qr") {
+                    void handleQrBuy(selectedPackage.id);
                   } else {
                     void handleBuy(selectedPackage.id);
                   }
@@ -441,9 +511,78 @@ export default function CreditsScreen() {
               </Pressable>
 
               <Text style={styles.secureText}>Pago seguro · SSL encriptado</Text>
+              <Pressable onPress={() => router.push("/terms" as any)}>
+                <Text style={styles.termsLink}>Al recargar, aceptas los Términos y Condiciones.</Text>
+              </Pressable>
             </View>
           </>
         )}
+
+        <Modal
+          visible={!!qrData || qrLoading}
+          transparent
+          animationType="fade"
+          onRequestClose={handleQrClose}
+        >
+          <View style={styles.qrBackdrop}>
+            <View style={styles.qrCard}>
+              {qrLoading && !qrData ? (
+                <View style={styles.qrLoaderWrap}>
+                  <ActivityIndicator size="large" color={appTheme.colors.primary} />
+                  <Text style={styles.qrLoaderText}>Generando código QR...</Text>
+                </View>
+              ) : qrData ? (
+                <>
+                  <Text style={styles.qrTitle}>Paga con QR</Text>
+                  <Text style={styles.qrSubtitle}>
+                    {qrData.credits} créditos · {qrData.packageName}
+                  </Text>
+
+                  {qrStatus === "PAID" ? (
+                    <View style={styles.qrSuccessBox}>
+                      <Ionicons name="checkmark-circle" size={48} color="#16A34A" />
+                      <Text style={styles.qrSuccessText}>¡Pago recibido!</Text>
+                      <Text style={styles.qrSuccessHint}>
+                        Acreditando tus {qrData.credits} créditos...
+                      </Text>
+                    </View>
+                  ) : qrStatus === "CANCELED" ? (
+                    <View style={styles.qrSuccessBox}>
+                      <Ionicons name="close-circle" size={48} color="#DC2626" />
+                      <Text style={[styles.qrSuccessText, { color: "#DC2626" }]}>QR anulado</Text>
+                    </View>
+                  ) : (
+                    <>
+                      <View style={styles.qrImageWrap}>
+                        <Image
+                          source={{ uri: `data:image/png;base64,${qrData.qrImage}` }}
+                          style={styles.qrImage}
+                          resizeMode="contain"
+                        />
+                      </View>
+                      <Text style={styles.qrAmount}>
+                        {qrData.amount.toFixed(2)} {qrData.currency}
+                      </Text>
+                      <View style={styles.qrPollRow}>
+                        <ActivityIndicator size="small" color={appTheme.colors.primary} />
+                        <Text style={styles.qrPollText}>Esperando confirmación del pago...</Text>
+                      </View>
+                      <Text style={styles.qrHelp}>
+                        Escanea con la app de tu banco o billetera. Vence el {qrData.dueDate}.
+                      </Text>
+                    </>
+                  )}
+
+                  <Pressable style={styles.qrCloseBtn} onPress={handleQrClose}>
+                    <Text style={styles.qrCloseText}>
+                      {qrStatus === "PENDING" ? "Cancelar" : "Cerrar"}
+                    </Text>
+                  </Pressable>
+                </>
+              ) : null}
+            </View>
+          </View>
+        </Modal>
       </View>
     </AppScreen>
   );
@@ -807,6 +946,140 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.body,
     fontSize: 14,
     textAlign: "center",
+  },
+  termsLink: {
+    marginTop: 8,
+    color: appTheme.colors.primary,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    textAlign: "center",
+    fontWeight: "600",
+  },
+
+  qrBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
+
+  qrCard: {
+    width: "100%",
+    maxWidth: 380,
+    borderRadius: 22,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 20,
+    paddingVertical: 22,
+    alignItems: "center",
+    gap: 10,
+  },
+
+  qrLoaderWrap: {
+    paddingVertical: 30,
+    alignItems: "center",
+    gap: 12,
+  },
+
+  qrLoaderText: {
+    color: "#475569",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 15,
+  },
+
+  qrTitle: {
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 22,
+    fontWeight: "700",
+  },
+
+  qrSubtitle: {
+    color: "#475569",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 14,
+    textAlign: "center",
+  },
+
+  qrImageWrap: {
+    marginTop: 8,
+    padding: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+    backgroundColor: "#FFFFFF",
+  },
+
+  qrImage: {
+    width: 240,
+    height: 240,
+  },
+
+  qrAmount: {
+    marginTop: 6,
+    color: appTheme.colors.primary,
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 26,
+    fontWeight: "700",
+  },
+
+  qrPollRow: {
+    marginTop: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+
+  qrPollText: {
+    color: "#475569",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 14,
+  },
+
+  qrHelp: {
+    marginTop: 4,
+    color: "#64748B",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    textAlign: "center",
+  },
+
+  qrSuccessBox: {
+    paddingVertical: 18,
+    alignItems: "center",
+    gap: 6,
+  },
+
+  qrSuccessText: {
+    color: "#16A34A",
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 18,
+    fontWeight: "700",
+  },
+
+  qrSuccessHint: {
+    color: "#475569",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 13,
+    textAlign: "center",
+  },
+
+  qrCloseBtn: {
+    marginTop: 10,
+    alignSelf: "stretch",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+    backgroundColor: "#F8FAFC",
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+
+  qrCloseText: {
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 15,
+    fontWeight: "600",
   },
 });
 

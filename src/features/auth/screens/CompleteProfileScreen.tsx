@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
@@ -18,6 +18,7 @@ export default function CompleteProfileScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const { setSession } = useAuth();
   const router = useRouter();
@@ -28,7 +29,8 @@ export default function CompleteProfileScreen() {
     !email.trim() ||
     !password ||
     !confirmPassword ||
-    password !== confirmPassword;
+    password !== confirmPassword ||
+    !acceptedTerms;
 
   function handleBack() {
     if (router.canGoBack()) {
@@ -46,7 +48,7 @@ export default function CompleteProfileScreen() {
 
   async function handleSubmit() {
     if (!tempToken) {
-      Alert.alert("Token inválido", "Vuelve a iniciar el registro.");
+      Alert.alert("Token invalido", "Vuelve a iniciar el registro.");
       return;
     }
 
@@ -79,37 +81,26 @@ export default function CompleteProfileScreen() {
         </Pressable>
 
         <Text style={styles.title}>Completa tu perfil</Text>
-        <Text style={styles.subtitle}>
-          Configura tu cuenta para empezar a usar la plataforma.
-        </Text>
+        <Text style={styles.subtitle}>Configura tu cuenta para empezar a usar la plataforma.</Text>
 
         <AppInput label="Nombre" value={firstName} onChangeText={setFirstName} />
         <AppInput label="Apellido" value={lastName} onChangeText={setLastName} />
-        <AppInput
-          label="Correo"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-        />
-        <AppInput
-          label="Contraseña"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
-        <AppInput
-          label="Confirmar contraseña"
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry
-        />
+        <AppInput label="Correo" value={email} onChangeText={setEmail} keyboardType="email-address" />
+        <AppInput label="Contraseña" value={password} onChangeText={setPassword} secureTextEntry />
+        <AppInput label="Confirmar contraseña" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
 
-        <AppButton
-          title="Crear cuenta"
-          onPress={handleSubmit}
-          loading={loading}
-          disabled={isFormInvalid}
-        />
+        <Pressable style={styles.termsRow} onPress={() => setAcceptedTerms((prev) => !prev)}>
+          <View style={[styles.checkbox, acceptedTerms && styles.checkboxActive]} />
+          <Text style={styles.termsText}>
+            Acepto los{" "}
+            <Text style={styles.termsLink} onPress={() => router.push("/terms" as any)}>
+              Términos y Condiciones
+            </Text>
+            .
+          </Text>
+        </Pressable>
+
+        <AppButton title="Crear cuenta" onPress={handleSubmit} loading={loading} disabled={isFormInvalid} />
       </View>
     </AppScreen>
   );
@@ -154,5 +145,38 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.body,
     marginBottom: 6,
   },
-});
 
+  termsRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+
+  checkbox: {
+    width: 18,
+    height: 18,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: appTheme.colors.border,
+    marginTop: 1,
+    backgroundColor: "#FFFFFF",
+  },
+
+  checkboxActive: {
+    borderColor: appTheme.colors.primary,
+    backgroundColor: appTheme.colors.primary,
+  },
+
+  termsText: {
+    flex: 1,
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+
+  termsLink: {
+    color: appTheme.colors.primary,
+    fontWeight: "700",
+  },
+});

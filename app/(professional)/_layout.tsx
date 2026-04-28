@@ -1,5 +1,5 @@
 import { Redirect, Stack, usePathname } from "expo-router";
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 import { useAuth } from "../../src/context/AuthContext";
 import { appTheme } from "../../src/theme/appTheme";
 import ProfessionalBottomNav from "../../src/features/professional/components/ProfessionalBottomNav";
@@ -10,7 +10,12 @@ export default function ProfessionalLayout() {
 
   if (!isHydrated) return <View style={{ flex: 1, backgroundColor: appTheme.colors.background }} />;
 
-  if (!user) return <Redirect href="/(public)/auth" />;
+  if (!user) return <Redirect href={Platform.OS === "web" ? "/admin-login" : "/(public)/auth"} />;
+
+  if (Platform.OS === "web") {
+    if (user.role === "ADMIN") return <Redirect href="/admin" />;
+    return <Redirect href="/admin-login" />;
+  }
 
   if (user.role === "ADMIN") return <Redirect href="/admin" />;
 

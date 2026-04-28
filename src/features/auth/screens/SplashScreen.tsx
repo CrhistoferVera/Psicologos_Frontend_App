@@ -31,10 +31,10 @@ export default function SplashScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.logoCircle}>
-        <Text style={styles.logoText}>PSI</Text>
+        <Text style={styles.logoText}>SA</Text>
       </View>
 
-      <Text style={styles.title}>PsyConnect</Text>
+      <Text style={styles.title}>Sanamente</Text>
       <Text style={styles.subtitle}>Conecta con profesionales verificados</Text>
 
       <ActivityIndicator

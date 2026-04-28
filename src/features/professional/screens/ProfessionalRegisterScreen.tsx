@@ -24,19 +24,19 @@ import {
 const totalSteps = 5;
 
 const COUNTRY_CODES = [
-  { code: "+591", flag: "🇧🇴", country: "Bolivia" },
-  { code: "+54",  flag: "🇦🇷", country: "Argentina" },
-  { code: "+55",  flag: "🇧🇷", country: "Brasil" },
-  { code: "+56",  flag: "🇨🇱", country: "Chile" },
-  { code: "+57",  flag: "🇨🇴", country: "Colombia" },
-  { code: "+593", flag: "🇪🇨", country: "Ecuador" },
-  { code: "+595", flag: "🇵🇾", country: "Paraguay" },
-  { code: "+51",  flag: "🇵🇪", country: "Perú" },
-  { code: "+598", flag: "🇺🇾", country: "Uruguay" },
-  { code: "+58",  flag: "🇻🇪", country: "Venezuela" },
-  { code: "+52",  flag: "🇲🇽", country: "México" },
-  { code: "+1",   flag: "🇺🇸", country: "USA / Canadá" },
-  { code: "+34",  flag: "🇪🇸", country: "España" },
+  { code: "+591", flag: "BO", country: "Bolivia" },
+  { code: "+54", flag: "AR", country: "Argentina" },
+  { code: "+55", flag: "BR", country: "Brasil" },
+  { code: "+56", flag: "CL", country: "Chile" },
+  { code: "+57", flag: "CO", country: "Colombia" },
+  { code: "+593", flag: "EC", country: "Ecuador" },
+  { code: "+595", flag: "PY", country: "Paraguay" },
+  { code: "+51", flag: "PE", country: "Perú" },
+  { code: "+598", flag: "UY", country: "Uruguay" },
+  { code: "+58", flag: "VE", country: "Venezuela" },
+  { code: "+52", flag: "MX", country: "México" },
+  { code: "+1", flag: "US", country: "USA / Canadá" },
+  { code: "+34", flag: "ES", country: "España" },
 ];
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -49,6 +49,7 @@ export default function ProfessionalRegisterScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [catalogLoading, setCatalogLoading] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -144,9 +145,12 @@ export default function ProfessionalRegisterScreen() {
     }
     if (currentStep === 3) {
       if (selectedSpecialties.length === 0) return "Selecciona al menos una especialidad.";
-      if (Number(chatPrice || 0) < 0 || Number(callPrice || 0) < 0 || Number(videoPrice || 0) < 0) {
-        return "Las tarifas deben ser números válidos.";
-      }
+      const chat = Number(chatPrice || 0);
+      const call = Number(callPrice || 0);
+      const video = Number(videoPrice || 0);
+      if (!Number.isFinite(chat) || chat <= 0.1) return "La tarifa de mensajes debe ser mayor a 0.1 créditos.";
+      if (!Number.isFinite(call) || call <= 0.5) return "La tarifa de llamadas debe ser mayor a 0.5 créditos.";
+      if (!Number.isFinite(video) || video <= 1) return "La tarifa de videollamadas debe ser mayor a 1 crédito.";
     }
     return null;
   }
@@ -289,6 +293,11 @@ export default function ProfessionalRegisterScreen() {
       return;
     }
 
+    if (!acceptedTerms) {
+      setError("Debes aceptar los Términos y Condiciones para enviar el registro.");
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -352,7 +361,7 @@ export default function ProfessionalRegisterScreen() {
             <View style={styles.phoneRow}>
               <Pressable style={styles.countryCodeBtn} onPress={() => setShowCountryPicker(true)}>
                 <Text style={styles.countryCodeText}>
-                  {COUNTRY_CODES.find((c) => c.code === countryCode)?.flag ?? "🌐"} {countryCode}
+                  {COUNTRY_CODES.find((c) => c.code === countryCode)?.flag ?? "INTL"} {countryCode}
                 </Text>
                 <Ionicons name="chevron-down" size={14} color={appTheme.colors.textMuted} />
               </Pressable>
@@ -481,23 +490,28 @@ export default function ProfessionalRegisterScreen() {
             </View>
 
             <Text style={styles.sectionTitle}>Tarifas (créditos)</Text>
-            <View style={styles.priceRow}>
-              {([
-                { label: "Chat", value: chatPrice, icon: "chatbubble-ellipses-outline" },
-                { label: "Llamada", value: callPrice, icon: "call-outline" },
-                { label: "Video", value: videoPrice, icon: "videocam-outline" },
-              ] as const).map((item) => (
-                <Pressable
-                  key={item.label}
-                  style={styles.priceCard}
-                  onPress={() => Alert.alert("Campo bloqueado", "Este campo no es editable.")}
-                >
-                  <Ionicons name={item.icon} size={22} color={appTheme.colors.primary} />
-                  <Text style={styles.priceAmount}>{item.value}</Text>
-                  <Text style={styles.priceLabel}>{item.label}</Text>
-                </Pressable>
-              ))}
-            </View>
+            <AppInput
+              label="Mensaje (créditos)"
+              value={chatPrice}
+              onChangeText={setChatPrice}
+              keyboardType="decimal-pad"
+              placeholder="Mayor a 0.1"
+            />
+            <AppInput
+              label="Llamada (créditos)"
+              value={callPrice}
+              onChangeText={setCallPrice}
+              keyboardType="decimal-pad"
+              placeholder="Mayor a 0.5"
+            />
+            <AppInput
+              label="Videollamada (créditos)"
+              value={videoPrice}
+              onChangeText={setVideoPrice}
+              keyboardType="decimal-pad"
+              placeholder="Mayor a 1"
+            />
+            <Text style={styles.hint}>Mínimos: mensaje &gt; 0.1, llamada &gt; 0.5, videollamada &gt; 1.</Text>
           </View>
         ) : null}
 
@@ -558,6 +572,16 @@ export default function ProfessionalRegisterScreen() {
               <Text style={styles.summaryText}>Título profesional: {tituloProfesional ? "Adjunto" : "No adjuntado"}</Text>
               {referralCode.trim() ? <Text style={styles.summaryText}>Código de referido: {referralCode.trim()}</Text> : null}
             </View>
+            <Pressable style={styles.termsRow} onPress={() => setAcceptedTerms((prev) => !prev)}>
+              <View style={[styles.checkbox, acceptedTerms && styles.checkboxActive]} />
+              <Text style={styles.termsText}>
+                Acepto los{" "}
+                <Text style={styles.termsLink} onPress={() => router.push("/terms" as any)}>
+                  Términos y Condiciones
+                </Text>
+                .
+              </Text>
+            </Pressable>
             <Text style={styles.hint}>Al enviar, tu perfil quedará en revisión KYC. El equipo cotejará el video con tu documento antes de aprobar tu cuenta.</Text>
           </View>
         ) : null}
@@ -775,6 +799,35 @@ const styles = StyleSheet.create({
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.body,
     fontSize: 13,
+  },
+  termsRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  checkbox: {
+    width: 18,
+    height: 18,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: appTheme.colors.border,
+    marginTop: 1,
+    backgroundColor: "#FFFFFF",
+  },
+  checkboxActive: {
+    borderColor: appTheme.colors.primary,
+    backgroundColor: appTheme.colors.primary,
+  },
+  termsText: {
+    flex: 1,
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  termsLink: {
+    color: appTheme.colors.primary,
+    fontWeight: "700",
   },
   hint: {
     color: appTheme.colors.textMuted,

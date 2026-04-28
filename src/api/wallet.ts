@@ -34,7 +34,8 @@ export interface BankAccount {
 export interface WithdrawalRequest {
   id: string;
   credits: number;
-  soles: number;
+  amountBs: number;
+  soles?: number;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   bankName: string;
   accountNumber: string;

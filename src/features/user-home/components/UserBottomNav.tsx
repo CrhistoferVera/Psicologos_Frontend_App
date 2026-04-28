@@ -44,12 +44,12 @@ export default function UserBottomNav() {
             <View style={[styles.activeLine, { opacity: active ? 1 : 0 }]} />
             <Icon
               size={21}
-              color={active ? appTheme.colors.primary : appTheme.colors.textMuted}
+              color={active ? "#FFFFFF" : "#9CA3AF"}
             />
             <Text
               style={[
                 styles.label,
-                { color: active ? appTheme.colors.primary : appTheme.colors.textMuted },
+                { color: active ? "#FFFFFF" : "#9CA3AF" },
               ]}
             >
               {item.label}
@@ -70,9 +70,9 @@ export default function UserBottomNav() {
 
 const styles = StyleSheet.create({
   wrap: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#000000",
     borderTopWidth: 1,
-    borderTopColor: appTheme.colors.border,
+    borderTopColor: "#111827",
     flexDirection: "row",
     alignItems: "flex-end",
     justifyContent: "space-around",
@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 3,
     borderRadius: 99,
-    backgroundColor: appTheme.colors.primary,
+    backgroundColor: "#FFFFFF",
   },
 
   label: {
@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: appTheme.colors.success,
     borderWidth: 2,
-    borderColor: "#FFFFFF",
+    borderColor: "#000000",
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",

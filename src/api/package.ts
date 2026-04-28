@@ -2,7 +2,7 @@ import apiClient from './client';
 import { PackageData } from '../types/package';
 
 /**
- * Servicio para la gestion de paquetes en PsyConnect
+ * Servicio para la gestion de paquetes en Sanamente
  */
 function parseApiError(error: any, fallback: string) {
     const rawMessage = error?.response?.data?.message ?? error?.message;

@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
@@ -138,6 +138,23 @@ export default function ProfessionalProfileScreen() {
   }
 
   async function handleSave() {
+    const chat = Number(chatPrice);
+    const call = Number(callPrice);
+    const video = Number(videoPrice);
+
+    if (!Number.isFinite(chat) || chat <= 0.1) {
+      setError("La tarifa de mensajes debe ser mayor a 0.1 créditos.");
+      return;
+    }
+    if (!Number.isFinite(call) || call <= 0.5) {
+      setError("La tarifa de llamadas debe ser mayor a 0.5 créditos.");
+      return;
+    }
+    if (!Number.isFinite(video) || video <= 1) {
+      setError("La tarifa de videollamadas debe ser mayor a 1 crédito.");
+      return;
+    }
+
     try {
       setSaving(true);
       setError(null);
@@ -159,9 +176,9 @@ export default function ProfessionalProfileScreen() {
       );
 
       await upsertProfessionalPrices({
-        chat: Number(chatPrice || 0),
-        call: Number(callPrice || 0),
-        video: Number(videoPrice || 0),
+        chat,
+        call,
+        video,
       });
 
       await updateMyProfessionalSpecialties(selectedSpecialties);
@@ -277,23 +294,34 @@ export default function ProfessionalProfileScreen() {
             <Text style={styles.cardTitle}>Tarifas</Text>
           </View>
 
-          <View style={styles.priceRow}>
-            {([
-              { label: "Chat", value: chatPrice, icon: "chatbubble-ellipses-outline", suffix: "crd/msg" },
-              { label: "Llamada", value: callPrice, icon: "call-outline", suffix: "crd/min" },
-              { label: "Video", value: videoPrice, icon: "videocam-outline", suffix: "crd/min" },
-            ] as const).map((item) => (
-              <Pressable
-                key={item.label}
-                style={styles.priceCard}
-                onPress={() => Alert.alert("Campo bloqueado", "Este campo no es editable.")}
-              >
-                <Ionicons name={item.icon} size={22} color={appTheme.colors.primary} />
-                <Text style={styles.priceAmount}>{Number(item.value || 0).toFixed(0)}</Text>
-                <Text style={styles.priceLabel}>{item.label}</Text>
-                <Text style={styles.priceSuffix}>{item.suffix}</Text>
-              </Pressable>
-            ))}
+          <View style={styles.rateRows}>
+            <TextInput
+              value={chatPrice}
+              onChangeText={setChatPrice}
+              style={styles.inlineInput}
+              keyboardType="decimal-pad"
+              placeholder="Mensaje (créditos)"
+              placeholderTextColor="#7A8EA8"
+            />
+            <Text style={styles.rateHint}>Debe ser mayor a 0.1 créditos.</Text>
+            <TextInput
+              value={callPrice}
+              onChangeText={setCallPrice}
+              style={styles.inlineInput}
+              keyboardType="decimal-pad"
+              placeholder="Llamada (créditos)"
+              placeholderTextColor="#7A8EA8"
+            />
+            <Text style={styles.rateHint}>Debe ser mayor a 0.5 créditos.</Text>
+            <TextInput
+              value={videoPrice}
+              onChangeText={setVideoPrice}
+              style={styles.inlineInput}
+              keyboardType="decimal-pad"
+              placeholder="Videollamada (créditos)"
+              placeholderTextColor="#7A8EA8"
+            />
+            <Text style={styles.rateHint}>Debe ser mayor a 1 crédito.</Text>
           </View>
         </AppCard>
 
@@ -585,6 +613,12 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.heading,
     fontSize: 14,
     fontWeight: "700",
+  },
+  rateHint: {
+    marginTop: -2,
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
   },
   divider: {
     height: 1,

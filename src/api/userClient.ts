@@ -1,4 +1,4 @@
-﻿// api/userClient.ts
+// api/userClient.ts
 import apiClient from './client';
 import { UserClientData } from '../types/userClient';
 
@@ -53,12 +53,16 @@ export const apiToggleClientStatus = async (id: string, isActive: boolean) => {
 };
 
 // CONFIGURACIÓN DE LA PLATAFORMA
-export const apiGetConfig = async (): Promise<{ creditToSolesRate: number }> => {
+export const apiGetConfig = async (): Promise<{ creditToSolesRate: number; creditValueBs: number }> => {
     try {
         const response = await apiClient.get('users/config');
-        return response.data;
+        const creditValueBs = Number(response.data?.creditValueBs ?? response.data?.creditToSolesRate ?? 1);
+        return {
+            creditValueBs,
+            creditToSolesRate: creditValueBs,
+        };
     } catch {
-        return { creditToSolesRate: 1 };
+        return { creditToSolesRate: 1, creditValueBs: 1 };
     }
 };
 
