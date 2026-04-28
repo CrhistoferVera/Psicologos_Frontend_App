@@ -12,3 +12,9 @@ export const API_URL =
 
 export const AGORA_APP_ID = process.env.EXPO_PUBLIC_AGORA_APP_ID;
 export const STRIPE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
+
+// Tipo de cambio: 7 Bs = 1 USD
+export const BS_PER_USD = Number(process.env.EXPO_PUBLIC_BS_PER_USD ?? 7);
+
+// Bonus de créditos para pagos con Stripe (35%)
+export const STRIPE_CREDITS_BONUS = Number(process.env.EXPO_PUBLIC_STRIPE_CREDITS_BONUS ?? 0.35);

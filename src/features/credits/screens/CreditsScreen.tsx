@@ -11,7 +11,10 @@ import { apiCreatePaymentIntent, apiCreateEphemeralKey } from "../../../api/stri
 import { apiGetMyWallet } from "../../../api/userClient";
 import { apiGetExpenseHistory } from "../../../api/userProfile";
 import { appTheme } from "../../../theme/appTheme";
+import { BS_PER_USD, STRIPE_CREDITS_BONUS } from "../../../config";
 
+
+// Define la estructura de un paquete: id, nombre, créditos y precio
 type PackageItem = {
   id: string;
   name: string;
@@ -76,8 +79,12 @@ export default function CreditsScreen() {
 
   const [balance, setBalance] = useState(0);
   const [promoBalance, setPromoBalance] = useState(0);
+
+  // Lista de paquetes que vienen del backend con su id, nombre, cantidad de créditos y precio
   const [packages, setPackages] = useState<PackageItem[]>([]);
   const [history, setHistory] = useState<ExpenseItem[]>([]);
+
+  // Solo guarda el ID del paquete seleccionado, no el objeto completo
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
@@ -111,6 +118,8 @@ export default function CreditsScreen() {
             ? packageRes
             : [];
 
+            //// Busca en el array el paquete cuyo id coincide con selectedPackageId
+// Esto da acceso a .id, .credits y .price en cualquier parte del componente
         const mappedPackages = normalized
           .map((item: any) => ({
             id: String(item.id),
@@ -180,13 +189,16 @@ export default function CreditsScreen() {
 
   async function handleBuy(packageId: string) {
     try {
+      // Manda el packageId al backend; el backend busca el precio real y crea el PaymentIntent
+      // Stripe nunca recibe el precio desde el frontend (seguridad)
       const [{ clientSecret, customerId }, ephemeralKey] = await Promise.all([
-        apiCreatePaymentIntent(packageId, true),
-        apiCreateEphemeralKey(),
+        apiCreatePaymentIntent(packageId, true), // backend devuelve clientSecret con el monto real
+        apiCreateEphemeralKey(),                 // clave temporal para identificar al customer en Stripe
       ]);
 
+      // Inicializa el Payment Sheet con los datos del backend
       const { error: initError } = await initPaymentSheet({
-        paymentIntentClientSecret: clientSecret,
+        paymentIntentClientSecret: clientSecret, // contiene el monto que definió el backend
         customerId,
         customerEphemeralKeySecret: ephemeralKey.secret,
         merchantDisplayName: "PsyConnect",
@@ -197,6 +209,7 @@ export default function CreditsScreen() {
         return;
       }
 
+      // Abre el modal nativo de Stripe para que el usuario ingrese su tarjeta
       const { error: presentError } = await presentPaymentSheet();
       if (presentError) {
         if (presentError.code !== "Canceled") {
@@ -205,6 +218,7 @@ export default function CreditsScreen() {
         return;
       }
 
+      // Pago exitoso: refresca el saldo y vuelve al tab wallet
       Alert.alert("¡Pago exitoso!", "Tus créditos serán acreditados en breve.");
       const wallet = await apiGetMyWallet();
       setBalance(Number(wallet?.balance ?? 0));
@@ -373,7 +387,8 @@ export default function CreditsScreen() {
                     ) : null}
                     <Text style={styles.pkgCredits}>{pkg.credits}</Text>
                     <Text style={styles.pkgCreditsLabel}>créditos</Text>
-                    <Text style={styles.pkgPrice}>${pkg.price.toFixed(2)}</Text>
+                    <Text style={styles.pkgPrice}>{pkg.price.toFixed(2)} Bs</Text>
+                    <Text style={styles.pkgPriceUsd}>≈ ${(pkg.price / BS_PER_USD).toFixed(2)} USD</Text>
                   </Pressable>
                 );
               })}
@@ -418,7 +433,9 @@ export default function CreditsScreen() {
               >
                 <Text style={styles.buyBtnText}>
                   {selectedPackage
-                    ? `Comprar ${selectedPackage.credits} créditos · $${selectedPackage.price.toFixed(2)}`
+                    ? paymentMethod === "stripe"
+                      ? `Comprar ${Math.floor(selectedPackage.credits * (1 + STRIPE_CREDITS_BONUS))} créditos · ${selectedPackage.price.toFixed(2)} Bs (≈ $${(selectedPackage.price / BS_PER_USD).toFixed(2)} USD)`
+                      : `Comprar ${selectedPackage.credits} créditos · ${selectedPackage.price.toFixed(2)} Bs (≈ $${(selectedPackage.price / BS_PER_USD).toFixed(2)} USD)`
                     : "Selecciona un paquete"}
                 </Text>
               </Pressable>
@@ -725,6 +742,12 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.heading,
     fontSize: 34,
     fontWeight: "700",
+  },
+
+  pkgPriceUsd: {
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
   },
 
   paymentTitle: {
