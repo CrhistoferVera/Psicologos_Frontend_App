@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -158,7 +159,12 @@ export default function ProfessionalMessageDetailScreen() {
   }
 
   function handleRequestCall(callType: "CALL" | "VIDEO_CALL") {
-    if (!clientId || requestingCall) return;
+    if (requestingCall) return;
+    if (!clientId) {
+      Alert.alert("No se pudo iniciar la llamada", "No se encontró el cliente para esta conversación.");
+      return;
+    }
+
     try {
       setRequestingCall(true);
       startOutgoingCall({

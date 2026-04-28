@@ -295,32 +295,56 @@ export default function ProfessionalProfileScreen() {
           </View>
 
           <View style={styles.rateRows}>
-            <TextInput
-              value={chatPrice}
-              onChangeText={setChatPrice}
-              style={styles.inlineInput}
-              keyboardType="decimal-pad"
-              placeholder="Mensaje (créditos)"
-              placeholderTextColor="#7A8EA8"
-            />
+            <View style={styles.rateField}>
+              <View style={styles.rateFieldHead}>
+                <Text style={styles.rateFieldLabel}>Costo por mensaje</Text>
+                <View style={styles.rateUnitBadge}>
+                  <Text style={styles.rateUnitText}>Créditos</Text>
+                </View>
+              </View>
+              <TextInput
+                value={chatPrice}
+                onChangeText={setChatPrice}
+                style={styles.inlineInput}
+                keyboardType="decimal-pad"
+                placeholder="Ej: 15"
+                placeholderTextColor="#7A8EA8"
+              />
+            </View>
             <Text style={styles.rateHint}>Debe ser mayor a 0.1 créditos.</Text>
-            <TextInput
-              value={callPrice}
-              onChangeText={setCallPrice}
-              style={styles.inlineInput}
-              keyboardType="decimal-pad"
-              placeholder="Llamada (créditos)"
-              placeholderTextColor="#7A8EA8"
-            />
+            <View style={styles.rateField}>
+              <View style={styles.rateFieldHead}>
+                <Text style={styles.rateFieldLabel}>Costo por llamada</Text>
+                <View style={styles.rateUnitBadge}>
+                  <Text style={styles.rateUnitText}>Créditos/min</Text>
+                </View>
+              </View>
+              <TextInput
+                value={callPrice}
+                onChangeText={setCallPrice}
+                style={styles.inlineInput}
+                keyboardType="decimal-pad"
+                placeholder="Ej: 20"
+                placeholderTextColor="#7A8EA8"
+              />
+            </View>
             <Text style={styles.rateHint}>Debe ser mayor a 0.5 créditos.</Text>
-            <TextInput
-              value={videoPrice}
-              onChangeText={setVideoPrice}
-              style={styles.inlineInput}
-              keyboardType="decimal-pad"
-              placeholder="Videollamada (créditos)"
-              placeholderTextColor="#7A8EA8"
-            />
+            <View style={styles.rateField}>
+              <View style={styles.rateFieldHead}>
+                <Text style={styles.rateFieldLabel}>Costo por videollamada</Text>
+                <View style={styles.rateUnitBadge}>
+                  <Text style={styles.rateUnitText}>Créditos/min</Text>
+                </View>
+              </View>
+              <TextInput
+                value={videoPrice}
+                onChangeText={setVideoPrice}
+                style={styles.inlineInput}
+                keyboardType="decimal-pad"
+                placeholder="Ej: 25"
+                placeholderTextColor="#7A8EA8"
+              />
+            </View>
             <Text style={styles.rateHint}>Debe ser mayor a 1 crédito.</Text>
           </View>
         </AppCard>
@@ -598,6 +622,34 @@ const styles = StyleSheet.create({
   rateRows: {
     gap: 8,
   },
+  rateField: {
+    gap: 6,
+  },
+  rateFieldHead: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  rateFieldLabel: {
+    color: "#394F67",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  rateUnitBadge: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#D6E6F7",
+    backgroundColor: "#EDF4FB",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  rateUnitText: {
+    color: appTheme.colors.primary,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 11,
+    fontWeight: "700",
+  },
   rateRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -674,4 +726,3 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 });
-

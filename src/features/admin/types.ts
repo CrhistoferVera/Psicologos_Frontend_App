@@ -85,8 +85,12 @@ export type AdminWithdrawalRecord = {
   amountBs: number;
   soles?: number;
   status: "PENDING" | "APPROVED" | "REJECTED";
+  notes?: string | null;
+  rejectionReason?: string | null;
+  receiptUrl?: string | null;
   bankName: string;
   accountNumber: string;
+  accountHolderName?: string | null;
   professional: {
     id: string;
     firstName: string | null;
@@ -96,7 +100,7 @@ export type AdminWithdrawalRecord = {
   };
   currentBalance?: number;
   createdAt: string;
-  updatedAt?: string;
+  updatedAt?: string | null;
 };
 
 export type AdminDepositRecord = {

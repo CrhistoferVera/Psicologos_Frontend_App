@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import * as DocumentPicker from "expo-document-picker";
 import { Alert, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import AppCard from "../../../components/ui/AppCard";
 import { appTheme } from "../../../theme/appTheme";
 import {
   getAdminDeposits,
@@ -34,7 +33,7 @@ export default function AdminFinanceScreen() {
   const [deposits, setDeposits] = useState<any[]>([]);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [withdrawalHistory, setWithdrawalHistory] = useState<any[]>([]);
-  const [grants, setGrants] = useState<any[]>([]);
+  const [, setGrants] = useState<any[]>([]);
 
   const [approvalTarget, setApprovalTarget] = useState<any | null>(null);
   const [approvalNotes, setApprovalNotes] = useState("");
@@ -43,6 +42,11 @@ export default function AdminFinanceScreen() {
     | null
   >(null);
   const [approving, setApproving] = useState(false);
+
+  const [rejectionTarget, setRejectionTarget] = useState<any | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [rejectionNotes, setRejectionNotes] = useState("");
+  const [rejecting, setRejecting] = useState(false);
 
   useEffect(() => {
     void loadData();
@@ -85,20 +89,7 @@ export default function AdminFinanceScreen() {
     try {
       await updateAdminDepositStatus(id, status, status === "REJECTED" ? "Rechazado desde panel admin" : undefined);
       await loadData();
-      Alert.alert("Depósito actualizado", `Estado cambiado a ${status}.`);
-    } catch (err: any) {
-      Alert.alert("No se pudo actualizar", err?.message ?? "Intenta nuevamente.");
-    }
-  }
-
-  async function handleRejectWithdrawal(id: string) {
-    try {
-      await updateAdminWithdrawalStatus(id, {
-        status: "REJECTED",
-        rejectionReason: "Rechazado desde panel admin",
-      });
-      await loadData();
-      Alert.alert("Retiro actualizado", "Solicitud rechazada.");
+      Alert.alert("Deposito actualizado", `Estado cambiado a ${status}.`);
     } catch (err: any) {
       Alert.alert("No se pudo actualizar", err?.message ?? "Intenta nuevamente.");
     }
@@ -146,11 +137,37 @@ export default function AdminFinanceScreen() {
       setApprovalReceipt(null);
       setApprovalNotes("");
       await loadData();
-      Alert.alert("Retiro aprobado", "El retiro se aprobó con comprobante.");
+      Alert.alert("Retiro aprobado", "El retiro se aprobo con comprobante.");
     } catch (err: any) {
       Alert.alert("No se pudo aprobar", err?.message ?? "Intenta nuevamente.");
     } finally {
       setApproving(false);
+    }
+  }
+
+  async function handleRejectWithdrawal() {
+    if (!rejectionTarget) return;
+    if (!rejectionReason.trim()) {
+      Alert.alert("Motivo requerido", "Debes ingresar un motivo para rechazar el retiro.");
+      return;
+    }
+
+    try {
+      setRejecting(true);
+      await updateAdminWithdrawalStatus(rejectionTarget.id, {
+        status: "REJECTED",
+        rejectionReason: rejectionReason.trim(),
+        notes: rejectionNotes.trim() || undefined,
+      });
+      setRejectionTarget(null);
+      setRejectionReason("");
+      setRejectionNotes("");
+      await loadData();
+      Alert.alert("Retiro actualizado", "Solicitud rechazada.");
+    } catch (err: any) {
+      Alert.alert("No se pudo actualizar", err?.message ?? "Intenta nuevamente.");
+    } finally {
+      setRejecting(false);
     }
   }
 
@@ -160,7 +177,7 @@ export default function AdminFinanceScreen() {
   }
 
   return (
-    <ScrollView style={styles.page} contentContainerStyle={[styles.content, { paddingHorizontal: contentPadding }]}> 
+    <ScrollView style={styles.page} contentContainerStyle={[styles.content, { paddingHorizontal: contentPadding }]}>
       {loading ? <Text style={styles.info}>Cargando datos financieros...</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -173,9 +190,9 @@ export default function AdminFinanceScreen() {
         <AdminKpiCard label="Retiros pendientes" value={String(financial.withdrawalsPending)} tone="neutral" />
       </View>
 
-      <Text style={styles.sectionTitle}>Depósitos recientes</Text>
+      <Text style={styles.sectionTitle}>Depositos recientes</Text>
       {deposits.length === 0 ? (
-        <AdminEmptyState title="Sin depósitos" description="No hay solicitudes de depósito recientes." />
+        <AdminEmptyState title="Sin depositos" description="No hay solicitudes de deposito recientes." />
       ) : (
         <AdminDataTable
           rows={deposits}
@@ -200,7 +217,7 @@ export default function AdminFinanceScreen() {
             },
             {
               key: "credits",
-              title: "Créditos",
+              title: "Creditos",
               width: 120,
               render: (row) => <Text style={styles.cellPrimary}>{Number(row.creditsToDeliver ?? 0).toFixed(2)}</Text>,
             },
@@ -208,13 +225,14 @@ export default function AdminFinanceScreen() {
               key: "receipt",
               title: "Comprobante",
               width: 130,
-              render: (row) => (
+              render: (row) =>
                 row.receiptUrl ? (
                   <Pressable onPress={() => openUrl(row.receiptUrl)}>
                     <Text style={styles.linkText}>Ver</Text>
                   </Pressable>
-                ) : <Text style={styles.cellMuted}>-</Text>
-              ),
+                ) : (
+                  <Text style={styles.cellMuted}>-</Text>
+                ),
             },
             {
               key: "status",
@@ -274,8 +292,19 @@ export default function AdminFinanceScreen() {
             {
               key: "account",
               title: "Cuenta",
-              width: 210,
-              render: (row) => <Text style={styles.cellMuted}>{row.bankName} · {row.accountNumber}</Text>,
+              width: 260,
+              render: (row) => (
+                <Text style={styles.cellMuted}>
+                  {row.bankName} - {row.accountNumber}
+                  {row.accountHolderName ? ` (${row.accountHolderName})` : ""}
+                </Text>
+              ),
+            },
+            {
+              key: "created",
+              title: "Fecha",
+              width: 140,
+              render: (row) => <Text style={styles.cellMuted}>{new Date(row.createdAt).toLocaleDateString()}</Text>,
             },
             {
               key: "status",
@@ -299,7 +328,14 @@ export default function AdminFinanceScreen() {
                   >
                     <Text style={styles.approveText}>Aprobar + comprobante</Text>
                   </Pressable>
-                  <Pressable style={styles.rejectBtn} onPress={() => void handleRejectWithdrawal(row.id)}>
+                  <Pressable
+                    style={styles.rejectBtn}
+                    onPress={() => {
+                      setRejectionTarget(row);
+                      setRejectionReason("");
+                      setRejectionNotes("");
+                    }}
+                  >
                     <Text style={styles.rejectText}>Rechazar</Text>
                   </Pressable>
                 </View>
@@ -311,7 +347,7 @@ export default function AdminFinanceScreen() {
 
       <Text style={styles.sectionTitle}>Historial de retiros</Text>
       {withdrawalHistory.length === 0 ? (
-        <AdminEmptyState title="Sin historial" description="Aún no hay retiros procesados." />
+        <AdminEmptyState title="Sin historial" description="Aun no hay retiros procesados." />
       ) : (
         <AdminDataTable
           rows={withdrawalHistory}
@@ -324,7 +360,7 @@ export default function AdminFinanceScreen() {
             },
             {
               key: "credits",
-              title: "Créditos",
+              title: "Creditos",
               width: 120,
               render: (row) => <Text style={styles.cellMuted}>{Number(row.credits).toFixed(2)}</Text>,
             },
@@ -346,16 +382,23 @@ export default function AdminFinanceScreen() {
               ),
             },
             {
+              key: "reason",
+              title: "Motivo rechazo",
+              width: 240,
+              render: (row) => <Text style={styles.cellMuted}>{row.rejectionReason ?? "-"}</Text>,
+            },
+            {
               key: "receipt",
               title: "Comprobante",
               width: 130,
-              render: (row) => (
+              render: (row) =>
                 row.receiptUrl ? (
                   <Pressable onPress={() => openUrl(row.receiptUrl)}>
                     <Text style={styles.linkText}>Ver</Text>
                   </Pressable>
-                ) : <Text style={styles.cellMuted}>-</Text>
-              ),
+                ) : (
+                  <Text style={styles.cellMuted}>-</Text>
+                ),
             },
             {
               key: "updated",
@@ -372,7 +415,7 @@ export default function AdminFinanceScreen() {
           <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
             <Text style={styles.noteTitle}>Aprobar retiro</Text>
             <Text style={styles.cellMuted}>
-              {approvalTarget ? `${fullName(approvalTarget.professional)} · ${moneyBs(Number(approvalTarget.amountBs ?? approvalTarget.soles ?? 0))}` : ""}
+              {approvalTarget ? `${fullName(approvalTarget.professional)} - ${moneyBs(Number(approvalTarget.amountBs ?? approvalTarget.soles ?? 0))}` : ""}
             </Text>
             <TextInput
               value={approvalNotes}
@@ -390,10 +433,45 @@ export default function AdminFinanceScreen() {
                 <Text style={styles.rejectText}>Cancelar</Text>
               </Pressable>
               <Pressable style={styles.approveBtn} onPress={() => void handleApproveWithdrawal()} disabled={approving}>
-                <Text style={styles.approveText}>{approving ? "Aprobando..." : "Confirmar aprobación"}</Text>
+                <Text style={styles.approveText}>{approving ? "Aprobando..." : "Confirmar aprobacion"}</Text>
               </Pressable>
             </View>
             {Platform.OS === "web" ? <Text style={styles.noteText}>Acepta imagen o PDF como comprobante.</Text> : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal visible={rejectionTarget !== null} transparent animationType="fade" onRequestClose={() => setRejectionTarget(null)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setRejectionTarget(null)}>
+          <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
+            <Text style={styles.noteTitle}>Rechazar retiro</Text>
+            <Text style={styles.cellMuted}>
+              {rejectionTarget ? `${fullName(rejectionTarget.professional)} - ${moneyBs(Number(rejectionTarget.amountBs ?? rejectionTarget.soles ?? 0))}` : ""}
+            </Text>
+            <TextInput
+              value={rejectionReason}
+              onChangeText={setRejectionReason}
+              style={styles.input}
+              placeholder="Motivo de rechazo (obligatorio)"
+              placeholderTextColor={appTheme.colors.textMuted}
+              multiline
+            />
+            <TextInput
+              value={rejectionNotes}
+              onChangeText={setRejectionNotes}
+              style={styles.input}
+              placeholder="Nota interna (opcional)"
+              placeholderTextColor={appTheme.colors.textMuted}
+              multiline
+            />
+            <View style={styles.actionsCell}>
+              <Pressable style={styles.secondaryBtn} onPress={() => setRejectionTarget(null)}>
+                <Text style={styles.secondaryBtnText}>Cancelar</Text>
+              </Pressable>
+              <Pressable style={styles.rejectBtn} onPress={() => void handleRejectWithdrawal()} disabled={rejecting}>
+                <Text style={styles.rejectText}>{rejecting ? "Rechazando..." : "Confirmar rechazo"}</Text>
+              </Pressable>
+            </View>
           </Pressable>
         </Pressable>
       </Modal>

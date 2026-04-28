@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { Alert, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import { useRouter } from "expo-router";
+import { usePathname, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "./AuthContext";
 import { appTheme } from "../theme/appTheme";
@@ -46,6 +46,7 @@ const CallContext = createContext<CallContextValue | undefined>(undefined);
 
 export function CallProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user } = useAuth();
   const {
     requestCall,
@@ -83,7 +84,9 @@ export function CallProvider({ children }: { children: ReactNode }) {
           },
         };
       });
-      router.push({ pathname: "/call/[callId]", params: { callId } } as any);
+      if (!pathname.startsWith("/call/")) {
+        router.push({ pathname: "/call/[callId]", params: { callId } } as any);
+      }
     });
 
     const unsubRejected = onCallRejected(({ callId }) => {
@@ -162,6 +165,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     onCallEnded,
     onCallBilled,
     onCallWarning,
+    pathname,
     router,
   ]);
 

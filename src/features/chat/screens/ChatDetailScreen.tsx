@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -192,7 +193,12 @@ export default function ChatDetailScreen() {
   }
 
   async function handleRequestCall(callType: CallType) {
-    if (!professionalId || requestingCall) return;
+    if (requestingCall) return;
+    if (!professionalId) {
+      Alert.alert("No se pudo iniciar la llamada", "No se encontró el profesional para esta conversación.");
+      return;
+    }
+
     try {
       setRequestingCall(true);
       startOutgoingCall({

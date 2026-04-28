@@ -53,16 +53,17 @@ export const apiToggleClientStatus = async (id: string, isActive: boolean) => {
 };
 
 // CONFIGURACIÓN DE LA PLATAFORMA
-export const apiGetConfig = async (): Promise<{ creditToSolesRate: number; creditValueBs: number }> => {
+export const apiGetConfig = async (): Promise<{ creditToSolesRate: number; creditValueBs: number; withdrawalsEnabled: boolean }> => {
     try {
         const response = await apiClient.get('users/config');
         const creditValueBs = Number(response.data?.creditValueBs ?? response.data?.creditToSolesRate ?? 1);
         return {
             creditValueBs,
             creditToSolesRate: creditValueBs,
+            withdrawalsEnabled: Boolean(response.data?.withdrawalsEnabled ?? true),
         };
     } catch {
-        return { creditToSolesRate: 1, creditValueBs: 1 };
+        return { creditToSolesRate: 1, creditValueBs: 1, withdrawalsEnabled: true };
     }
 };
 
@@ -89,4 +90,3 @@ export const apiGetMyWallet = async (): Promise<WalletResponse> => {
         );
     }
 };
-

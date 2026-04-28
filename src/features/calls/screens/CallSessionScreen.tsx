@@ -31,6 +31,14 @@ function toNumericUid(id: string | number): number {
   return n || Math.floor(Math.random() * 1_000_000);
 }
 
+function resolveVideoSourceType(keys: string[], fallback: number): number {
+  for (const key of keys) {
+    const value = (VideoSourceType as any)?.[key];
+    if (typeof value === "number") return value;
+  }
+  return fallback;
+}
+
 export default function CallSessionScreen() {
   const params = useLocalSearchParams<{ callId?: string | string[] }>();
   const router = useRouter();
@@ -41,51 +49,38 @@ export default function CallSessionScreen() {
   const session = rawCallId ? getSession(rawCallId) : null;
   const isVideoCall = session?.callType === "VIDEO_CALL";
 
-  // Engine
   const engineRef = useRef<IRtcEngine | null>(null);
   const eventsRef = useRef<IRtcEngineEventHandler | null>(null);
-  // engineReady = true ONLY after onJoinChannelSuccess fires.
-  // RtcSurfaceView for local video must NOT render before this to avoid binding failures.
   const [engineReady, setEngineReady] = useState(false);
   const [remoteUid, setRemoteUid] = useState<number | null>(null);
   const [channelError, setChannelError] = useState<string | null>(null);
 
-  // Timestamp real de conexión Agora (onJoinChannelSuccess). Null mientras no esté unido.
   const [agoraConnectedAt, setAgoraConnectedAt] = useState<number | null>(null);
-  // Evita que onJoinChannelSuccess sobreescriba el timestamp si se re-llama internamente.
   const hasConnectedRef = useRef(false);
   const durationLabel = useCallDuration(agoraConnectedAt);
 
-  // Controls
   const [muted, setMuted] = useState(false);
   const [speakerOn, setSpeakerOn] = useState(true);
-  const [cameraOn, setCameraOn] = useState(true);
+  const [cameraMuted, setCameraMuted] = useState(false);
 
-  // Controls auto-hide (WhatsApp style: tap screen to reveal, hide after 4.5s)
   const [controlsVisible, setControlsVisible] = useState(true);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // PiP drag (WhatsApp style: drag self-view anywhere)
   const pipAnim = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const pipPan = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
-      onPanResponderMove: Animated.event(
-        [null, { dx: pipAnim.x, dy: pipAnim.y }],
-        { useNativeDriver: false }
-      ),
+      onPanResponderMove: Animated.event([null, { dx: pipAnim.x, dy: pipAnim.y }], {
+        useNativeDriver: false,
+      }),
       onPanResponderRelease: () => pipAnim.extractOffset(),
-    })
+    }),
   ).current;
 
-  // VideoSourceType values resolved once.
-  // Local camera  = VideoSourceCameraPrimary = 0
-  // Remote stream = VideoSourceRemote        = 9 (Agora v4)
-  const srcLocal: number = (VideoSourceType as any)?.VideoSourceCameraPrimary ?? 0;
-  const srcRemote: number = (VideoSourceType as any)?.VideoSourceRemote ?? 9;
+  const srcLocal = resolveVideoSourceType(["VideoSourceCameraPrimary", "VideoSourceCamera"], 0);
+  const srcRemote = resolveVideoSourceType(["VideoSourceRemote"], 9);
 
-  // Controls auto-hide: only active during video calls
   const showControls = () => {
     setControlsVisible(true);
     if (hideTimer.current) clearTimeout(hideTimer.current);
@@ -99,17 +94,17 @@ export default function CallSessionScreen() {
     };
   }, [isVideoCall, session?.status]);
 
-  // Agora engine lifecycle
   useEffect(() => {
     if (!session || session.status !== "connected" || !user?.id) return;
 
     let cancelled = false;
     const engine = createAgoraRtcEngine();
     engineRef.current = engine;
+
     setEngineReady(false);
     setChannelError(null);
     setRemoteUid(null);
-    setCameraOn(true);
+    setCameraMuted(false);
     setMuted(false);
     setSpeakerOn(true);
 
@@ -117,13 +112,20 @@ export default function CallSessionScreen() {
 
     const events: IRtcEngineEventHandler = {
       onJoinChannelSuccess: () => {
-        if (!cancelled) {
-          setEngineReady(true);
-          // Guarda el timestamp solo la primera vez (inmune a re-joins internos de Agora).
-          if (!hasConnectedRef.current) {
-            hasConnectedRef.current = true;
-            setAgoraConnectedAt(Date.now());
-          }
+        if (cancelled) return;
+        setEngineReady(true);
+        if (!hasConnectedRef.current) {
+          hasConnectedRef.current = true;
+          setAgoraConnectedAt(Date.now());
+        }
+
+        if (isVideoCall) {
+          setTimeout(() => {
+            if (cancelled) return;
+            engine.enableLocalVideo(true);
+            engine.muteLocalVideoStream(false);
+            engine.startPreview?.();
+          }, 250);
         }
       },
       onUserJoined: (_conn: unknown, uid: number) => {
@@ -136,6 +138,7 @@ export default function CallSessionScreen() {
         if (!cancelled) setChannelError(msg || "Error en la llamada");
       },
     };
+
     eventsRef.current = events;
 
     void (async () => {
@@ -144,10 +147,8 @@ export default function CallSessionScreen() {
           const perms: string[] = [PermissionsAndroid.PERMISSIONS.RECORD_AUDIO];
           if (isVideoCall) perms.push(PermissionsAndroid.PERMISSIONS.CAMERA);
           const result = await PermissionsAndroid.requestMultiple(perms as any);
-          const denied = Object.values(result).some(
-            (v) => v !== PermissionsAndroid.RESULTS.GRANTED
-          );
-          if (denied) throw new Error("Permisos denegados");
+          const denied = Object.values(result).some((v) => v !== PermissionsAndroid.RESULTS.GRANTED);
+          if (denied) throw new Error("Permisos de cámara/micrófono denegados");
         }
 
         const tokenData = await getAgoraToken(session.callId, numericUid);
@@ -164,21 +165,25 @@ export default function CallSessionScreen() {
         if (isVideoCall) {
           engine.enableVideo();
           engine.enableLocalVideo(true);
-          engine.muteLocalVideoStream(false);
-          engine.startPreview();
+          engine.muteLocalVideoStream(true);
         }
 
         engine.joinChannel(tokenData.token, session.callId, numericUid, {
           clientRoleType: ClientRoleType.ClientRoleBroadcaster,
+          publishMicrophoneTrack: true,
+          publishCameraTrack: isVideoCall,
+          autoSubscribeAudio: true,
+          autoSubscribeVideo: isVideoCall,
         });
-      } catch (e: any) {
-        if (!cancelled) setChannelError(e?.message ?? "No se pudo conectar");
+      } catch (error: any) {
+        if (!cancelled) setChannelError(error?.message ?? "No se pudo conectar");
       }
     })();
 
     return () => {
       cancelled = true;
       hasConnectedRef.current = false;
+
       try {
         if (eventsRef.current) engine.unregisterEventHandler(eventsRef.current);
         if (isVideoCall) engine.stopPreview?.();
@@ -187,6 +192,7 @@ export default function CallSessionScreen() {
       } catch {
         // no-op
       }
+
       engineRef.current = null;
       eventsRef.current = null;
       setEngineReady(false);
@@ -194,8 +200,6 @@ export default function CallSessionScreen() {
       setAgoraConnectedAt(null);
     };
   }, [isVideoCall, session?.callId, session?.status, user?.id]);
-
-  // ── Handlers ────────────────────────────────────────────────────────────────
 
   const handleToggleMute = () => {
     const next = !muted;
@@ -212,19 +216,17 @@ export default function CallSessionScreen() {
   };
 
   const handleToggleCamera = () => {
-    const next = !cameraOn;
-    setCameraOn(next);
-    // enableLocalVideo(false) → kills THIS device's camera.
-    // Remote sees black. Local PiP shows placeholder.
-    // enableLocalVideo(true) → restores THIS device's camera.
-    // This only affects the local device — never controls the remote.
-    engineRef.current?.enableLocalVideo(next);
+    const next = !cameraMuted;
+    setCameraMuted(next);
+    engineRef.current?.muteLocalVideoStream(next);
+    if (!next) {
+      engineRef.current?.enableLocalVideo(true);
+      engineRef.current?.startPreview?.();
+    }
     showControls();
   };
 
   const handleFlipCamera = () => {
-    // switchCamera() flips THIS device's camera (front ↔ back).
-    // Only affects local camera — never controls the remote device.
     engineRef.current?.switchCamera?.();
     showControls();
   };
@@ -234,7 +236,6 @@ export default function CallSessionScreen() {
     router.back();
   };
 
-  // ─── Session not found ──────────────────────────────────────────────────────
   if (!session) {
     return (
       <View style={styles.page}>
@@ -257,23 +258,15 @@ export default function CallSessionScreen() {
           ? "Rechazada"
           : "Finalizada";
 
-  // ─── Video call UI (WhatsApp-like) ──────────────────────────────────────────
   if (isVideoCall && session.status === "connected") {
     return (
       <Pressable style={styles.page} onPress={showControls}>
-
-        {/* Remote video fills the entire screen */}
         {remoteUid !== null ? (
-          <RtcSurfaceView
-            style={StyleSheet.absoluteFill}
-            canvas={{ uid: remoteUid, sourceType: srcRemote }}
-          />
+          <RtcSurfaceView style={StyleSheet.absoluteFill} canvas={{ uid: remoteUid, sourceType: srcRemote }} />
         ) : (
           <View style={[StyleSheet.absoluteFill, styles.waitingBg]}>
             <View style={styles.waitingAvatar}>
-              <Text style={styles.waitingAvatarText}>
-                {session.otherUserName.slice(0, 1).toUpperCase()}
-              </Text>
+              <Text style={styles.waitingAvatarText}>{session.otherUserName.slice(0, 1).toUpperCase()}</Text>
             </View>
             <Text style={styles.waitingName}>{session.otherUserName}</Text>
             <Text style={styles.waitingText}>
@@ -282,7 +275,6 @@ export default function CallSessionScreen() {
           </View>
         )}
 
-        {/* Top bar: name + timer — visible con los controles */}
         {controlsVisible && (
           <View style={styles.topBar} pointerEvents="none">
             <Text style={styles.topName}>{session.otherUserName}</Text>
@@ -290,97 +282,71 @@ export default function CallSessionScreen() {
           </View>
         )}
 
-        {/* Timer flotante — siempre visible aunque los controles se oculten */}
         {!controlsVisible && agoraConnectedAt !== null && (
           <View style={styles.floatingTimer} pointerEvents="none">
             <Text style={styles.floatingTimerText}>{durationLabel}</Text>
           </View>
         )}
 
-        {/* Local self-view PiP (draggable).
-            CRITICAL: Only mount RtcSurfaceView for local video AFTER engineReady.
-            Mounting it before onJoinChannelSuccess causes the view to never bind
-            to the local video track, resulting in a black/blank self-view. */}
         {engineReady && (
           <Animated.View
             style={[styles.pip, { transform: pipAnim.getTranslateTransform() }]}
             {...pipPan.panHandlers}
           >
-            {cameraOn ? (
-              <RtcSurfaceView
-                style={StyleSheet.absoluteFill}
-                canvas={{ uid: 0, sourceType: srcLocal }}
-              />
-            ) : (
+            <RtcSurfaceView style={StyleSheet.absoluteFill} canvas={{ uid: 0, sourceType: srcLocal }} />
+
+            {cameraMuted ? (
               <View style={styles.pipCameraOff}>
                 <Ionicons name="videocam-off" size={22} color="rgba(255,255,255,0.55)" />
               </View>
-            )}
+            ) : null}
+
             <View style={styles.pipLabel}>
               <Text style={styles.pipLabelText}>Tú</Text>
             </View>
           </Animated.View>
         )}
 
-        {/* Bottom controls bar */}
         {controlsVisible && (
           <View style={styles.controlsBar}>
             <View style={styles.controlsRow}>
-              <Pressable
-                onPress={handleToggleMute}
-                style={[styles.ctrlBtn, muted && styles.ctrlBtnActive]}
-              >
+              <Pressable onPress={handleToggleMute} style={[styles.ctrlBtn, muted && styles.ctrlBtnActive]}>
                 <Ionicons name={muted ? "mic-off" : "mic"} size={22} color="#fff" />
                 <Text style={styles.ctrlLabel}>{muted ? "Silenciado" : "Micrófono"}</Text>
               </Pressable>
 
               <Pressable
                 onPress={handleToggleCamera}
-                style={[styles.ctrlBtn, !cameraOn && styles.ctrlBtnActive]}
+                style={[styles.ctrlBtn, cameraMuted && styles.ctrlBtnActive]}
               >
-                <Ionicons
-                  name={cameraOn ? "videocam" : "videocam-off"}
-                  size={22}
-                  color="#fff"
-                />
-                <Text style={styles.ctrlLabel}>{cameraOn ? "Cámara" : "Sin cámara"}</Text>
+                <Ionicons name={cameraMuted ? "videocam-off" : "videocam"} size={22} color="#fff" />
+                <Text style={styles.ctrlLabel}>{cameraMuted ? "Sin cámara" : "Cámara"}</Text>
               </Pressable>
 
               <Pressable
                 onPress={handleFlipCamera}
-                style={[styles.ctrlBtn, !cameraOn && styles.ctrlBtnDisabled]}
-                disabled={!cameraOn}
+                style={[styles.ctrlBtn, cameraMuted && styles.ctrlBtnDisabled]}
+                disabled={cameraMuted}
               >
                 <Ionicons
                   name="camera-reverse"
                   size={22}
-                  color={cameraOn ? "#fff" : "rgba(255,255,255,0.3)"}
+                  color={cameraMuted ? "rgba(255,255,255,0.3)" : "#fff"}
                 />
-                <Text style={[styles.ctrlLabel, !cameraOn && { opacity: 0.35 }]}>
-                  Voltear
-                </Text>
+                <Text style={[styles.ctrlLabel, cameraMuted && { opacity: 0.35 }]}>Voltear</Text>
               </Pressable>
 
               <Pressable
                 onPress={handleToggleSpeaker}
                 style={[styles.ctrlBtn, !speakerOn && styles.ctrlBtnActive]}
               >
-                <Ionicons
-                  name={speakerOn ? "volume-high" : "volume-mute"}
-                  size={22}
-                  color="#fff"
-                />
+                <Ionicons name={speakerOn ? "volume-high" : "volume-mute"} size={22} color="#fff" />
                 <Text style={styles.ctrlLabel}>{speakerOn ? "Altavoz" : "Auricular"}</Text>
               </Pressable>
             </View>
 
             <Pressable onPress={handleEndCall} style={styles.endBtnLarge}>
-              <Ionicons
-                name="call"
-                size={28}
-                color="#fff"
-                style={{ transform: [{ rotate: "135deg" }] }}
-              />
+              <Ionicons name="call" size={28} color="#fff" style={{ transform: [{ rotate: "135deg" }] }} />
             </Pressable>
           </View>
         )}
@@ -394,9 +360,7 @@ export default function CallSessionScreen() {
         {session.warningBalance !== undefined && controlsVisible ? (
           <View style={styles.warningPill}>
             <Ionicons name="alert-circle-outline" size={14} color="#9A4C00" />
-            <Text style={styles.warningText}>
-              Saldo: {Math.floor(session.warningBalance)} crd
-            </Text>
+            <Text style={styles.warningText}>Saldo: {Math.floor(session.warningBalance)} crd</Text>
           </View>
         ) : null}
 
@@ -411,7 +375,6 @@ export default function CallSessionScreen() {
     );
   }
 
-  // ─── Audio call / ringing / ended UI ────────────────────────────────────────
   return (
     <View style={styles.page}>
       <View style={styles.header}>
@@ -422,27 +385,17 @@ export default function CallSessionScreen() {
 
       <View style={styles.center}>
         <View style={styles.avatarBadge}>
-          <Text style={styles.avatarText}>
-            {session.otherUserName.slice(0, 1).toUpperCase()}
-          </Text>
+          <Text style={styles.avatarText}>{session.otherUserName.slice(0, 1).toUpperCase()}</Text>
         </View>
         <Text style={styles.name}>{session.otherUserName}</Text>
         <Text style={styles.subtitle}>{statusLabel}</Text>
-        <Text style={styles.callTypeLabel}>
-          {isVideoCall ? "Videollamada" : "Llamada de voz"}
-        </Text>
+        <Text style={styles.callTypeLabel}>{isVideoCall ? "Videollamada" : "Llamada de voz"}</Text>
       </View>
 
       {session.status === "connected" ? (
         <View style={styles.statusPill}>
-          <Ionicons
-            name={engineReady ? "checkmark-circle" : "sync-outline"}
-            size={14}
-            color="#CFE6FF"
-          />
-          <Text style={styles.statusText}>
-            {engineReady ? "Conectado" : "Conectando..."}
-          </Text>
+          <Ionicons name={engineReady ? "checkmark-circle" : "sync-outline"} size={14} color="#CFE6FF" />
+          <Text style={styles.statusText}>{engineReady ? "Conectado" : "Conectando..."}</Text>
         </View>
       ) : null}
 
@@ -469,21 +422,12 @@ export default function CallSessionScreen() {
               style={[styles.secondaryBtn, !speakerOn && styles.secondaryBtnActive]}
               onPress={handleToggleSpeaker}
             >
-              <Ionicons
-                name={speakerOn ? "volume-high" : "volume-mute"}
-                size={20}
-                color="#fff"
-              />
+              <Ionicons name={speakerOn ? "volume-high" : "volume-mute"} size={20} color="#fff" />
             </Pressable>
           </>
         ) : null}
         <Pressable style={styles.endBtnSmall} onPress={handleEndCall}>
-          <Ionicons
-            name="call"
-            size={22}
-            color="#fff"
-            style={{ transform: [{ rotate: "135deg" }] }}
-          />
+          <Ionicons name="call" size={22} color="#fff" style={{ transform: [{ rotate: "135deg" }] }} />
         </Pressable>
       </View>
     </View>
@@ -495,8 +439,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#0F1824",
   },
-
-  // ── Video call ───────────────────────────────────────────────────────────────
   waitingBg: {
     backgroundColor: "#0F1824",
     alignItems: "center",
@@ -567,8 +509,6 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.body,
     letterSpacing: 0.5,
   },
-
-  // PiP self-view
   pip: {
     position: "absolute",
     top: 130,
@@ -583,7 +523,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   pipCameraOff: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#1E293B",
@@ -603,8 +543,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontFamily: appTheme.fonts.body,
   },
-
-  // Controls bar
   controlsBar: {
     position: "absolute",
     bottom: 0,
@@ -686,8 +624,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontFamily: appTheme.fonts.body,
   },
-
-  // ── Audio call / ringing ─────────────────────────────────────────────────────
   header: {
     paddingTop: 52,
     paddingHorizontal: 16,

@@ -1,191 +1,375 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Alert, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Picker } from "@react-native-picker/picker";
 import AppCard from "../../../components/ui/AppCard";
 import AppScreen from "../../../components/ui/AppScreen";
 import { appTheme } from "../../../theme/appTheme";
-import { getProfessionalEarningsData } from "../api/professionalApi";
-import { getMyReferrals } from "../../referrals/api/referralsApi";
+import { apiGetConfig } from "../../../api/userClient";
+import type { Bank, BankAccount, WithdrawalRequest } from "../../../api/wallet";
+import {
+  addProfessionalBankAccount,
+  getProfessionalBankAccounts,
+  getProfessionalBanks,
+  getProfessionalEarningsData,
+  getProfessionalWithdrawalRequests,
+  removeProfessionalBankAccount,
+  requestProfessionalWithdrawal,
+} from "../api/professionalApi";
 
 function formatMoney(value: number) {
   return `Bs ${Number(value || 0).toLocaleString("es-BO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function formatMovementTime(iso?: string) {
+function formatDateTime(iso?: string) {
   if (!iso) return "Sin fecha";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "Sin fecha";
-
-  const now = new Date();
-  const sameDay =
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate();
-
-  const hour = `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-  return sameDay ? `Hoy ${hour}` : `${date.getDate()}/${date.getMonth() + 1} ${hour}`;
+  return date.toLocaleString("es-BO", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
-function prettifyService(service: string) {
-  const value = String(service || "").toLowerCase();
-  if (value.includes("video")) return "Videollamada";
-  if (value.includes("call") || value.includes("llamada")) return "Llamada";
-  if (value.includes("message") || value.includes("chat")) return "Chat";
-  return "Sesion";
+function withdrawalStatusMeta(status: WithdrawalRequest["status"]) {
+  if (status === "APPROVED") return { label: "APROBADO", bg: "#DCFCE7", text: "#166534" };
+  if (status === "REJECTED") return { label: "RECHAZADO", bg: "#FEE2E2", text: "#991B1B" };
+  return { label: "PENDIENTE", bg: "#FEF3C7", text: "#92400E" };
 }
 
 export default function ProfessionalEarningsScreen() {
   const router = useRouter();
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
   const [earnings, setEarnings] = useState<any>(null);
-  const [referralCode, setReferralCode] = useState("");
+  const [banks, setBanks] = useState<Bank[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
+  const [withdrawalsEnabled, setWithdrawalsEnabled] = useState(true);
+
+  const [newBankId, setNewBankId] = useState<number | null>(null);
+  const [newAccountNumber, setNewAccountNumber] = useState("");
+  const [newAccountHolderName, setNewAccountHolderName] = useState("");
+  const [creatingAccount, setCreatingAccount] = useState(false);
+  const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null);
+
+  const [selectedAccountId, setSelectedAccountId] = useState<string>("");
+  const [withdrawCreditsInput, setWithdrawCreditsInput] = useState("");
+  const [requestingWithdrawal, setRequestingWithdrawal] = useState(false);
+
+  async function loadAll() {
+    try {
+      setLoading(true);
+      setError(null);
+      const [earningsData, banksData, accountsData, withdrawalsData, configData] = await Promise.all([
+        getProfessionalEarningsData(),
+        getProfessionalBanks(),
+        getProfessionalBankAccounts(),
+        getProfessionalWithdrawalRequests(),
+        apiGetConfig(),
+      ]);
+
+      setEarnings(earningsData);
+      setBanks(banksData);
+      setBankAccounts(accountsData);
+      setWithdrawals(withdrawalsData);
+      setWithdrawalsEnabled(Boolean(earningsData?.withdrawalsEnabled ?? configData.withdrawalsEnabled ?? true));
+
+      if (accountsData.length > 0) {
+        const currentStillExists = accountsData.some((account) => account.id === selectedAccountId);
+        if (!currentStillExists) setSelectedAccountId(accountsData[0].id);
+      } else {
+        setSelectedAccountId("");
+      }
+    } catch {
+      setError("No se pudo cargar el modulo de retiros.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    void (async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const [data, referralData] = await Promise.all([
-          getProfessionalEarningsData(),
-          getMyReferrals().catch(() => null),
-        ]);
-        setEarnings(data);
-        if (referralData?.code) setReferralCode(referralData.code);
-      } catch {
-        setError("No se pudo cargar la informacion de ganancias.");
-      } finally {
-        setLoading(false);
-      }
-    })();
+    void loadAll();
   }, []);
-
-  function handleCopyCode() {
-    if (!referralCode) return;
-    Alert.alert("Codigo", `Comparte tu codigo: ${referralCode}`);
-  }
 
   const gross = useMemo(() => {
     if (!Array.isArray(earnings?.transactions)) return 0;
     return earnings.transactions.reduce((acc: number, tx: any) => acc + Number(tx.amount ?? 0), 0);
   }, [earnings]);
 
-  const net = Number(earnings?.total ?? earnings?.balance ?? 0);
-  const commission = Math.max(gross - net, 0);
-  const referrals = Number((earnings as any)?.referrals ?? 0);
-
+  const totalBalance = Number(earnings?.balance ?? earnings?.total ?? 0);
+  const withdrawableBalance = Number(
+    earnings?.withdrawableBalance ?? earnings?.realBalance ?? Math.max(totalBalance - Number(earnings?.promotionalBalance ?? 0), 0),
+  );
   const thisWeek = Number(earnings?.thisWeek ?? 0);
-  const thisMonth = net;
-  const historical = gross;
+  const today = Number(earnings?.today ?? 0);
 
-  const txList = Array.isArray(earnings?.transactions) ? earnings.transactions.slice(0, 8) : [];
+  async function handleAddBankAccount() {
+    if (!newBankId) {
+      setError("Selecciona un banco.");
+      return;
+    }
+    if (!newAccountNumber.trim()) {
+      setError("Ingresa el numero de cuenta.");
+      return;
+    }
 
-  function handleWithdraw() {
-    Alert.alert("Retiro", "Solicita tu retiro desde tu cuenta bancaria vinculada en perfil profesional.");
+    try {
+      setCreatingAccount(true);
+      setError(null);
+      await addProfessionalBankAccount({
+        bankId: newBankId,
+        accountNumber: newAccountNumber.trim(),
+        accountHolderName: newAccountHolderName.trim() || undefined,
+      });
+      setNewAccountNumber("");
+      setNewAccountHolderName("");
+      await loadAll();
+    } catch (err: any) {
+      setError(err?.message ?? "No se pudo agregar la cuenta.");
+    } finally {
+      setCreatingAccount(false);
+    }
+  }
+
+  async function handleDeleteBankAccount(accountId: string) {
+    try {
+      setDeletingAccountId(accountId);
+      setError(null);
+      await removeProfessionalBankAccount(accountId);
+      await loadAll();
+    } catch (err: any) {
+      setError(err?.message ?? "No se pudo eliminar la cuenta.");
+    } finally {
+      setDeletingAccountId(null);
+    }
+  }
+
+  async function handleCreateWithdrawal() {
+    const credits = Number(withdrawCreditsInput);
+    if (!withdrawalsEnabled) {
+      setError("Los retiros estan deshabilitados temporalmente.");
+      return;
+    }
+    if (!selectedAccountId) {
+      setError("Selecciona una cuenta bancaria para el retiro.");
+      return;
+    }
+    if (!Number.isFinite(credits) || credits <= 0) {
+      setError("Ingresa un monto valido de creditos.");
+      return;
+    }
+
+    try {
+      setRequestingWithdrawal(true);
+      setError(null);
+      await requestProfessionalWithdrawal({
+        credits,
+        bankAccountId: selectedAccountId,
+      });
+      setWithdrawCreditsInput("");
+      await loadAll();
+    } catch (err: any) {
+      setError(err?.message ?? "No se pudo registrar la solicitud de retiro.");
+    } finally {
+      setRequestingWithdrawal(false);
+    }
   }
 
   return (
     <AppScreen scroll contentPadding={0}>
-      <View style={styles.page}>
+      <ScrollView contentContainerStyle={styles.page}>
         <View style={styles.headerRow}>
           <Pressable style={styles.backBtn} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={18} color={appTheme.colors.text} />
           </Pressable>
-          <Text style={styles.title}>Ganancias</Text>
+          <Text style={styles.title}>Ganancias y retiros</Text>
         </View>
 
         {loading ? <Text style={styles.info}>Cargando informacion...</Text> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <View style={styles.heroCard}>
-          <Text style={styles.heroLabel}>Ganancia neta</Text>
-          <Text style={styles.heroValue}>{formatMoney(thisMonth)}</Text>
-
-          <View style={styles.heroBreakdown}>
-            <View style={styles.heroCol}>
-              <Text style={styles.heroColValue}>{formatMoney(gross)}</Text>
-              <Text style={styles.heroColLabel}>Bruto total</Text>
-            </View>
-
-            <View style={styles.heroCol}>
-              <Text style={styles.heroColValue}>{formatMoney(commission)}</Text>
-              <Text style={styles.heroColLabel}>Comision plataforma</Text>
-            </View>
-
-            <View style={styles.heroCol}>
-              <Text style={styles.heroColValue}>{formatMoney(referrals)}</Text>
-              <Text style={styles.heroColLabel}>Referidos</Text>
-            </View>
+          <Text style={styles.heroLabel}>Saldo disponible para retiro</Text>
+          <Text style={styles.heroValue}>{formatMoney(withdrawableBalance)}</Text>
+          <View style={styles.heroMetaRow}>
+            <Text style={styles.heroMeta}>Saldo total: {formatMoney(totalBalance)}</Text>
+            <Text style={styles.heroMeta}>Hoy: {formatMoney(today)}</Text>
+            <Text style={styles.heroMeta}>Semana: {formatMoney(thisWeek)}</Text>
           </View>
-        </View>
-
-        <View style={styles.actionsRow}>
-          <Pressable style={styles.withdrawBtn} onPress={handleWithdraw}>
-            <Text style={styles.withdrawText}>Solicitar retiro</Text>
-          </Pressable>
+          {!withdrawalsEnabled ? (
+            <Text style={styles.blockedText}>Retiros deshabilitados por configuracion del sistema.</Text>
+          ) : null}
         </View>
 
         <View style={styles.kpisRow}>
           <AppCard style={styles.kpiCard}>
-            <Text style={styles.kpiValue}>{formatMoney(thisWeek)}</Text>
-            <Text style={styles.kpiLabel}>Esta semana</Text>
+            <Text style={styles.kpiValue}>{formatMoney(gross)}</Text>
+            <Text style={styles.kpiLabel}>Ingresos historicos</Text>
           </AppCard>
-
           <AppCard style={styles.kpiCard}>
-            <Text style={styles.kpiValue}>{formatMoney(thisMonth)}</Text>
-            <Text style={styles.kpiLabel}>Este mes</Text>
-          </AppCard>
-
-          <AppCard style={styles.kpiCard}>
-            <Text style={styles.kpiValue}>{formatMoney(historical)}</Text>
-            <Text style={styles.kpiLabel}>Total historico</Text>
+            <Text style={styles.kpiValue}>{formatMoney(totalBalance)}</Text>
+            <Text style={styles.kpiLabel}>Wallet actual</Text>
           </AppCard>
         </View>
 
-        {referralCode ? (
-          <AppCard style={styles.referralCard}>
-            <Text style={styles.referralTitle}>Tu codigo de referido</Text>
-            <Text style={styles.referralSubtitle}>Comparte tu codigo para invitar profesionales a Sanamente.</Text>
-            <Pressable style={styles.codeRow} onPress={handleCopyCode}>
-              <Text style={styles.codeText}>{referralCode}</Text>
-              <Ionicons name="copy-outline" size={18} color={appTheme.colors.primary} />
-            </Pressable>
-          </AppCard>
-        ) : null}
+        <Text style={styles.sectionTitle}>Solicitar retiro</Text>
+        <AppCard style={styles.sectionCard}>
+          <Text style={styles.inputLabel}>Cuenta de cobro</Text>
+          <View style={styles.pickerWrap}>
+            <Picker
+              selectedValue={selectedAccountId}
+              onValueChange={(value) => setSelectedAccountId(String(value ?? ""))}
+              enabled={bankAccounts.length > 0}
+            >
+              {bankAccounts.length === 0 ? (
+                <Picker.Item label="Agrega una cuenta bancaria primero" value="" />
+              ) : null}
+              {bankAccounts.map((account) => (
+                <Picker.Item
+                  key={account.id}
+                  label={`${account.bankName} - ${account.accountNumber}`}
+                  value={account.id}
+                />
+              ))}
+            </Picker>
+          </View>
 
-        <Text style={styles.sectionTitle}>Movimientos recientes</Text>
+          <Text style={styles.inputLabel}>Monto en creditos</Text>
+          <TextInput
+            value={withdrawCreditsInput}
+            onChangeText={setWithdrawCreditsInput}
+            keyboardType="numeric"
+            placeholder="Ej: 120"
+            placeholderTextColor={appTheme.colors.textMuted}
+            style={styles.input}
+          />
 
-        {txList.length === 0 && !loading ? (
-          <AppCard style={{ marginHorizontal: 14 }}>
-            <Text style={styles.info}>Sin movimientos de ganancia.</Text>
-          </AppCard>
-        ) : (
-          <FlatList
-            data={txList}
-            keyExtractor={(item) => String(item.id)}
-            scrollEnabled={false}
-            contentContainerStyle={styles.movementsList}
-            ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
-            renderItem={({ item }) => {
-              const amount = Number(item.amount ?? 0);
+          <Pressable
+            style={[
+              styles.primaryBtn,
+              (!withdrawalsEnabled || requestingWithdrawal || bankAccounts.length === 0) && styles.disabledBtn,
+            ]}
+            disabled={!withdrawalsEnabled || requestingWithdrawal || bankAccounts.length === 0}
+            onPress={() => void handleCreateWithdrawal()}
+          >
+            <Text style={styles.primaryBtnText}>
+              {requestingWithdrawal ? "Enviando solicitud..." : "Solicitar retiro"}
+            </Text>
+          </Pressable>
+        </AppCard>
+
+        <Text style={styles.sectionTitle}>Cuentas bancarias</Text>
+        <AppCard style={styles.sectionCard}>
+          <Text style={styles.inputLabel}>Banco</Text>
+          <View style={styles.pickerWrap}>
+            <Picker selectedValue={newBankId ?? ""} onValueChange={(value) => setNewBankId(Number(value))}>
+              <Picker.Item label="Selecciona un banco" value="" />
+              {banks.map((bank) => (
+                <Picker.Item key={bank.id} label={bank.name} value={bank.id} />
+              ))}
+            </Picker>
+          </View>
+
+          <Text style={styles.inputLabel}>Numero de cuenta</Text>
+          <TextInput
+            value={newAccountNumber}
+            onChangeText={setNewAccountNumber}
+            placeholder="Ej: 1234567890"
+            placeholderTextColor={appTheme.colors.textMuted}
+            style={styles.input}
+          />
+
+          <Text style={styles.inputLabel}>Titular (opcional)</Text>
+          <TextInput
+            value={newAccountHolderName}
+            onChangeText={setNewAccountHolderName}
+            placeholder="Nombre del titular"
+            placeholderTextColor={appTheme.colors.textMuted}
+            style={styles.input}
+          />
+
+          <Pressable
+            style={[styles.secondaryBtn, creatingAccount && styles.disabledBtn]}
+            disabled={creatingAccount}
+            onPress={() => void handleAddBankAccount()}
+          >
+            <Text style={styles.secondaryBtnText}>
+              {creatingAccount ? "Guardando..." : "Agregar cuenta bancaria"}
+            </Text>
+          </Pressable>
+
+          <View style={styles.listWrap}>
+            {bankAccounts.length === 0 ? (
+              <Text style={styles.muted}>No tienes cuentas bancarias registradas.</Text>
+            ) : (
+              bankAccounts.map((account) => (
+                <View key={account.id} style={styles.accountItem}>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={styles.accountTitle}>{account.bankName}</Text>
+                    <Text style={styles.muted}>{account.accountNumber}</Text>
+                    {account.accountHolderName ? <Text style={styles.muted}>{account.accountHolderName}</Text> : null}
+                  </View>
+                  <Pressable
+                    onPress={() => void handleDeleteBankAccount(account.id)}
+                    disabled={deletingAccountId === account.id}
+                    style={styles.deleteBtn}
+                  >
+                    <Text style={styles.deleteBtnText}>
+                      {deletingAccountId === account.id ? "Eliminando..." : "Eliminar"}
+                    </Text>
+                  </Pressable>
+                </View>
+              ))
+            )}
+          </View>
+        </AppCard>
+
+        <Text style={styles.sectionTitle}>Historial de retiros</Text>
+        <View style={styles.historyList}>
+          {withdrawals.length === 0 ? (
+            <AppCard>
+              <Text style={styles.muted}>Aun no tienes solicitudes de retiro.</Text>
+            </AppCard>
+          ) : (
+            withdrawals.map((row) => {
+              const status = withdrawalStatusMeta(row.status);
               return (
-                <AppCard style={styles.moveCard}>
-                  <View style={styles.moveTop}>
-                    <Text style={styles.moveClient}>{item.clientName || "Cliente"}</Text>
-                    <Text style={styles.moveAmount}>+{formatMoney(amount)}</Text>
+                <AppCard key={row.id} style={styles.historyItem}>
+                  <View style={styles.historyTop}>
+                    <Text style={styles.historyAmount}>
+                      {Number(row.credits).toFixed(2)} cr ({formatMoney(Number(row.amountBs ?? row.soles ?? 0))})
+                    </Text>
+                    <View style={[styles.statusBadge, { backgroundColor: status.bg }]}>
+                      <Text style={[styles.statusText, { color: status.text }]}>{status.label}</Text>
+                    </View>
                   </View>
-
-                  <View style={styles.moveMid}>
-                    <Text style={styles.moveService}>{prettifyService(item.service)}</Text>
-                    <Text style={styles.moveTime}>{formatMovementTime(item.createdAt)}</Text>
-                  </View>
+                  <Text style={styles.muted}>
+                    {row.bankName} - {row.accountNumber}
+                  </Text>
+                  {row.accountHolderName ? <Text style={styles.muted}>Titular: {row.accountHolderName}</Text> : null}
+                  <Text style={styles.muted}>Solicitado: {formatDateTime(row.createdAt)}</Text>
+                  <Text style={styles.muted}>Actualizado: {formatDateTime(row.updatedAt ?? row.createdAt)}</Text>
+                  {row.rejectionReason ? (
+                    <Text style={styles.rejectReason}>Motivo de rechazo: {row.rejectionReason}</Text>
+                  ) : null}
+                  {row.receiptUrl ? (
+                    <Pressable onPress={() => void Linking.openURL(row.receiptUrl!)}>
+                      <Text style={styles.receiptLink}>Ver comprobante</Text>
+                    </Pressable>
+                  ) : null}
                 </AppCard>
               );
-            }}
-          />
-        )}
-      </View>
+            })
+          )}
+        </View>
+      </ScrollView>
     </AppScreen>
   );
 }
@@ -194,7 +378,7 @@ const styles = StyleSheet.create({
   page: {
     backgroundColor: appTheme.colors.background,
     paddingTop: 8,
-    paddingBottom: 16,
+    paddingBottom: 20,
     gap: 12,
   },
   headerRow: {
@@ -216,7 +400,7 @@ const styles = StyleSheet.create({
   title: {
     color: "#172B46",
     fontFamily: appTheme.fonts.heading,
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: "700",
   },
   info: {
@@ -239,7 +423,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#3E7F61",
     paddingHorizontal: 18,
     paddingVertical: 18,
-    gap: 10,
+    gap: 8,
   },
   heroLabel: {
     color: "#DDF3E7",
@@ -250,51 +434,23 @@ const styles = StyleSheet.create({
   heroValue: {
     color: "#FFFFFF",
     fontFamily: appTheme.fonts.heading,
-    fontSize: 40,
-    lineHeight: 44,
+    fontSize: 38,
+    lineHeight: 42,
     fontWeight: "700",
   },
-  heroBreakdown: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 10,
-    marginTop: 2,
+  heroMetaRow: {
+    gap: 2,
   },
-  heroCol: {
-    flex: 1,
-  },
-  heroColValue: {
-    color: "#FFFFFF",
-    fontFamily: appTheme.fonts.heading,
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  heroColLabel: {
-    marginTop: 2,
+  heroMeta: {
     color: "#D7EFE3",
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
-    lineHeight: 16,
   },
-  actionsRow: {
-    flexDirection: "row",
-    gap: 10,
-    paddingHorizontal: 14,
-  },
-  withdrawBtn: {
-    flex: 1,
-    minHeight: 46,
-    borderRadius: 15,
-    backgroundColor: "#6AB88A",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 10,
-  },
-  withdrawText: {
-    color: "#FFFFFF",
-    fontFamily: appTheme.fonts.heading,
-    fontSize: 16,
-    fontWeight: "700",
+  blockedText: {
+    color: "#FDE68A",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    marginTop: 4,
   },
   kpisRow: {
     flexDirection: "row",
@@ -303,109 +459,167 @@ const styles = StyleSheet.create({
   },
   kpiCard: {
     flex: 1,
-    minHeight: 90,
-    alignItems: "center",
+    minHeight: 80,
     justifyContent: "center",
-    paddingVertical: 10,
+    alignItems: "center",
   },
   kpiValue: {
-    color: "#69AF8A",
+    color: appTheme.colors.primary,
     fontFamily: appTheme.fonts.heading,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "700",
-    textAlign: "center",
   },
   kpiLabel: {
     marginTop: 4,
-    color: "#5F7896",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 13,
-    textAlign: "center",
-    lineHeight: 16,
-  },
-  sectionTitle: {
-    color: "#5F7896",
-    fontFamily: appTheme.fonts.heading,
-    fontSize: 18,
-    fontWeight: "700",
-    paddingHorizontal: 14,
-    marginTop: 4,
-  },
-  movementsList: {
-    paddingHorizontal: 14,
-    paddingBottom: 4,
-  },
-  moveCard: {
-    borderRadius: 16,
-    gap: 4,
-  },
-  moveTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  moveClient: {
-    color: "#1F3651",
-    fontFamily: appTheme.fonts.heading,
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  moveAmount: {
-    color: appTheme.colors.success,
-    fontFamily: appTheme.fonts.heading,
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  moveMid: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 8,
-  },
-  moveService: {
-    color: "#5F7896",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 14,
-  },
-  moveTime: {
-    color: "#8AA0BA",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 13,
-  },
-  referralCard: {
-    marginHorizontal: 14,
-    gap: 6,
-  },
-  referralTitle: {
-    color: appTheme.colors.text,
-    fontFamily: appTheme.fonts.heading,
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  referralSubtitle: {
     color: appTheme.colors.textMuted,
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
-    lineHeight: 17,
   },
-  codeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: appTheme.colors.background,
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginTop: 4,
-  },
-  codeText: {
-    flex: 1,
-    color: appTheme.colors.primary,
+  sectionTitle: {
+    color: appTheme.colors.text,
     fontFamily: appTheme.fonts.heading,
     fontSize: 17,
     fontWeight: "700",
-    letterSpacing: 2,
+    paddingHorizontal: 14,
+    marginTop: 2,
+  },
+  sectionCard: {
+    marginHorizontal: 14,
+    gap: 8,
+  },
+  inputLabel: {
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  pickerWrap: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+    backgroundColor: "#FFFFFF",
+    overflow: "hidden",
+  },
+  input: {
+    minHeight: 44,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+    backgroundColor: "#FFFFFF",
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.body,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  primaryBtn: {
+    minHeight: 44,
+    borderRadius: 12,
+    backgroundColor: appTheme.colors.success,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 2,
+  },
+  primaryBtnText: {
+    color: "#FFFFFF",
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  secondaryBtn: {
+    minHeight: 42,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: appTheme.colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  secondaryBtnText: {
+    color: appTheme.colors.primary,
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  disabledBtn: {
+    opacity: 0.65,
+  },
+  listWrap: {
+    marginTop: 4,
+    gap: 8,
+  },
+  accountItem: {
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  accountTitle: {
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  muted: {
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+  },
+  deleteBtn: {
+    borderRadius: 8,
+    backgroundColor: "#FEE2E2",
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  deleteBtnText: {
+    color: appTheme.colors.danger,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  historyList: {
+    paddingHorizontal: 14,
+    gap: 8,
+  },
+  historyItem: {
+    gap: 4,
+  },
+  historyTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 8,
+  },
+  historyAmount: {
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 14,
+    fontWeight: "700",
+    flex: 1,
+  },
+  statusBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  statusText: {
+    fontFamily: appTheme.fonts.body,
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  rejectReason: {
+    color: appTheme.colors.danger,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  receiptLink: {
+    color: appTheme.colors.primary,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 3,
   },
 });

@@ -10,6 +10,10 @@ export interface EarningTransaction {
 
 export interface EarningsData {
   balance: number;
+  promotionalBalance?: number;
+  realBalance?: number;
+  withdrawableBalance?: number;
+  withdrawalsEnabled?: boolean;
   today: number;
   thisWeek: number;
   total: number;
@@ -37,9 +41,14 @@ export interface WithdrawalRequest {
   amountBs: number;
   soles?: number;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  notes?: string | null;
+  rejectionReason?: string | null;
+  receiptUrl?: string | null;
   bankName: string;
   accountNumber: string;
+  accountHolderName?: string | null;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export const apiGetMyEarnings = async (): Promise<EarningsData> => {
