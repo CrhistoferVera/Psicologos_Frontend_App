@@ -1,8 +1,8 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { Alert, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import AppCard from "../../../components/ui/AppCard";
 import AppScreen from "../../../components/ui/AppScreen";
 import { useAuth } from "../../../context/AuthContext";
@@ -19,7 +19,7 @@ function getInitials(firstName?: string | null, lastName?: string | null) {
 function normalizeRole(role?: string | null) {
   if (!role) return "Usuario";
   if (role === "USER") return "Cliente";
-  if (role === "PROFESSIONAL") return "Professional";
+  if (role === "PROFESSIONAL") return "Profesional";
   if (role === "ADMIN") return "Administrador";
   return role;
 }
@@ -64,7 +64,7 @@ export default function UserProfileScreen() {
   const email = profile?.email ?? user?.email ?? "Sin correo registrado";
   const phone = profile?.phoneNumber ?? user?.phoneNumber ?? "Sin teléfono registrado";
   const roleLabel = normalizeRole(profile?.role ?? user?.role);
-  const avatarUrl = profile?.UserProfile?.avatarUrl;
+  const avatarUrl = profile?.userProfile?.avatarUrl ?? profile?.UserProfile?.avatarUrl;
   const initials = getInitials(
     profile?.firstName ?? user?.firstName,
     profile?.lastName ?? user?.lastName,
@@ -179,12 +179,7 @@ export default function UserProfileScreen() {
 
           <Pressable
             style={styles.menuRow}
-            onPress={() =>
-              Alert.alert(
-                "Pendiente",
-                "Configuración avanzada se habilitará en la siguiente iteración.",
-              )
-            }
+            onPress={() => router.push("/(user)/settings" as any)}
           >
             <View style={[styles.menuIconWrap, { backgroundColor: "#F0F4F8" }]}>
               <Ionicons name="settings-outline" size={18} color="#60758E" />
@@ -193,6 +188,19 @@ export default function UserProfileScreen() {
             <View style={styles.menuTextWrap}>
               <Text style={styles.menuTitle}>Configuración</Text>
               <Text style={styles.menuSubtitle}>Preferencias y privacidad</Text>
+            </View>
+
+            <Ionicons name="chevron-forward" size={18} color="#64748B" />
+          </Pressable>
+
+          <Pressable style={styles.menuRow} onPress={() => router.push("/terms" as any)}>
+            <View style={[styles.menuIconWrap, { backgroundColor: "#EEF2FF" }]}>
+              <Ionicons name="document-text-outline" size={18} color="#4F46E5" />
+            </View>
+
+            <View style={styles.menuTextWrap}>
+              <Text style={styles.menuTitle}>Términos y condiciones</Text>
+              <Text style={styles.menuSubtitle}>Consulta las condiciones de uso</Text>
             </View>
 
             <Ionicons name="chevron-forward" size={18} color="#64748B" />

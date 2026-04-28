@@ -1,5 +1,5 @@
-﻿import { useMemo } from "react";
-import { Settings, Users, UserRoundCheck, Landmark, Gift, Layers, LayoutDashboard, LogOut } from "lucide-react-native";
+import { useMemo } from "react";
+import { Settings, Users, UserRoundCheck, Landmark, Gift, Layers, LayoutDashboard, LogOut, Package } from "lucide-react-native";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 import { useAuth } from "../../../context/AuthContext";
@@ -12,10 +12,15 @@ type Item = {
   badge?: string;
 };
 
+type Props = {
+  compact?: boolean;
+};
+
 const items: Item[] = [
   { key: "overview", label: "Dashboard", route: "/admin/overview", icon: LayoutDashboard },
   { key: "users", label: "Usuarios", route: "/admin/users", icon: Users, badge: "1.2k" },
   { key: "professionals", label: "Profesionales", route: "/admin/professionals", icon: UserRoundCheck, badge: "8" },
+  { key: "packages", label: "Paquetes", route: "/admin/packages", icon: Package },
   { key: "sections", label: "Secciones", route: "/admin/sections", icon: Layers },
   { key: "finance", label: "Finanzas", route: "/admin/finance", icon: Landmark },
   { key: "referrals", label: "Referidos", route: "/admin/referrals", icon: Gift },
@@ -27,7 +32,7 @@ function initialsFromEmail(email?: string | null) {
   return email[0]?.toUpperCase() ?? "A";
 }
 
-export default function AdminSidebar() {
+export default function AdminSidebar({ compact = false }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
@@ -37,6 +42,43 @@ export default function AdminSidebar() {
     return match?.route ?? "/admin/overview";
   }, [pathname]);
 
+  const logoutAction = async () => {
+    await logout();
+    router.replace("/admin-login");
+  };
+
+  if (compact) {
+    return (
+      <View style={styles.compactShell}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.compactNavList}>
+          {items.map((item) => {
+            const Icon = item.icon;
+            const active = item.route === activeRoute;
+            return (
+              <Pressable key={item.key} style={[styles.compactItem, active && styles.compactItemActive]} onPress={() => router.push(item.route as any)}>
+                <Icon size={15} color={active ? "#FFFFFF" : "#5D7390"} />
+                <Text style={[styles.compactLabel, active && styles.compactLabelActive]}>{item.label}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        <View style={styles.compactFooter}>
+          <View style={styles.compactAccount}>
+            <View style={styles.compactAvatar}>
+              <Text style={styles.compactAvatarText}>{initialsFromEmail(user?.email)}</Text>
+            </View>
+            <Text numberOfLines={1} style={styles.compactMail}>{user?.email ?? "admin@sanamente.app"}</Text>
+          </View>
+          <Pressable style={styles.compactLogout} onPress={logoutAction}>
+            <LogOut size={14} color="#475569" />
+            <Text style={styles.compactLogoutLabel}>Salir</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.sidebar}>
       <View style={styles.brandWrap}>
@@ -44,7 +86,7 @@ export default function AdminSidebar() {
           <Text style={styles.brandLogoText}>P</Text>
         </View>
         <View>
-          <Text style={styles.brandTitle}>PsyConnect</Text>
+          <Text style={styles.brandTitle}>Sanamente</Text>
           <Text style={styles.brandSub}>Panel Admin</Text>
         </View>
       </View>
@@ -74,17 +116,11 @@ export default function AdminSidebar() {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.accountName}>Admin General</Text>
-            <Text style={styles.accountMail}>{user?.email ?? "admin@psyconnect.com"}</Text>
+            <Text style={styles.accountMail}>{user?.email ?? "admin@sanamente.app"}</Text>
           </View>
         </View>
 
-        <Pressable
-          style={styles.logoutBtn}
-          onPress={async () => {
-            await logout();
-            router.replace("/(public)/auth");
-          }}
-        >
+        <Pressable style={styles.logoutBtn} onPress={logoutAction}>
           <LogOut size={16} color="#9AB0C8" />
           <Text style={styles.logoutLabel}>Cerrar sesión</Text>
         </Pressable>
@@ -94,6 +130,95 @@ export default function AdminSidebar() {
 }
 
 const styles = StyleSheet.create({
+  compactShell: {
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#D7E2EF",
+    paddingTop: 8,
+  },
+  compactNavList: {
+    paddingHorizontal: 10,
+    paddingBottom: 8,
+    gap: 8,
+  },
+  compactItem: {
+    minHeight: 34,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    backgroundColor: "#F3F7FC",
+    borderWidth: 1,
+    borderColor: "#D7E2EF",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  compactItemActive: {
+    backgroundColor: "#5B9BD5",
+    borderColor: "#5B9BD5",
+  },
+  compactLabel: {
+    color: "#5D7390",
+    fontFamily: "Inter-Regular",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  compactLabelActive: {
+    color: "#FFFFFF",
+  },
+  compactFooter: {
+    borderTopWidth: 1,
+    borderTopColor: "#E7EEF7",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  compactAccount: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+    minWidth: 0,
+  },
+  compactAvatar: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    backgroundColor: "#E4EFFB",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  compactAvatarText: {
+    color: "#315681",
+    fontFamily: "Inter-Regular",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  compactMail: {
+    color: "#5D7390",
+    fontFamily: "Inter-Regular",
+    fontSize: 12,
+    flexShrink: 1,
+  },
+  compactLogout: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    borderRadius: 8,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#D7E2EF",
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  compactLogoutLabel: {
+    color: "#475569",
+    fontFamily: "Inter-Regular",
+    fontSize: 12,
+    fontWeight: "700",
+  },
   sidebar: {
     width: 274,
     backgroundColor: "#1E2A3A",

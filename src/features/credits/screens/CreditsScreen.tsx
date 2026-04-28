@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  Linking,
   Modal,
   Pressable,
   StyleSheet,
@@ -16,7 +15,7 @@ import { useRouter } from "expo-router";
 import { useStripe } from "@stripe/stripe-react-native";
 import AppCard from "../../../components/ui/AppCard";
 import AppScreen from "../../../components/ui/AppScreen";
-import { apiGetAllPackages, apiFlowCreatePayment } from "../../../api/package";
+import { apiGetAllPackages } from "../../../api/package";
 import { apiCreatePaymentIntent, apiCreateEphemeralKey } from "../../../api/stripe";
 import {
   apiCancelBanecoQr,
@@ -43,7 +42,7 @@ type ExpenseItem = {
   tipo?: string;
 };
 
-type PaymentMethod = "card" | "paypal" | "stripe" | "qr";
+type PaymentMethod = "stripe" | "qr";
 type TabKey = "wallet" | "recharge";
 
 function asNumber(value: string | number | null | undefined) {
@@ -88,7 +87,7 @@ export default function CreditsScreen() {
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
   const [activeTab, setActiveTab] = useState<TabKey>("wallet");
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("stripe");
 
   const [balance, setBalance] = useState(0);
   const [promoBalance, setPromoBalance] = useState(0);
@@ -251,17 +250,6 @@ export default function CreditsScreen() {
     }
   }
 
-  async function handleFlowBuy(packageId: string) {
-    try {
-      const response = await apiFlowCreatePayment(packageId);
-      if (response?.paymentUrl) {
-        await Linking.openURL(response.paymentUrl);
-      }
-    } catch (err: any) {
-      Alert.alert("No se pudo iniciar la recarga", err?.message ?? "Intenta nuevamente.");
-    }
-  }
-
   async function handleBuy(packageId: string) {
     try {
       const [{ clientSecret, customerId }, ephemeralKey] = await Promise.all([
@@ -273,7 +261,7 @@ export default function CreditsScreen() {
         paymentIntentClientSecret: clientSecret,
         customerId,
         customerEphemeralKeySecret: ephemeralKey.secret,
-        merchantDisplayName: "PsyConnect",
+        merchantDisplayName: "Sanamente",
         setupIntentClientSecret: undefined,
       });
       if (initError) {
@@ -325,7 +313,7 @@ export default function CreditsScreen() {
               color={activeTab === "wallet" ? "#FFFFFF" : appTheme.colors.primary}
             />
             <Text style={[styles.tabText, activeTab === "wallet" && styles.tabTextActive]}>
-              Mi wallet
+              Mi saldo
             </Text>
           </Pressable>
 
@@ -358,7 +346,7 @@ export default function CreditsScreen() {
                 <Text style={styles.walletLabel}>Saldo disponible</Text>
                 <Text style={styles.walletBalance}>{Math.floor(totalBalance)}</Text>
                 <Text style={styles.walletHint}>
-                  créditos · ≈ ${(totalBalance * 0.042).toFixed(2)} USD
+                  créditos · equiv. Bs {Math.max(totalBalance, 0).toFixed(2)}
                 </Text>
 
                 <Pressable style={styles.walletRechargeBtn} onPress={() => setActiveTab("recharge")}>
@@ -369,11 +357,11 @@ export default function CreditsScreen() {
 
             <View style={styles.statsRow}>
               <View style={styles.statCard}>
-                <Text style={styles.statValue}>{Math.round(usedToday)} crd</Text>
+                <Text style={styles.statValue}>{Math.round(usedToday)} cr</Text>
                 <Text style={styles.statLabel}>Usados hoy</Text>
               </View>
               <View style={styles.statCard}>
-                <Text style={styles.statValue}>{Math.round(usedThisMonth)} crd</Text>
+                <Text style={styles.statValue}>{Math.round(usedThisMonth)} cr</Text>
                 <Text style={styles.statLabel}>Este mes</Text>
               </View>
             </View>
@@ -425,7 +413,7 @@ export default function CreditsScreen() {
                         ]}
                       >
                         {isCredit ? "+" : "-"}
-                        {Math.abs(signed)} crd
+                        {Math.abs(signed)} cr
                       </Text>
                     </View>
                   );
@@ -457,7 +445,7 @@ export default function CreditsScreen() {
                     ) : null}
                     <Text style={styles.pkgCredits}>{pkg.credits}</Text>
                     <Text style={styles.pkgCreditsLabel}>créditos</Text>
-                    <Text style={styles.pkgPrice}>${pkg.price.toFixed(2)}</Text>
+                    <Text style={styles.pkgPrice}>Bs {pkg.price.toFixed(2)}</Text>
                   </Pressable>
                 );
               })}
@@ -466,18 +454,6 @@ export default function CreditsScreen() {
             <View style={styles.sectionPad}>
               <AppCard>
                 <Text style={styles.paymentTitle}>Método de pago</Text>
-
-                <Pressable style={styles.paymentRow} onPress={() => setPaymentMethod("card")}>
-                  <View style={[styles.radio, paymentMethod === "card" && styles.radioActive]} />
-                  <Ionicons name="card-outline" size={16} color={appTheme.colors.primary} />
-                  <Text style={styles.paymentText}>Tarjeta **** 4242</Text>
-                </Pressable>
-
-                <Pressable style={styles.paymentRow} onPress={() => setPaymentMethod("paypal")}>
-                  <View style={[styles.radio, paymentMethod === "paypal" && styles.radioActive]} />
-                  <Ionicons name="logo-paypal" size={16} color={appTheme.colors.primary} />
-                  <Text style={styles.paymentText}>PayPal</Text>
-                </Pressable>
 
                 <Pressable style={styles.paymentRow} onPress={() => setPaymentMethod("stripe")}>
                   <View style={[styles.radio, paymentMethod === "stripe" && styles.radioActive]} />
@@ -503,9 +479,7 @@ export default function CreditsScreen() {
                 disabled={!selectedPackage || loading || qrLoading}
                 onPress={() => {
                   if (!selectedPackage) return;
-                  if (paymentMethod === "card" || paymentMethod === "paypal") {
-                    void handleFlowBuy(selectedPackage.id);
-                  } else if (paymentMethod === "qr") {
+                  if (paymentMethod === "qr") {
                     void handleQrBuy(selectedPackage.id);
                   } else {
                     void handleBuy(selectedPackage.id);
@@ -514,12 +488,15 @@ export default function CreditsScreen() {
               >
                 <Text style={styles.buyBtnText}>
                   {selectedPackage
-                    ? `Comprar ${selectedPackage.credits} créditos · $${selectedPackage.price.toFixed(2)}`
+                    ? `Comprar ${selectedPackage.credits} créditos · Bs ${selectedPackage.price.toFixed(2)}`
                     : "Selecciona un paquete"}
                 </Text>
               </Pressable>
 
               <Text style={styles.secureText}>Pago seguro · SSL encriptado</Text>
+              <Pressable onPress={() => router.push("/terms" as any)}>
+                <Text style={styles.termsLink}>Al recargar, aceptas los Términos y Condiciones.</Text>
+              </Pressable>
             </View>
           </>
         )}
@@ -946,6 +923,14 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.body,
     fontSize: 14,
     textAlign: "center",
+  },
+  termsLink: {
+    marginTop: 8,
+    color: appTheme.colors.primary,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    textAlign: "center",
+    fontWeight: "600",
   },
 
   qrBackdrop: {

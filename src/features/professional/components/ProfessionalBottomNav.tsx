@@ -11,7 +11,7 @@ type NavItem = {
   icon: any;
 };
 
-const professionalAccent = appTheme.colors.success;
+const professionalAccent = "#FFFFFF";
 
 const items: NavItem[] = [
   { key: "dashboard", label: "Dashboard", route: "/(professional)/dashboard", icon: LayoutDashboard },
@@ -37,8 +37,8 @@ export default function ProfessionalBottomNav() {
         return (
           <Pressable key={item.key} style={styles.item} onPress={() => router.push(item.route as any)}>
             <View style={[styles.activeLine, { opacity: active ? 1 : 0 }]} />
-            <Icon size={20} color={active ? professionalAccent : appTheme.colors.textMuted} />
-            <Text style={[styles.label, { color: active ? professionalAccent : appTheme.colors.textMuted }]}>
+            <Icon size={20} color={active ? professionalAccent : "#9CA3AF"} />
+            <Text style={[styles.label, { color: active ? professionalAccent : "#9CA3AF" }]}>
               {item.label}
             </Text>
           </Pressable>
@@ -50,9 +50,9 @@ export default function ProfessionalBottomNav() {
 
 const styles = StyleSheet.create({
   wrap: {
-    backgroundColor: appTheme.colors.surface,
+    backgroundColor: "#000000",
     borderTopWidth: 1,
-    borderTopColor: appTheme.colors.border,
+    borderTopColor: "#111827",
     flexDirection: "row",
     alignItems: "flex-end",
     justifyContent: "space-around",

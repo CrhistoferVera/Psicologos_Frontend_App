@@ -38,6 +38,12 @@ export type AdminUserRecord = {
   phoneNumber: string;
   isActive: boolean;
   createdAt: string;
+  referralCode?: string | null;
+  userProfile?: {
+    userName?: string | null;
+    bio?: string | null;
+    avatarUrl?: string | null;
+  } | null;
   wallet?: { balance: number } | null;
 };
 
@@ -76,7 +82,8 @@ export type AdminPaginated<T> = {
 export type AdminWithdrawalRecord = {
   id: string;
   credits: number;
-  soles: number;
+  amountBs: number;
+  soles?: number;
   status: "PENDING" | "APPROVED" | "REJECTED";
   bankName: string;
   accountNumber: string;

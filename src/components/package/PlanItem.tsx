@@ -18,7 +18,7 @@ export const PlanItem = ({ name, credits, price, onEdit, onDelete }: PlanItemPro
       <Text className="text-white text-lg font-bold">{name}</Text>
       <Text className="text-gray-500 font-medium">
         <Text className="text-red-800">{`${credits} Cred`} </Text>
-        <Text className="text-green-500">{`${price} soles`}</Text>
+        <Text className="text-green-500">{`Bs ${price}`}</Text>
       </Text>
     </View>
     <View className="flex-row space-x-2 ">

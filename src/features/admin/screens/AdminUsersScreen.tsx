@@ -1,11 +1,12 @@
-﻿import { useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import AppCard from "../../../components/ui/AppCard";
 import { appTheme } from "../../../theme/appTheme";
-import { getAdminClients, updateAdminClientStatus } from "../api/adminApi";
+import { getAdminClientById, getAdminClients, updateAdminClientStatus } from "../api/adminApi";
 import AdminDataTable from "../components/AdminDataTable";
 import AdminEmptyState from "../components/AdminEmptyState";
 import AdminStatusBadge from "../components/AdminStatusBadge";
+import { useAdminResponsive } from "../hooks/useAdminResponsive";
 import type { AdminUserRecord } from "../types";
 
 type StatusFilter = "all" | "active" | "blocked" | "inactive";
@@ -28,6 +29,7 @@ const statusTabs: { key: StatusFilter; label: string }[] = [
 ];
 
 export default function AdminUsersScreen() {
+  const { isMobile, contentPadding } = useAdminResponsive();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState("");
@@ -35,6 +37,8 @@ export default function AdminUsersScreen() {
   const [status, setStatus] = useState<StatusFilter>("all");
   const [rows, setRows] = useState<AdminUserRecord[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [selectedUser, setSelectedUser] = useState<AdminUserRecord | null>(null);
+  const [loadingUserDetail, setLoadingUserDetail] = useState(false);
 
   async function load(initial = false) {
     try {
@@ -86,15 +90,24 @@ export default function AdminUsersScreen() {
     }
   }
 
+  async function handleOpenDetail(id: string) {
+    try {
+      setLoadingUserDetail(true);
+      const detail = await getAdminClientById(id);
+      setSelectedUser(detail);
+    } catch (err: any) {
+      Alert.alert("No se pudo cargar", err?.message ?? "No se pudo obtener el detalle del usuario.");
+    } finally {
+      setLoadingUserDetail(false);
+    }
+  }
+
   return (
-    <ScrollView style={styles.page} contentContainerStyle={styles.content}>
-      <View style={styles.actionsRow}>
+    <ScrollView style={styles.page} contentContainerStyle={[styles.content, { paddingHorizontal: contentPadding }]}>
+      <View style={[styles.actionsRow, { flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "flex-start" : "center" }]}>
         <View style={{ flex: 1 }}>
           <Text style={styles.title}>Total: {rows.length.toLocaleString()} usuarios registrados</Text>
         </View>
-        <Pressable style={styles.exportBtn} onPress={() => Alert.alert("Exportar", "Exportación CSV disponible en siguiente iteración.")}>
-          <Text style={styles.exportText}>+ Exportar CSV</Text>
-        </Pressable>
       </View>
 
       <View style={styles.searchRow}>
@@ -104,7 +117,7 @@ export default function AdminUsersScreen() {
           onSubmitEditing={() => setSearch(searchInput.trim())}
           placeholder="Buscar por nombre o email..."
           placeholderTextColor={appTheme.colors.textMuted}
-          style={styles.search}
+          style={[styles.search, { minWidth: isMobile ? 0 : 320, width: isMobile ? "100%" : undefined }]}
         />
         {statusTabs.map((tab) => {
           const active = status === tab.key;
@@ -116,7 +129,7 @@ export default function AdminUsersScreen() {
         })}
       </View>
 
-      <View style={styles.metricsRow}>
+      <View style={[styles.metricsRow, { flexWrap: "wrap" }]}>
         <AppCard style={styles.metricCard}>
           <Text style={[styles.metricValue, { color: appTheme.colors.success }]}>{metrics.active.toLocaleString()}</Text>
           <Text style={styles.metricLabel}>Total activos</Text>
@@ -169,18 +182,6 @@ export default function AdminUsersScreen() {
               render: (row) => <Text style={[styles.cellPrimary, styles.blue]}>{Number(row.wallet?.balance ?? 0).toFixed(0)} crd</Text>,
             },
             {
-              key: "sessions",
-              title: "Sesiones",
-              width: 110,
-              render: (row) => <Text style={styles.cellMuted}>{(Number(row.wallet?.balance ?? 0) % 37).toFixed(0)}</Text>,
-            },
-            {
-              key: "referredBy",
-              title: "Referido por",
-              width: 140,
-              render: () => <Text style={styles.cellMuted}>—</Text>,
-            },
-            {
               key: "joined",
               title: "Registro",
               width: 130,
@@ -192,7 +193,7 @@ export default function AdminUsersScreen() {
               width: 190,
               render: (row) => (
                 <View style={styles.actionsCell}>
-                  <Pressable style={styles.viewBtn} onPress={() => Alert.alert("Usuario", fullName(row))}>
+                  <Pressable style={styles.viewBtn} onPress={() => void handleOpenDetail(row.id)}>
                     <Text style={styles.viewText}>Ver</Text>
                   </Pressable>
                   <Pressable style={[styles.blockBtn, row.isActive ? styles.blockBtnRed : styles.blockBtnGreen]} onPress={() => void handleToggle(row)}>
@@ -210,6 +211,31 @@ export default function AdminUsersScreen() {
           <Text style={styles.moreBtnText}>Cargar más</Text>
         </Pressable>
       ) : null}
+
+      <Modal visible={selectedUser !== null} transparent animationType="fade" onRequestClose={() => setSelectedUser(null)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setSelectedUser(null)}>
+          <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
+            <Text style={styles.modalTitle}>Detalle de usuario</Text>
+            {loadingUserDetail || !selectedUser ? (
+              <Text style={styles.cellMuted}>Cargando...</Text>
+            ) : (
+              <View style={{ gap: 8 }}>
+                <Text style={styles.cellPrimary}>{fullName(selectedUser)}</Text>
+                <Text style={styles.cellMuted}>Email: {selectedUser.email ?? "-"}</Text>
+                <Text style={styles.cellMuted}>Teléfono: {selectedUser.phoneNumber}</Text>
+                <Text style={styles.cellMuted}>Referral code: {selectedUser.referralCode ?? "-"}</Text>
+                <Text style={styles.cellMuted}>Username: {selectedUser.userProfile?.userName ?? "-"}</Text>
+                <Text style={styles.cellMuted}>Bio: {selectedUser.userProfile?.bio ?? "-"}</Text>
+                <Text style={styles.cellMuted}>Saldo: {Number(selectedUser.wallet?.balance ?? 0).toFixed(2)} créditos</Text>
+                <Text style={styles.cellMuted}>Registro: {formatDate(selectedUser.createdAt)}</Text>
+              </View>
+            )}
+            <Pressable style={styles.moreBtn} onPress={() => setSelectedUser(null)}>
+              <Text style={styles.moreBtnText}>Cerrar</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ScrollView>
   );
 }
@@ -219,7 +245,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingHorizontal: 30,
     paddingBottom: 28,
     gap: 14,
   },
@@ -232,18 +257,6 @@ const styles = StyleSheet.create({
     color: "#607895",
     fontFamily: appTheme.fonts.body,
     fontSize: 16,
-  },
-  exportBtn: {
-    borderRadius: 16,
-    backgroundColor: appTheme.colors.primary,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-  },
-  exportText: {
-    color: "#FFFFFF",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 14,
-    fontWeight: "700",
   },
   searchRow: {
     flexDirection: "row",
@@ -290,7 +303,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   metricCard: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 180,
     minHeight: 110,
   },
   metricValue: {
@@ -384,5 +398,28 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.body,
     fontSize: 13,
     fontWeight: "600",
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 18,
+  },
+  modalCard: {
+    width: "100%",
+    maxWidth: 520,
+    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+    padding: 16,
+    gap: 12,
+  },
+  modalTitle: {
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 18,
+    fontWeight: "700",
   },
 });

@@ -1,4 +1,4 @@
-﻿import apiClient from "../../../api/client";
+import apiClient from "../../../api/client";
 import {
   apiAddBankAccount,
   apiCreateWithdrawalRequest,
@@ -186,6 +186,16 @@ export async function getMyProfessionalPrices(): Promise<ProfessionalPriceInput>
 }
 
 export async function upsertProfessionalPrices(input: ProfessionalPriceInput) {
+  if (Number(input.chat) <= 0.1) {
+    throw new Error("La tarifa de mensajes debe ser mayor a 0.1 créditos.");
+  }
+  if (Number(input.call) <= 0.5) {
+    throw new Error("La tarifa de llamadas debe ser mayor a 0.5 créditos.");
+  }
+  if (Number(input.video) <= 1) {
+    throw new Error("La tarifa de videollamadas debe ser mayor a 1 crédito.");
+  }
+
   const tasks: Promise<unknown>[] = [];
   if (Number.isFinite(input.chat)) tasks.push(apiUpsertServicePrice("MESSAGE_SEND", Number(input.chat || 0)));
   if (Number.isFinite(input.call)) tasks.push(apiUpsertServicePrice("CALL", Number(input.call || 0)));

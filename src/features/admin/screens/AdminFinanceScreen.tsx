@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import * as DocumentPicker from "expo-document-picker";
+import { Alert, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import AppCard from "../../../components/ui/AppCard";
 import { appTheme } from "../../../theme/appTheme";
 import {
   getAdminDeposits,
   getAdminPendingWithdrawalRequests,
   getAdminStats,
+  getAdminWithdrawalHistory,
   getPromotionalCreditGrants,
   updateAdminDepositStatus,
   updateAdminWithdrawalStatus,
@@ -14,18 +16,33 @@ import AdminDataTable from "../components/AdminDataTable";
 import AdminEmptyState from "../components/AdminEmptyState";
 import AdminKpiCard from "../components/AdminKpiCard";
 import AdminStatusBadge from "../components/AdminStatusBadge";
+import { useAdminResponsive } from "../hooks/useAdminResponsive";
 
 function fullName(person: { firstName?: string | null; lastName?: string | null }) {
   return [person?.firstName, person?.lastName].filter(Boolean).join(" ") || "Sin nombre";
 }
 
+function moneyBs(value: number) {
+  return `Bs ${Number(value || 0).toFixed(2)}`;
+}
+
 export default function AdminFinanceScreen() {
+  const { contentPadding } = useAdminResponsive();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<any>(null);
   const [deposits, setDeposits] = useState<any[]>([]);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
+  const [withdrawalHistory, setWithdrawalHistory] = useState<any[]>([]);
   const [grants, setGrants] = useState<any[]>([]);
+
+  const [approvalTarget, setApprovalTarget] = useState<any | null>(null);
+  const [approvalNotes, setApprovalNotes] = useState("");
+  const [approvalReceipt, setApprovalReceipt] = useState<
+    | { uri?: string; file?: File; name?: string; type?: string }
+    | null
+  >(null);
+  const [approving, setApproving] = useState(false);
 
   useEffect(() => {
     void loadData();
@@ -35,15 +52,17 @@ export default function AdminFinanceScreen() {
     try {
       setLoading(true);
       setError(null);
-      const [statsData, depositsData, withdrawalsData, grantsData] = await Promise.all([
+      const [statsData, depositsData, withdrawalsData, withdrawalHistoryData, grantsData] = await Promise.all([
         getAdminStats(),
         getAdminDeposits(undefined, undefined, 30),
         getAdminPendingWithdrawalRequests(undefined, undefined, 30),
+        getAdminWithdrawalHistory(undefined, undefined, 30),
         getPromotionalCreditGrants(100),
       ]);
       setStats(statsData);
       setDeposits(depositsData.requests);
       setWithdrawals(withdrawalsData.data);
+      setWithdrawalHistory(withdrawalHistoryData.data);
       setGrants(grantsData);
     } catch {
       setError("No se pudo cargar el panel financiero.");
@@ -53,19 +72,20 @@ export default function AdminFinanceScreen() {
   }
 
   const financial = useMemo(() => {
-    const gross = Number(stats?.deposits?.totalRevenue ?? 0);
-    const platform = gross;
-    const professionalPaid = withdrawals.reduce((acc, item) => acc + Number(item.soles ?? 0), 0);
-    const promotional = grants.reduce((acc, item) => acc + Number(item.amount ?? 0), 0);
-    const referrals = 0;
-    return { gross, platform, professionalPaid, promotional, referrals };
-  }, [stats, withdrawals, grants]);
+    const gross = Number(stats?.finance?.grossRealRevenue ?? stats?.deposits?.totalRevenue ?? 0);
+    const platform = Number(stats?.finance?.platformEarnings ?? 0);
+    const professionalPaid = Number(stats?.finance?.professionalPaid ?? 0);
+    const promotional = Number(stats?.finance?.promotionalGranted ?? 0);
+    const referrals = Number(stats?.finance?.referralRewards ?? 0);
+    const withdrawalsPending = Number(stats?.withdrawals?.pending ?? withdrawals.length);
+    return { gross, platform, professionalPaid, promotional, referrals, withdrawalsPending };
+  }, [stats, withdrawals.length]);
 
   async function handleDepositStatus(id: string, status: "APPROVED" | "REJECTED") {
     try {
       await updateAdminDepositStatus(id, status, status === "REJECTED" ? "Rechazado desde panel admin" : undefined);
       await loadData();
-      Alert.alert("Deposito actualizado", `Estado cambiado a ${status}.`);
+      Alert.alert("Depósito actualizado", `Estado cambiado a ${status}.`);
     } catch (err: any) {
       Alert.alert("No se pudo actualizar", err?.message ?? "Intenta nuevamente.");
     }
@@ -73,7 +93,10 @@ export default function AdminFinanceScreen() {
 
   async function handleRejectWithdrawal(id: string) {
     try {
-      await updateAdminWithdrawalStatus(id, { status: "REJECTED", rejectionReason: "Rechazado desde panel admin" });
+      await updateAdminWithdrawalStatus(id, {
+        status: "REJECTED",
+        rejectionReason: "Rechazado desde panel admin",
+      });
       await loadData();
       Alert.alert("Retiro actualizado", "Solicitud rechazada.");
     } catch (err: any) {
@@ -81,29 +104,78 @@ export default function AdminFinanceScreen() {
     }
   }
 
+  async function pickReceipt() {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["image/*", "application/pdf"],
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0] as any;
+      setApprovalReceipt({
+        uri: asset.uri,
+        name: asset.name,
+        type: asset.mimeType ?? "application/octet-stream",
+        file: asset.file,
+      });
+    } catch {
+      Alert.alert("No se pudo seleccionar el comprobante.");
+    }
+  }
+
+  async function handleApproveWithdrawal() {
+    if (!approvalTarget) return;
+    if (!approvalReceipt) {
+      Alert.alert("Comprobante requerido", "Debes adjuntar un comprobante para aprobar el retiro.");
+      return;
+    }
+
+    try {
+      setApproving(true);
+      await updateAdminWithdrawalStatus(approvalTarget.id, {
+        status: "APPROVED",
+        notes: approvalNotes.trim() || undefined,
+        receipt: {
+          uri: approvalReceipt.uri,
+          file: approvalReceipt.file,
+          name: approvalReceipt.name,
+          type: approvalReceipt.type,
+        },
+      });
+      setApprovalTarget(null);
+      setApprovalReceipt(null);
+      setApprovalNotes("");
+      await loadData();
+      Alert.alert("Retiro aprobado", "El retiro se aprobó con comprobante.");
+    } catch (err: any) {
+      Alert.alert("No se pudo aprobar", err?.message ?? "Intenta nuevamente.");
+    } finally {
+      setApproving(false);
+    }
+  }
+
+  function openUrl(url?: string | null) {
+    if (!url) return;
+    void Linking.openURL(url);
+  }
+
   return (
-    <View style={styles.page}>
+    <ScrollView style={styles.page} contentContainerStyle={[styles.content, { paddingHorizontal: contentPadding }]}> 
       {loading ? <Text style={styles.info}>Cargando datos financieros...</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <View style={styles.kpiGrid}>
-        <AdminKpiCard label="Bruto" value={`${financial.gross.toFixed(2)} cr`} tone="positive" />
-        <AdminKpiCard label="Plataforma" value={`${financial.platform.toFixed(2)} cr`} tone="positive" />
-        <AdminKpiCard label="Pagado a professionals" value={`Bs ${financial.professionalPaid.toFixed(2)}`} />
-        <AdminKpiCard label="Promocional" value={`${financial.promotional.toFixed(2)} cr`} tone="warning" />
-        <AdminKpiCard label="Referidos" value={`${financial.referrals}`} />
+        <AdminKpiCard label="Ingresos brutos" value={moneyBs(financial.gross)} tone="positive" />
+        <AdminKpiCard label="Ganancia plataforma" value={moneyBs(financial.platform)} tone="positive" />
+        <AdminKpiCard label="Pagado a profesionales" value={moneyBs(financial.professionalPaid)} />
+        <AdminKpiCard label="Promocional otorgado" value={moneyBs(financial.promotional)} tone="warning" />
+        <AdminKpiCard label="Rewards referidos" value={moneyBs(financial.referrals)} tone="warning" />
+        <AdminKpiCard label="Retiros pendientes" value={String(financial.withdrawalsPending)} tone="neutral" />
       </View>
 
-      <AppCard>
-        <Text style={styles.noteTitle}>Resumen financiero</Text>
-        <Text style={styles.noteText}>Bruto y plataforma usan metrica contable disponible en `admin/stats`.</Text>
-        <Text style={styles.noteText}>Promocional se calcula desde grants y no debe contaminar revenue real.</Text>
-        <Text style={styles.noteText}>TODO: conectar ledger consolidado para split exacto bruto/plataforma/professional.</Text>
-      </AppCard>
-
-      <Text style={styles.sectionTitle}>Depositos recientes</Text>
+      <Text style={styles.sectionTitle}>Depósitos recientes</Text>
       {deposits.length === 0 ? (
-        <AdminEmptyState title="Sin depositos" description="No hay solicitudes de deposito recientes." />
+        <AdminEmptyState title="Sin depósitos" description="No hay solicitudes de depósito recientes." />
       ) : (
         <AdminDataTable
           rows={deposits}
@@ -122,15 +194,27 @@ export default function AdminFinanceScreen() {
             },
             {
               key: "amount",
-              title: "Monto",
+              title: "Monto Bs",
               width: 120,
-              render: (row) => <Text style={styles.cellPrimary}>Bs {Number(row.amountBs ?? 0).toFixed(2)}</Text>,
+              render: (row) => <Text style={styles.cellPrimary}>{moneyBs(Number(row.amountBs ?? row.amount ?? 0))}</Text>,
             },
             {
               key: "credits",
-              title: "Creditos",
+              title: "Créditos",
               width: 120,
               render: (row) => <Text style={styles.cellPrimary}>{Number(row.creditsToDeliver ?? 0).toFixed(2)}</Text>,
+            },
+            {
+              key: "receipt",
+              title: "Comprobante",
+              width: 130,
+              render: (row) => (
+                row.receiptUrl ? (
+                  <Pressable onPress={() => openUrl(row.receiptUrl)}>
+                    <Text style={styles.linkText}>Ver</Text>
+                  </Pressable>
+                ) : <Text style={styles.cellMuted}>-</Text>
+              ),
             },
             {
               key: "status",
@@ -171,7 +255,7 @@ export default function AdminFinanceScreen() {
           columns={[
             {
               key: "professional",
-              title: "Professional",
+              title: "Profesional",
               width: 200,
               render: (row) => <Text style={styles.cellPrimary}>{fullName(row.professional)}</Text>,
             },
@@ -182,10 +266,10 @@ export default function AdminFinanceScreen() {
               render: (row) => <Text style={styles.cellPrimary}>{Number(row.credits).toFixed(2)} cr</Text>,
             },
             {
-              key: "soles",
-              title: "Equiv. Bolivianos",
+              key: "bs",
+              title: "Equiv. Bs",
               width: 120,
-              render: (row) => <Text style={styles.cellMuted}>Bs {Number(row.soles).toFixed(2)}</Text>,
+              render: (row) => <Text style={styles.cellMuted}>{moneyBs(Number(row.amountBs ?? row.soles ?? 0))}</Text>,
             },
             {
               key: "account",
@@ -206,10 +290,14 @@ export default function AdminFinanceScreen() {
               render: (row) => (
                 <View style={styles.actionsCell}>
                   <Pressable
-                    style={[styles.approveBtn, { opacity: 0.6 }]}
-                    onPress={() => Alert.alert("Pendiente", "Aprobacion requiere comprobante (TODO: subir receipt en flujo web).")}
+                    style={styles.approveBtn}
+                    onPress={() => {
+                      setApprovalTarget(row);
+                      setApprovalNotes("");
+                      setApprovalReceipt(null);
+                    }}
                   >
-                    <Text style={styles.approveText}>Aprobar</Text>
+                    <Text style={styles.approveText}>Aprobar + comprobante</Text>
                   </Pressable>
                   <Pressable style={styles.rejectBtn} onPress={() => void handleRejectWithdrawal(row.id)}>
                     <Text style={styles.rejectText}>Rechazar</Text>
@@ -220,13 +308,105 @@ export default function AdminFinanceScreen() {
           ]}
         />
       )}
-    </View>
+
+      <Text style={styles.sectionTitle}>Historial de retiros</Text>
+      {withdrawalHistory.length === 0 ? (
+        <AdminEmptyState title="Sin historial" description="Aún no hay retiros procesados." />
+      ) : (
+        <AdminDataTable
+          rows={withdrawalHistory}
+          columns={[
+            {
+              key: "professional",
+              title: "Profesional",
+              width: 200,
+              render: (row) => <Text style={styles.cellPrimary}>{fullName(row.professional)}</Text>,
+            },
+            {
+              key: "credits",
+              title: "Créditos",
+              width: 120,
+              render: (row) => <Text style={styles.cellMuted}>{Number(row.credits).toFixed(2)}</Text>,
+            },
+            {
+              key: "bs",
+              title: "Bs",
+              width: 130,
+              render: (row) => <Text style={styles.cellMuted}>{moneyBs(Number(row.amountBs ?? row.soles ?? 0))}</Text>,
+            },
+            {
+              key: "status",
+              title: "Estado",
+              width: 120,
+              render: (row) => (
+                <AdminStatusBadge
+                  label={row.status}
+                  tone={row.status === "APPROVED" ? "positive" : row.status === "REJECTED" ? "danger" : "warning"}
+                />
+              ),
+            },
+            {
+              key: "receipt",
+              title: "Comprobante",
+              width: 130,
+              render: (row) => (
+                row.receiptUrl ? (
+                  <Pressable onPress={() => openUrl(row.receiptUrl)}>
+                    <Text style={styles.linkText}>Ver</Text>
+                  </Pressable>
+                ) : <Text style={styles.cellMuted}>-</Text>
+              ),
+            },
+            {
+              key: "updated",
+              title: "Actualizado",
+              width: 160,
+              render: (row) => <Text style={styles.cellMuted}>{new Date(row.updatedAt ?? row.createdAt).toLocaleString()}</Text>,
+            },
+          ]}
+        />
+      )}
+
+      <Modal visible={approvalTarget !== null} transparent animationType="fade" onRequestClose={() => setApprovalTarget(null)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setApprovalTarget(null)}>
+          <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
+            <Text style={styles.noteTitle}>Aprobar retiro</Text>
+            <Text style={styles.cellMuted}>
+              {approvalTarget ? `${fullName(approvalTarget.professional)} · ${moneyBs(Number(approvalTarget.amountBs ?? approvalTarget.soles ?? 0))}` : ""}
+            </Text>
+            <TextInput
+              value={approvalNotes}
+              onChangeText={setApprovalNotes}
+              style={styles.input}
+              placeholder="Nota interna (opcional)"
+              placeholderTextColor={appTheme.colors.textMuted}
+              multiline
+            />
+            <Pressable style={styles.secondaryBtn} onPress={() => void pickReceipt()}>
+              <Text style={styles.secondaryBtnText}>{approvalReceipt?.name ?? "Adjuntar comprobante"}</Text>
+            </Pressable>
+            <View style={styles.actionsCell}>
+              <Pressable style={styles.rejectBtn} onPress={() => setApprovalTarget(null)}>
+                <Text style={styles.rejectText}>Cancelar</Text>
+              </Pressable>
+              <Pressable style={styles.approveBtn} onPress={() => void handleApproveWithdrawal()} disabled={approving}>
+                <Text style={styles.approveText}>{approving ? "Aprobando..." : "Confirmar aprobación"}</Text>
+              </Pressable>
+            </View>
+            {Platform.OS === "web" ? <Text style={styles.noteText}>Acepta imagen o PDF como comprobante.</Text> : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   page: {
-    padding: 24,
+    flex: 1,
+  },
+  content: {
+    paddingVertical: 24,
     gap: 12,
   },
   info: {
@@ -274,10 +454,17 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
   },
+  linkText: {
+    color: appTheme.colors.primary,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    fontWeight: "700",
+  },
   actionsCell: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    flexWrap: "wrap",
   },
   approveBtn: {
     borderRadius: 8,
@@ -302,5 +489,47 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.body,
     fontSize: 11,
     fontWeight: "700",
+  },
+  secondaryBtn: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+  },
+  secondaryBtnText: {
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 16,
+  },
+  modalCard: {
+    width: "100%",
+    maxWidth: 560,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+    backgroundColor: "#FFFFFF",
+    padding: 16,
+    gap: 10,
+  },
+  input: {
+    minHeight: 44,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+    backgroundColor: appTheme.colors.background,
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.body,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
 });

@@ -1,7 +1,8 @@
-﻿import { ArrowUp } from "lucide-react-native";
+import { ArrowUp, BarChart3, CircleDollarSign, Gift } from "lucide-react-native";
 import { StyleSheet, Text, View } from "react-native";
 import AppCard from "../../../components/ui/AppCard";
 import { appTheme } from "../../../theme/appTheme";
+import { useAdminResponsive } from "../hooks/useAdminResponsive";
 
 type Props = {
   label: string;
@@ -10,20 +11,22 @@ type Props = {
   tone?: "neutral" | "positive" | "warning";
 };
 
-const toneMap: Record<NonNullable<Props["tone"]>, { value: string; delta: string; iconBg: string; icon: string }> = {
-  neutral: { value: "#1F3656", delta: "#5E7695", iconBg: "#EAF1FB", icon: "📊" },
-  positive: { value: appTheme.colors.success, delta: appTheme.colors.success, iconBg: "#EAF7F0", icon: "💰" },
-  warning: { value: "#D97706", delta: "#D97706", iconBg: "#FFF5E7", icon: "🎁" },
+const toneMap: Record<NonNullable<Props["tone"]>, { value: string; delta: string; iconBg: string; icon: any }> = {
+  neutral: { value: "#1F3656", delta: "#5E7695", iconBg: "#EAF1FB", icon: BarChart3 },
+  positive: { value: appTheme.colors.success, delta: appTheme.colors.success, iconBg: "#EAF7F0", icon: CircleDollarSign },
+  warning: { value: "#D97706", delta: "#D97706", iconBg: "#FFF5E7", icon: Gift },
 };
 
 export default function AdminKpiCard({ label, value, delta, tone = "neutral" }: Props) {
+  const { isMobile } = useAdminResponsive();
   const palette = toneMap[tone];
+  const Icon = palette.icon;
 
   return (
-    <AppCard style={styles.card}>
+    <AppCard style={[styles.card, { minWidth: isMobile ? 0 : 260, width: isMobile ? "100%" : undefined }]}>
       <View style={styles.topRow}>
         <View style={[styles.iconWrap, { backgroundColor: palette.iconBg }]}>
-          <Text style={styles.iconText}>{palette.icon}</Text>
+          <Icon size={17} color={palette.value} />
         </View>
         <View style={styles.trendWrap}>
           <ArrowUp size={13} color={appTheme.colors.success} />
@@ -57,9 +60,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  iconText: {
-    fontSize: 17,
-  },
   trendWrap: {
     width: 34,
     height: 34,
@@ -88,4 +88,3 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 });
-

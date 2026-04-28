@@ -1,10 +1,32 @@
-import { Stack, usePathname } from "expo-router";
-import { View } from "react-native";
+import { Redirect, Stack, usePathname } from "expo-router";
+import { Platform, View } from "react-native";
 import UserBottomNav from "../../src/features/user-home/components/UserBottomNav";
+import { useAuth } from "../../src/context/AuthContext";
+import { appTheme } from "../../src/theme/appTheme";
 
 export default function UserLayout() {
   const pathname = usePathname();
   const hideNav = pathname.includes("/chats/") || pathname.includes("/professionals/");
+  const { user, isHydrated } = useAuth();
+
+  if (!isHydrated) {
+    return <View style={{ flex: 1, backgroundColor: appTheme.colors.background }} />;
+  }
+
+  if (!user) {
+    return <Redirect href={Platform.OS === "web" ? "/admin-login" : "/(public)/auth"} />;
+  }
+
+  if (Platform.OS === "web") {
+    if (user.role === "ADMIN") return <Redirect href="/admin" />;
+    return <Redirect href="/admin-login" />;
+  }
+
+  if (user.role !== "USER") {
+    const isProfessional = user.role === "PROFESSIONAL" || user.role === "ANFITRIONA";
+    if (isProfessional) return <Redirect href="/(professional)/dashboard" />;
+    if (user.role === "ADMIN") return <Redirect href="/admin" />;
+  }
 
   return (
     <View style={{ flex: 1 }}>
@@ -13,4 +35,3 @@ export default function UserLayout() {
     </View>
   );
 }
-

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Alert, Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import AppCard from "../../../components/ui/AppCard";
 import { appTheme } from "../../../theme/appTheme";
 import {
@@ -10,15 +10,74 @@ import {
 } from "../api/adminApi";
 import AdminDataTable from "../components/AdminDataTable";
 import AdminEmptyState from "../components/AdminEmptyState";
+import { useAdminResponsive } from "../hooks/useAdminResponsive";
+
+function ConfigField({
+  label,
+  description,
+  value,
+  onChangeText,
+  placeholder,
+  keyboardType,
+  unit,
+}: {
+  label: string;
+  description: string;
+  value: string;
+  onChangeText: (value: string) => void;
+  placeholder?: string;
+  keyboardType?: "default" | "numeric" | "decimal-pad";
+  unit?: string;
+}) {
+  return (
+    <View style={styles.fieldBlock}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <Text style={styles.fieldDescription}>{description}</Text>
+      <View style={styles.inputRow}>
+        <TextInput
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={appTheme.colors.textMuted}
+          keyboardType={keyboardType}
+          style={styles.input}
+        />
+        {unit ? <Text style={styles.unitLabel}>{unit}</Text> : null}
+      </View>
+    </View>
+  );
+}
+
+function FlagRow({
+  title,
+  description,
+  value,
+  onChange,
+}: {
+  title: string;
+  description: string;
+  value: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <View style={styles.flagRow}>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={styles.flagTitle}>{title}</Text>
+        <Text style={styles.flagDescription}>{description}</Text>
+      </View>
+      <Switch value={value} onValueChange={onChange} />
+    </View>
+  );
+}
 
 export default function AdminConfigScreen() {
+  const { isMobile, contentPadding } = useAdminResponsive();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [grants, setGrants] = useState<any[]>([]);
 
   const [platformFeePercent, setPlatformFeePercent] = useState("50");
-  const [creditToSolesRate, setCreditToSolesRate] = useState("1");
-  const [minAppVersion, setMinAppVersion] = useState("1.0");
+  const [creditValueBs, setCreditValueBs] = useState("1");
   const [referralPercentage, setReferralPercentage] = useState("2.5");
   const [referralRewardCredits, setReferralRewardCredits] = useState("10");
   const [referralMinDepositAmount, setReferralMinDepositAmount] = useState("0");
@@ -30,7 +89,7 @@ export default function AdminConfigScreen() {
 
   const [userId, setUserId] = useState("");
   const [amount, setAmount] = useState("20");
-  const [reason, setReason] = useState("Crédito promocional admin");
+  const [reason, setReason] = useState("Crédito promocional administrativo");
   const [savingGrant, setSavingGrant] = useState(false);
 
   async function loadData() {
@@ -39,17 +98,14 @@ export default function AdminConfigScreen() {
       setError(null);
 
       const [config, grantsData] = await Promise.all([getAdminConfig(), getPromotionalCreditGrants(30)]);
-
       setPlatformFeePercent(String(config.platformFeePercent));
-      setCreditToSolesRate(String(config.creditToSolesRate));
-      setMinAppVersion(config.minAppVersion);
+      setCreditValueBs(String(config.creditValueBs ?? config.creditToSolesRate));
       setReferralPercentage(String(config.referralPercentage ?? 2.5));
       setReferralRewardCredits(String(config.referralRewardCredits));
       setReferralMinDepositAmount(String(config.referralMinDepositAmount));
       setReferralEnabled(Boolean(config.referralEnabled));
       setPaymentsEnabled(Boolean(config.paymentsEnabled));
       setWithdrawalsEnabled(Boolean(config.withdrawalsEnabled));
-
       setGrants(grantsData);
     } catch {
       setError("No se pudo cargar la configuración del sistema.");
@@ -64,33 +120,29 @@ export default function AdminConfigScreen() {
 
   async function handleSaveConfig() {
     const platform = Number(platformFeePercent);
-    const creditRate = Number(creditToSolesRate);
+    const creditValue = Number(creditValueBs);
     const refPct = Number(referralPercentage);
     const rewardCredits = Number(referralRewardCredits);
     const minDeposit = Number(referralMinDepositAmount);
 
     if (!Number.isFinite(platform) || platform < 0 || platform > 100) {
-      Alert.alert("Porcentaje inválido", "El porcentaje de plataforma debe estar entre 0 y 100.");
+      Alert.alert("Porcentaje inválido", "La comisión de plataforma debe estar entre 0 y 100.");
       return;
     }
-
-    if (!Number.isFinite(creditRate) || creditRate < 0) {
-      Alert.alert("Rate inválido", "El rate de crédito debe ser un número mayor o igual a 0.");
+    if (!Number.isFinite(creditValue) || creditValue < 0) {
+      Alert.alert("Valor inválido", "El valor de 1 crédito en Bs debe ser mayor o igual a 0.");
       return;
     }
-
     if (!Number.isFinite(refPct) || refPct < 0 || refPct > 100) {
-      Alert.alert("Porcentaje de referido inválido", "Debe estar entre 0 y 100.");
+      Alert.alert("Porcentaje inválido", "El porcentaje de referidos debe estar entre 0 y 100.");
       return;
     }
-
     if (!Number.isFinite(rewardCredits) || rewardCredits < 0) {
-      Alert.alert("Recompensa inválida", "La recompensa por referido debe ser mayor o igual a 0.");
+      Alert.alert("Recompensa inválida", "La recompensa fija de referidos debe ser mayor o igual a 0.");
       return;
     }
-
     if (!Number.isFinite(minDeposit) || minDeposit < 0) {
-      Alert.alert("Monto inválido", "El mínimo de depósito debe ser mayor o igual a 0.");
+      Alert.alert("Monto inválido", "El mínimo de depósito para referidos debe ser mayor o igual a 0.");
       return;
     }
 
@@ -98,8 +150,7 @@ export default function AdminConfigScreen() {
       setSavingConfig(true);
       await updateAdminConfig({
         platformFeePercent: platform,
-        creditToSolesRate: creditRate,
-        minAppVersion: minAppVersion.trim() || "1.0",
+        creditValueBs: creditValue,
         referralPercentage: refPct,
         referralRewardCredits: rewardCredits,
         referralMinDepositAmount: minDeposit,
@@ -134,9 +185,9 @@ export default function AdminConfigScreen() {
         amount: parsedAmount,
         reason: reason.trim() || undefined,
       });
-      Alert.alert("Créditos otorgados", "El grant promocional se registró correctamente.");
+      Alert.alert("Créditos otorgados", "El crédito promocional se registró correctamente.");
       setUserId("");
-      setReason("Crédito promocional admin");
+      setReason("Crédito promocional administrativo");
       await loadData();
     } catch (err: any) {
       Alert.alert("No se pudo otorgar", err?.message ?? "Intenta nuevamente.");
@@ -146,116 +197,135 @@ export default function AdminConfigScreen() {
   }
 
   return (
-    <View style={styles.page}>
+    <ScrollView style={styles.page} contentContainerStyle={[styles.content, { paddingHorizontal: contentPadding }]}>
       {loading ? <Text style={styles.info}>Cargando configuración...</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <AppCard>
-        <Text style={styles.cardTitle}>Parámetros globales</Text>
+        <Text style={styles.cardTitle}>Parámetros globales del sistema</Text>
+        <Text style={styles.cardIntro}>Define reglas de monetización, referidos y disponibilidad operativa.</Text>
 
-        <View style={styles.formGrid}>
-          <TextInput
+        <View style={styles.sectionBlock}>
+          <Text style={styles.sectionHeader}>Créditos y comisiones</Text>
+          <ConfigField
+            label="Comisión de plataforma"
+            description="Porcentaje que retiene la plataforma sobre transacciones pagadas al profesional."
             value={platformFeePercent}
             onChangeText={setPlatformFeePercent}
-            placeholder="% plataforma"
-            placeholderTextColor={appTheme.colors.textMuted}
+            placeholder="Ej: 45"
             keyboardType="decimal-pad"
-            style={styles.input}
+            unit="%"
           />
-          <TextInput
-            value={creditToSolesRate}
-            onChangeText={setCreditToSolesRate}
-            placeholder="Rate crédito/Bs"
-            placeholderTextColor={appTheme.colors.textMuted}
+          <ConfigField
+            label="Valor de 1 crédito"
+            description="Define la equivalencia de un crédito en bolivianos (Bs)."
+            value={creditValueBs}
+            onChangeText={setCreditValueBs}
+            placeholder="Ej: 2.50"
             keyboardType="decimal-pad"
-            style={styles.input}
+            unit="Bs"
           />
-          <TextInput
-            value={minAppVersion}
-            onChangeText={setMinAppVersion}
-            placeholder="Versión mínima"
-            placeholderTextColor={appTheme.colors.textMuted}
-            style={styles.input}
-          />
-          <TextInput
+        </View>
+
+        <View style={styles.sectionBlock}>
+          <Text style={styles.sectionHeader}>Programa de referidos</Text>
+          <ConfigField
+            label="Porcentaje de referido"
+            description="Porcentaje de recompensa para el referente sobre ganancias elegibles del referido."
             value={referralPercentage}
             onChangeText={setReferralPercentage}
-            placeholder="% referido (ej: 2.5)"
-            placeholderTextColor={appTheme.colors.textMuted}
+            placeholder="Ej: 2.5"
             keyboardType="decimal-pad"
-            style={styles.input}
+            unit="%"
           />
-          <TextInput
+          <ConfigField
+            label="Recompensa fija (legado)"
+            description="Valor legado en créditos. Mantener en 0 si se usa solo porcentaje."
             value={referralRewardCredits}
             onChangeText={setReferralRewardCredits}
-            placeholder="Reward fijo referido (legado)"
-            placeholderTextColor={appTheme.colors.textMuted}
+            placeholder="Ej: 0"
             keyboardType="decimal-pad"
-            style={styles.input}
+            unit="cr"
           />
-          <TextInput
+          <ConfigField
+            label="Mínimo de depósito para referido"
+            description="Monto mínimo para que una recarga califique en reglas de referidos."
             value={referralMinDepositAmount}
             onChangeText={setReferralMinDepositAmount}
-            placeholder="Mín depósito referido"
-            placeholderTextColor={appTheme.colors.textMuted}
+            placeholder="Ej: 0"
             keyboardType="decimal-pad"
-            style={styles.input}
+            unit="Bs"
+          />
+          <FlagRow
+            title="Programa de referidos habilitado"
+            description="Activa o desactiva el cómputo de recompensas por referidos."
+            value={referralEnabled}
+            onChange={setReferralEnabled}
           />
         </View>
 
-        <View style={styles.toggleRow}>
-          <Text style={styles.line}>Programa de referidos habilitado</Text>
-          <Switch value={referralEnabled} onValueChange={setReferralEnabled} />
+        <View style={styles.sectionBlock}>
+          <Text style={styles.sectionHeader}>Estado operativo</Text>
+          <FlagRow
+            title="Pagos habilitados"
+            description="Permite o bloquea recargas y cobros de créditos en la plataforma."
+            value={paymentsEnabled}
+            onChange={setPaymentsEnabled}
+          />
+          <FlagRow
+            title="Retiros habilitados"
+            description="Permite o bloquea solicitudes de retiro para profesionales."
+            value={withdrawalsEnabled}
+            onChange={setWithdrawalsEnabled}
+          />
         </View>
 
-        <View style={styles.toggleRow}>
-          <Text style={styles.line}>Pagos habilitados</Text>
-          <Switch value={paymentsEnabled} onValueChange={setPaymentsEnabled} />
-        </View>
-
-        <View style={styles.toggleRow}>
-          <Text style={styles.line}>Retiros habilitados</Text>
-          <Switch value={withdrawalsEnabled} onValueChange={setWithdrawalsEnabled} />
-        </View>
-
-        <Pressable style={[styles.primaryBtn, savingConfig && { opacity: 0.6 }]} disabled={savingConfig} onPress={() => void handleSaveConfig()}>
-          <Text style={styles.primaryBtnText}>{savingConfig ? "Guardando..." : "Guardar configuración"}</Text>
+        <Pressable
+          style={[styles.primaryBtn, savingConfig && { opacity: 0.6 }]}
+          disabled={savingConfig}
+          onPress={() => void handleSaveConfig()}
+        >
+          <Text style={styles.primaryBtnText}>{savingConfig ? "Guardando..." : "Guardar parámetros globales"}</Text>
         </Pressable>
       </AppCard>
 
       <AppCard>
         <Text style={styles.cardTitle}>Créditos promocionales</Text>
-        <Text style={styles.note}>Otorga créditos promocionales sin afectar revenue contable.</Text>
-        <View style={styles.formGrid}>
+        <Text style={styles.note}>Otorga créditos manuales a usuarios sin afectar ingresos reales del profesional.</Text>
+        <View style={[styles.formGrid, { flexDirection: isMobile ? "column" : "row" }]}>
           <TextInput
             value={userId}
             onChangeText={setUserId}
             placeholder="User ID destinatario"
             placeholderTextColor={appTheme.colors.textMuted}
-            style={styles.input}
+            style={[styles.input, { minWidth: isMobile ? 0 : 190, width: isMobile ? "100%" : undefined }]}
           />
           <TextInput
             value={amount}
             onChangeText={setAmount}
-            placeholder="Monto"
+            placeholder="Monto en créditos"
             placeholderTextColor={appTheme.colors.textMuted}
             keyboardType="numeric"
-            style={styles.input}
+            style={[styles.input, { minWidth: isMobile ? 0 : 190, width: isMobile ? "100%" : undefined }]}
           />
           <TextInput
             value={reason}
             onChangeText={setReason}
             placeholder="Motivo (opcional)"
             placeholderTextColor={appTheme.colors.textMuted}
-            style={styles.input}
+            style={[styles.input, { minWidth: isMobile ? 0 : 240, width: isMobile ? "100%" : undefined }]}
           />
-          <Pressable style={[styles.primaryBtn, savingGrant && { opacity: 0.6 }]} disabled={savingGrant} onPress={() => void handleGrantCredits()}>
+          <Pressable
+            style={[styles.primaryBtn, savingGrant && { opacity: 0.6 }]}
+            disabled={savingGrant}
+            onPress={() => void handleGrantCredits()}
+          >
             <Text style={styles.primaryBtnText}>{savingGrant ? "Guardando..." : "Otorgar créditos"}</Text>
           </Pressable>
         </View>
       </AppCard>
 
-      <Text style={styles.sectionTitle}>Últimos grants promocionales</Text>
+      <Text style={styles.sectionTitle}>Últimos créditos promocionales otorgados</Text>
       {grants.length === 0 ? (
         <AdminEmptyState title="Sin grants recientes" description="Aún no hay créditos promocionales otorgados." />
       ) : (
@@ -303,13 +373,16 @@ export default function AdminConfigScreen() {
           ]}
         />
       )}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   page: {
-    padding: 24,
+    flex: 1,
+  },
+  content: {
+    paddingVertical: 24,
     gap: 12,
   },
   info: {
@@ -328,29 +401,44 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
   },
-  line: {
+  cardIntro: {
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+  },
+  sectionBlock: {
+    gap: 10,
+    borderTopWidth: 1,
+    borderTopColor: appTheme.colors.border,
+    paddingTop: 10,
+  },
+  sectionHeader: {
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  fieldBlock: {
+    gap: 4,
+  },
+  fieldLabel: {
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.body,
     fontSize: 13,
+    fontWeight: "700",
   },
-  note: {
+  fieldDescription: {
     color: appTheme.colors.textMuted,
     fontFamily: appTheme.fonts.body,
-    fontSize: 11,
+    fontSize: 12,
+    lineHeight: 17,
   },
-  toggleRow: {
+  inputRow: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  formGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
     alignItems: "center",
     gap: 8,
   },
   input: {
-    minWidth: 190,
     flexGrow: 1,
     backgroundColor: appTheme.colors.background,
     borderWidth: 1,
@@ -360,6 +448,43 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.body,
+  },
+  unitLabel: {
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    fontWeight: "700",
+    minWidth: 30,
+    textAlign: "right",
+  },
+  flagRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  flagTitle: {
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  flagDescription: {
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  note: {
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 11,
+  },
+  formGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 8,
   },
   primaryBtn: {
     borderRadius: 10,

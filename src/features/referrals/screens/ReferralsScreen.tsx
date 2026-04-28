@@ -111,7 +111,7 @@ export default function ReferralsScreen() {
   async function handleShare() {
     if (!data?.code) return;
     await Share.share({
-      message: `Únete como profesional en PsyConnect con mi código ${data.code} y empieza a atender pacientes verificados.`,
+      message: `Únete como profesional en Sanamente con mi código ${data.code} y empieza a atender pacientes verificados.`,
     });
   }
 

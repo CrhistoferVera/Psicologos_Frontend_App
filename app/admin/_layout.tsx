@@ -1,14 +1,13 @@
-﻿import { Redirect, Stack, usePathname, useRouter } from "expo-router";
+import { Redirect, Stack, usePathname, useRouter } from "expo-router";
 import { View } from "react-native";
 import { useAuth } from "../../src/context/AuthContext";
 import AdminLayout from "../../src/features/admin/components/AdminLayout";
 import { appTheme } from "../../src/theme/appTheme";
 
-const routeMeta: Record<string, { title: string; subtitle: string; showPeriodTabs?: boolean }> = {
+const routeMeta: Record<string, { title: string; subtitle: string }> = {
   "/admin/overview": {
     title: "Dashboard principal",
     subtitle: "Abril 2026 · Datos en tiempo real",
-    showPeriodTabs: true,
   },
   "/admin/users": {
     title: "Gestión de Usuarios",
@@ -25,6 +24,10 @@ const routeMeta: Record<string, { title: string; subtitle: string; showPeriodTab
   "/admin/referrals": {
     title: "Referidos",
     subtitle: "Programa, recompensas y trazabilidad",
+  },
+  "/admin/packages": {
+    title: "Paquetes",
+    subtitle: "CRUD de paquetes de créditos para recargas",
   },
   "/admin/sections": {
     title: "Secciones y Subsecciones",
@@ -45,18 +48,16 @@ export default function AdminRoutesLayout() {
     return <View style={{ flex: 1, backgroundColor: appTheme.colors.background }} />;
   }
 
-  if (!user) return <Redirect href="/(public)/auth" />;
+  if (!user) return <Redirect href="/admin-login" />;
 
   if (user.role !== "ADMIN") {
-    const isProfessional = user.role === "PROFESSIONAL" || user.role === "ANFITRIONA";
-    if (isProfessional) return <Redirect href="/(professional)/dashboard" />;
-    return <Redirect href="/(user)/home" />;
+    return <Redirect href="/admin-login" />;
   }
 
   const meta = routeMeta[pathname] ?? routeMeta["/admin/overview"];
 
   return (
-    <AdminLayout title={meta.title} subtitle={meta.subtitle} showPeriodTabs={meta.showPeriodTabs} onRefresh={() => router.replace(pathname as any)}>
+    <AdminLayout title={meta.title} subtitle={meta.subtitle} onRefresh={() => router.replace(pathname as any)}>
       <Stack
         screenOptions={{
           headerShown: false,

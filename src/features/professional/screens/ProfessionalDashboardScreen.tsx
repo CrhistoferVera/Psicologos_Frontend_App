@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Alert, Image, Pressable, StyleSheet, Switch, Text, View } from "react-native";
@@ -206,7 +206,7 @@ export default function ProfessionalDashboardScreen() {
             <Text style={[styles.quickText, { color: "#69AF8A" }]}>Ver ganancias</Text>
           </Pressable>
 
-          <Pressable style={styles.quickCard} onPress={() => Alert.alert("Pendiente", "Módulo de referidos en la siguiente iteración.")}>
+          <Pressable style={styles.quickCard} onPress={() => router.push("/(professional)/referrals" as any)}>
             <View style={[styles.quickIconWrap, { backgroundColor: "#F3ECFF" }]}>
               <Ionicons name="gift" size={18} color="#A383D0" />
             </View>

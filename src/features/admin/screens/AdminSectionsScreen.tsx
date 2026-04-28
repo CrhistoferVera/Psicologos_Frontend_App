@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import AppCard from "../../../components/ui/AppCard";
 import { appTheme } from "../../../theme/appTheme";
@@ -10,6 +10,7 @@ import {
   updateAdminSpecialty,
 } from "../api/adminApi";
 import AdminEmptyState from "../components/AdminEmptyState";
+import { useAdminResponsive } from "../hooks/useAdminResponsive";
 import type { AdminSpecialty } from "../types";
 
 function subsectionListFromDescription(name: string, description?: string | null) {
@@ -23,6 +24,7 @@ function subsectionListFromDescription(name: string, description?: string | null
 }
 
 export default function AdminSectionsScreen() {
+  const { isMobile, contentPadding } = useAdminResponsive();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -100,17 +102,14 @@ export default function AdminSectionsScreen() {
   const activeCount = useMemo(() => rows.filter((row) => row.isActive).length, [rows]);
 
   return (
-    <ScrollView style={styles.page} contentContainerStyle={styles.content}>
-      <View style={styles.actionsRow}>
+    <ScrollView style={styles.page} contentContainerStyle={[styles.content, { paddingHorizontal: contentPadding }]}>
+      <View style={[styles.actionsRow, { flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "flex-start" : "center" }]}>
         <View style={{ flex: 1 }}>
           <Text style={styles.subtitle}>Gestiona la taxonomía de especialidades de la plataforma</Text>
         </View>
-        <Pressable style={styles.newBtn} onPress={() => Alert.alert("Nueva sección", "Usa el formulario inferior para crear una nueva sección.")}>
-          <Text style={styles.newBtnText}>+ Nueva sección</Text>
-        </Pressable>
       </View>
 
-      <View style={styles.metricsRow}>
+      <View style={[styles.metricsRow, { flexWrap: "wrap" }]}>
         <AppCard style={styles.metricCard}>
           <Text style={styles.metricValue}>{activeCount}</Text>
           <Text style={styles.metricLabel}>Secciones activas</Text>
@@ -133,7 +132,7 @@ export default function AdminSectionsScreen() {
             onChangeText={setSearch}
             placeholder="Buscar secciones..."
             placeholderTextColor={appTheme.colors.textMuted}
-            style={styles.searchInput}
+            style={[styles.searchInput, { minWidth: isMobile ? 0 : 260, width: isMobile ? "100%" : undefined }]}
           />
         </View>
 
@@ -168,10 +167,10 @@ export default function AdminSectionsScreen() {
           <AppCard key={row.id}>
             <View style={styles.sectionTop}>
               <View style={styles.sectionIcon}>
-                <Text style={styles.sectionIconText}>🧠</Text>
+                <Text style={styles.sectionIconText}>??</Text>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.sectionTitle}>{row.name}</Text>
+                <Text style={[styles.sectionTitle, { fontSize: isMobile ? 22 : 30, lineHeight: isMobile ? 28 : 34 }]}>{row.name}</Text>
                 <Text style={styles.sectionMeta}>{row.isActive ? "Activa" : "Inactiva"} · {subsectionListFromDescription(row.name, row.description).length} subsecciones</Text>
               </View>
               <View style={styles.sectionActions}>
@@ -203,13 +202,6 @@ export default function AdminSectionsScreen() {
                 </View>
               ))}
             </View>
-
-            <View style={styles.fakeSubsectionRow}>
-              <Text style={styles.fakeSubsectionText}>+ Nueva subsección...</Text>
-              <Pressable style={styles.addSubBtn} onPress={() => Alert.alert("Pendiente", "Subsecciones editables se habilitarán en la siguiente fase.")}>
-                <Text style={styles.addSubBtnText}>Agregar</Text>
-              </Pressable>
-            </View>
           </AppCard>
         ))
       )}
@@ -238,7 +230,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingHorizontal: 30,
     paddingBottom: 28,
     gap: 14,
   },
@@ -269,7 +260,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   metricCard: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 180,
     minHeight: 110,
   },
   metricValue: {

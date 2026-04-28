@@ -6,11 +6,11 @@ export function useCreditRate() {
 
   useEffect(() => {
     apiGetConfig()
-      .then((cfg) => setCreditRate(cfg.creditToSolesRate))
+      .then((cfg) => setCreditRate(cfg.creditValueBs ?? cfg.creditToSolesRate))
       .catch(() => {});
   }, []);
 
-  const toSoles = (credits: number) => (credits * creditRate).toFixed(2);
+  const toBs = (credits: number) => (credits * creditRate).toFixed(2);
 
-  return { creditRate, toSoles };
+  return { creditRate, toBs };
 }

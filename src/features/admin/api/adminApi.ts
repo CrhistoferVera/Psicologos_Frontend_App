@@ -1,4 +1,4 @@
-﻿import apiClient from "../../../api/client";
+import apiClient from "../../../api/client";
 import type {
   AdminDepositRecord,
   AdminPaginated,
@@ -30,6 +30,11 @@ export async function getAdminClients(search?: string, cursor?: string, limit = 
   };
 }
 
+export async function getAdminClientById(id: string): Promise<AdminUserRecord> {
+  const response = await apiClient.get(`/admin/clients/${id}`);
+  return response.data as AdminUserRecord;
+}
+
 export async function updateAdminClientStatus(id: string, isActive: boolean) {
   try {
     const response = await apiClient.patch(`/admin/clients/${id}/status`, { isActive });
@@ -49,11 +54,41 @@ export async function getAdminProfessionals(
   const data = rawRows.map((row: any) => ({
     ...row,
     professionalProfile: row?.professionalProfile ?? null,
+    wallet: row?.wallet ?? null,
   })) as AdminProfessionalRecord[];
   return {
     data,
     nextCursor: response.data?.nextCursor ?? null,
   };
+}
+
+export async function getAdminProfessionalById(id: string): Promise<AdminProfessionalRecord> {
+  const response = await apiClient.get(`/admin/professionals/${id}`);
+  return response.data as AdminProfessionalRecord;
+}
+
+export async function editAdminProfessional(
+  id: string,
+  payload: { phoneNumber?: string; username?: string; bio?: string; rateCredits?: number; email?: string },
+) {
+  try {
+    const response = await apiClient.patch(`/admin/professionals/${id}/edit`, payload);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(normalizeError(error, "No se pudo editar el profesional."));
+  }
+}
+
+export async function updateAdminProfessionalProfile(
+  id: string,
+  payload: { firstName?: string; lastName?: string; username?: string; bio?: string },
+) {
+  try {
+    const response = await apiClient.patch(`/admin/professionals/${id}/profile`, payload);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(normalizeError(error, "No se pudo actualizar el perfil del profesional."));
+  }
 }
 
 export async function updateAdminProfessionalStatus(id: string, isActive: boolean) {
@@ -78,8 +113,12 @@ export async function getAdminPendingWithdrawalRequests(
   const response = await apiClient.get("/admin/professionals/list/withdrawal-requests", {
     params: { search, cursor, limit },
   });
+  const data = Array.isArray(response.data?.data) ? response.data.data : [];
   return {
-    data: Array.isArray(response.data?.data) ? response.data.data : [],
+    data: data.map((row: any) => ({
+      ...row,
+      amountBs: Number(row?.amountBs ?? row?.soles ?? 0),
+    })),
     nextCursor: response.data?.nextCursor ?? null,
   };
 }
@@ -92,28 +131,42 @@ export async function getAdminWithdrawalHistory(
   const response = await apiClient.get("/admin/professionals/payment/history", {
     params: { search, cursor, limit },
   });
+  const data = Array.isArray(response.data?.data) ? response.data.data : [];
   return {
-    data: Array.isArray(response.data?.data) ? response.data.data : [],
+    data: data.map((row: any) => ({
+      ...row,
+      amountBs: Number(row?.amountBs ?? row?.soles ?? 0),
+    })),
     nextCursor: response.data?.nextCursor ?? null,
   };
 }
 
 export async function updateAdminWithdrawalStatus(
   id: string,
-  payload: { status: "APPROVED" | "REJECTED"; rejectionReason?: string; receipt?: { uri: string; name?: string; type?: string } },
+  payload: {
+    status: "APPROVED" | "REJECTED";
+    rejectionReason?: string;
+    notes?: string;
+    receipt?: { uri?: string; file?: File; name?: string; type?: string };
+  },
 ) {
   const form = new FormData();
   form.append("status", payload.status);
   if (payload.rejectionReason) form.append("rejectionReason", payload.rejectionReason);
+  if (payload.notes) form.append("notes", payload.notes);
   if (payload.receipt) {
-    form.append(
-      "receipt",
-      {
-        uri: payload.receipt.uri,
-        name: payload.receipt.name ?? `receipt-${id}.jpg`,
-        type: payload.receipt.type ?? "image/jpeg",
-      } as any,
-    );
+    if (payload.receipt.file) {
+      form.append("receipt", payload.receipt.file as any);
+    } else if (payload.receipt.uri) {
+      form.append(
+        "receipt",
+        {
+          uri: payload.receipt.uri,
+          name: payload.receipt.name ?? `receipt-${id}.jpg`,
+          type: payload.receipt.type ?? "image/jpeg",
+        } as any,
+      );
+    }
   }
 
   try {
@@ -128,8 +181,12 @@ export async function updateAdminWithdrawalStatus(
 
 export async function getAdminDeposits(search?: string, cursor?: string, limit = 20): Promise<{ requests: AdminDepositRecord[]; nextCursor: string | null }> {
   const response = await apiClient.get("/admin/deposits", { params: { search, cursor, limit } });
+  const requests = Array.isArray(response.data?.requests) ? response.data.requests : [];
   return {
-    requests: Array.isArray(response.data?.requests) ? response.data.requests : [],
+    requests: requests.map((row: any) => ({
+      ...row,
+      amountBs: Number(row?.amountBs ?? row?.amount ?? 0),
+    })),
     nextCursor: response.data?.nextCursor ?? null,
   };
 }
@@ -228,6 +285,14 @@ export type AdminReferralRecord = {
     email: string | null;
     createdAt: string;
   };
+  rewardEvents?: Array<{
+    id: string;
+    rewardAmount: number;
+    sourceTransactionId: string;
+    createdAt: string;
+    reversedAt?: string | null;
+    reversalTransactionId?: string | null;
+  }>;
 };
 
 export type AdminReferralsResponse = {
@@ -272,6 +337,7 @@ export async function getAdminReferrals(params?: {
 
 export type AdminConfigPayload = {
   platformFeePercent?: number;
+  creditValueBs?: number;
   creditToSolesRate?: number;
   minAppVersion?: string;
   referralPercentage?: number;
@@ -284,9 +350,12 @@ export type AdminConfigPayload = {
 
 export async function getAdminConfig(): Promise<Required<AdminConfigPayload>> {
   const response = await apiClient.get("/admin/config");
+  const creditValueBs = Number(response.data?.creditValueBs ?? response.data?.creditToSolesRate ?? 1);
+
   return {
     platformFeePercent: Number(response.data?.platformFeePercent ?? 50),
-    creditToSolesRate: Number(response.data?.creditToSolesRate ?? 1),
+    creditValueBs,
+    creditToSolesRate: creditValueBs,
     minAppVersion: String(response.data?.minAppVersion ?? "1.0"),
     referralPercentage: Number(response.data?.referralPercentage ?? 2.5),
     referralRewardCredits: Number(response.data?.referralRewardCredits ?? 10),
@@ -333,6 +402,61 @@ export async function deleteAdminBonusTier(id: string): Promise<void> {
     await apiClient.delete(`/admin/referrals/bonus-tiers/${id}`);
   } catch (error: any) {
     throw new Error(normalizeError(error, "No se pudo eliminar el tier."));
+  }
+}
+
+export async function reverseAdminReferralReward(sourceTransactionId: string): Promise<{ reversed: boolean; reason?: string }> {
+  try {
+    const response = await apiClient.post(`/admin/referrals/reverse-reward/${sourceTransactionId}`);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(normalizeError(error, "No se pudo revertir la recompensa."));
+  }
+}
+
+export type AdminPackage = {
+  id: string;
+  name: string;
+  credits: number;
+  price: number;
+  isActive: boolean;
+};
+
+export async function getAdminPackages(): Promise<AdminPackage[]> {
+  const response = await apiClient.get("/packages");
+  const rows = Array.isArray(response.data) ? response.data : [];
+  return rows.map((row: any) => ({
+    id: String(row.id),
+    name: String(row.name),
+    credits: Number(row.credits ?? 0),
+    price: Number(row.price ?? 0),
+    isActive: Boolean(row.isActive ?? true),
+  }));
+}
+
+export async function createAdminPackage(payload: { name: string; credits: number; price: number; isActive?: boolean }) {
+  try {
+    const response = await apiClient.post("/packages/create", payload);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(normalizeError(error, "No se pudo crear el paquete."));
+  }
+}
+
+export async function updateAdminPackage(id: string, payload: { name?: string; credits?: number; price?: number; isActive?: boolean }) {
+  try {
+    const response = await apiClient.patch(`/packages/${id}`, payload);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(normalizeError(error, "No se pudo actualizar el paquete."));
+  }
+}
+
+export async function deleteAdminPackage(id: string) {
+  try {
+    await apiClient.delete(`/packages/${id}`);
+  } catch (error: any) {
+    throw new Error(normalizeError(error, "No se pudo eliminar el paquete."));
   }
 }
 

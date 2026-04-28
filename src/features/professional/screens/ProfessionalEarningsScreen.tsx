@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Alert, Clipboard, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import AppCard from "../../../components/ui/AppCard";
 import AppScreen from "../../../components/ui/AppScreen";
 import { appTheme } from "../../../theme/appTheme";
@@ -9,13 +9,13 @@ import { getProfessionalEarningsData } from "../api/professionalApi";
 import { getMyReferrals } from "../../referrals/api/referralsApi";
 
 function formatMoney(value: number) {
-  return `$${Number(value || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `Bs ${Number(value || 0).toLocaleString("es-BO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function formatMovementTime(iso?: string) {
-  if (!iso) return "Hoy 11:30";
+  if (!iso) return "Sin fecha";
   const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "Hoy 11:30";
+  if (Number.isNaN(date.getTime())) return "Sin fecha";
 
   const now = new Date();
   const sameDay =
@@ -32,7 +32,7 @@ function prettifyService(service: string) {
   if (value.includes("video")) return "Videollamada";
   if (value.includes("call") || value.includes("llamada")) return "Llamada";
   if (value.includes("message") || value.includes("chat")) return "Chat";
-  return "Sesión";
+  return "Sesion";
 }
 
 export default function ProfessionalEarningsScreen() {
@@ -40,7 +40,7 @@ export default function ProfessionalEarningsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [earnings, setEarnings] = useState<any>(null);
-  const [referralCode, setReferralCode] = useState<string>("");
+  const [referralCode, setReferralCode] = useState("");
 
   useEffect(() => {
     void (async () => {
@@ -54,7 +54,7 @@ export default function ProfessionalEarningsScreen() {
         setEarnings(data);
         if (referralData?.code) setReferralCode(referralData.code);
       } catch {
-        setError("No se pudo cargar la información de ganancias.");
+        setError("No se pudo cargar la informacion de ganancias.");
       } finally {
         setLoading(false);
       }
@@ -63,8 +63,7 @@ export default function ProfessionalEarningsScreen() {
 
   function handleCopyCode() {
     if (!referralCode) return;
-    Clipboard.setString(referralCode);
-    Alert.alert("Copiado", `Tu código ${referralCode} fue copiado al portapapeles.`);
+    Alert.alert("Codigo", `Comparte tu codigo: ${referralCode}`);
   }
 
   const gross = useMemo(() => {
@@ -83,11 +82,7 @@ export default function ProfessionalEarningsScreen() {
   const txList = Array.isArray(earnings?.transactions) ? earnings.transactions.slice(0, 8) : [];
 
   function handleWithdraw() {
-    Alert.alert("Próximamente", "El flujo guiado de solicitud de retiro se habilitará en la siguiente iteración.");
-  }
-
-  function handleReport() {
-    Alert.alert("Próximamente", "La exportación de reportes estará disponible pronto.");
+    Alert.alert("Retiro", "Solicita tu retiro desde tu cuenta bancaria vinculada en perfil profesional.");
   }
 
   return (
@@ -100,11 +95,11 @@ export default function ProfessionalEarningsScreen() {
           <Text style={styles.title}>Ganancias</Text>
         </View>
 
-        {loading ? <Text style={styles.info}>Cargando información...</Text> : null}
+        {loading ? <Text style={styles.info}>Cargando informacion...</Text> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <View style={styles.heroCard}>
-          <Text style={styles.heroLabel}>Ganancia neta (55%)</Text>
+          <Text style={styles.heroLabel}>Ganancia neta</Text>
           <Text style={styles.heroValue}>{formatMoney(thisMonth)}</Text>
 
           <View style={styles.heroBreakdown}>
@@ -115,11 +110,11 @@ export default function ProfessionalEarningsScreen() {
 
             <View style={styles.heroCol}>
               <Text style={styles.heroColValue}>{formatMoney(commission)}</Text>
-              <Text style={styles.heroColLabel}>Comisión (45%)</Text>
+              <Text style={styles.heroColLabel}>Comision plataforma</Text>
             </View>
 
             <View style={styles.heroCol}>
-              <Text style={styles.heroColValue}>+{formatMoney(referrals)}</Text>
+              <Text style={styles.heroColValue}>{formatMoney(referrals)}</Text>
               <Text style={styles.heroColLabel}>Referidos</Text>
             </View>
           </View>
@@ -127,11 +122,7 @@ export default function ProfessionalEarningsScreen() {
 
         <View style={styles.actionsRow}>
           <Pressable style={styles.withdrawBtn} onPress={handleWithdraw}>
-            <Text style={styles.withdrawText}>💰 Solicitar retiro</Text>
-          </Pressable>
-
-          <Pressable style={styles.reportBtn} onPress={handleReport}>
-            <Text style={styles.reportText}>📊 Ver reporte</Text>
+            <Text style={styles.withdrawText}>Solicitar retiro</Text>
           </Pressable>
         </View>
 
@@ -148,14 +139,14 @@ export default function ProfessionalEarningsScreen() {
 
           <AppCard style={styles.kpiCard}>
             <Text style={styles.kpiValue}>{formatMoney(historical)}</Text>
-            <Text style={styles.kpiLabel}>Total histórico</Text>
+            <Text style={styles.kpiLabel}>Total historico</Text>
           </AppCard>
         </View>
 
         {referralCode ? (
           <AppCard style={styles.referralCard}>
-            <Text style={styles.referralTitle}>Tu código de referido</Text>
-            <Text style={styles.referralSubtitle}>Comparte tu código. Ganas el 2.5% de las ganancias reales de cada profesional que registres.</Text>
+            <Text style={styles.referralTitle}>Tu codigo de referido</Text>
+            <Text style={styles.referralSubtitle}>Comparte tu codigo para invitar profesionales a Sanamente.</Text>
             <Pressable style={styles.codeRow} onPress={handleCopyCode}>
               <Text style={styles.codeText}>{referralCode}</Text>
               <Ionicons name="copy-outline" size={18} color={appTheme.colors.primary} />
@@ -178,8 +169,6 @@ export default function ProfessionalEarningsScreen() {
             ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
             renderItem={({ item }) => {
               const amount = Number(item.amount ?? 0);
-              const grossApprox = amount > 0 ? amount / 0.55 : 0;
-
               return (
                 <AppCard style={styles.moveCard}>
                   <View style={styles.moveTop}>
@@ -189,10 +178,8 @@ export default function ProfessionalEarningsScreen() {
 
                   <View style={styles.moveMid}>
                     <Text style={styles.moveService}>{prettifyService(item.service)}</Text>
-                    <Text style={styles.moveGross}>de {formatMoney(grossApprox)} bruto</Text>
+                    <Text style={styles.moveTime}>{formatMovementTime(item.createdAt)}</Text>
                   </View>
-
-                  <Text style={styles.moveTime}>{formatMovementTime(item.createdAt)}</Text>
                 </AppCard>
               );
             }}
@@ -263,8 +250,8 @@ const styles = StyleSheet.create({
   heroValue: {
     color: "#FFFFFF",
     fontFamily: appTheme.fonts.heading,
-    fontSize: 44,
-    lineHeight: 48,
+    fontSize: 40,
+    lineHeight: 44,
     fontWeight: "700",
   },
   heroBreakdown: {
@@ -279,14 +266,14 @@ const styles = StyleSheet.create({
   heroColValue: {
     color: "#FFFFFF",
     fontFamily: appTheme.fonts.heading,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "700",
   },
   heroColLabel: {
     marginTop: 2,
     color: "#D7EFE3",
     fontFamily: appTheme.fonts.body,
-    fontSize: 13,
+    fontSize: 12,
     lineHeight: 16,
   },
   actionsRow: {
@@ -306,24 +293,7 @@ const styles = StyleSheet.create({
   withdrawText: {
     color: "#FFFFFF",
     fontFamily: appTheme.fonts.heading,
-    fontSize: 17,
-    fontWeight: "700",
-  },
-  reportBtn: {
-    flex: 1,
-    minHeight: 46,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: "#D3DEE9",
-    backgroundColor: "#F6F9FD",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 10,
-  },
-  reportText: {
-    color: "#5C7391",
-    fontFamily: appTheme.fonts.heading,
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "700",
   },
   kpisRow: {
@@ -341,7 +311,7 @@ const styles = StyleSheet.create({
   kpiValue: {
     color: "#69AF8A",
     fontFamily: appTheme.fonts.heading,
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "700",
     textAlign: "center",
   },
@@ -383,7 +353,7 @@ const styles = StyleSheet.create({
   moveAmount: {
     color: appTheme.colors.success,
     fontFamily: appTheme.fonts.heading,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "700",
   },
   moveMid: {
@@ -396,11 +366,6 @@ const styles = StyleSheet.create({
     color: "#5F7896",
     fontFamily: appTheme.fonts.body,
     fontSize: 14,
-  },
-  moveGross: {
-    color: "#8AA0BA",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 13,
   },
   moveTime: {
     color: "#8AA0BA",

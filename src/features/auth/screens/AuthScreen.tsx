@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
@@ -22,6 +22,7 @@ export default function AuthScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const router = useRouter();
   const { setSession } = useAuth();
@@ -74,7 +75,7 @@ export default function AuthScreen() {
   }
 
   const loginDisabled = !email.trim() || !password || loading;
-  const registerDisabled = phone.trim().length < 7 || loading;
+  const registerDisabled = phone.trim().length < 7 || loading || !acceptedTerms;
 
   return (
     <AppScreen scroll contentPadding={0}>
@@ -197,6 +198,17 @@ export default function AuthScreen() {
                 Te enviaremos un código OTP al {fullPhone} para validar tu cuenta.
               </Text>
 
+              <Pressable style={styles.termsRow} onPress={() => setAcceptedTerms((prev) => !prev)}>
+                <View style={[styles.checkbox, acceptedTerms && styles.checkboxActive]} />
+                <Text style={styles.termsText}>
+                  Acepto los{" "}
+                  <Text style={styles.termsLink} onPress={() => router.push("/terms" as any)}>
+                    Términos y Condiciones
+                  </Text>
+                  .
+                </Text>
+              </Pressable>
+
               <Pressable
                 style={[styles.primaryBtn, registerDisabled && styles.primaryBtnDisabled]}
                 onPress={handleRegister}
@@ -211,7 +223,10 @@ export default function AuthScreen() {
             style={styles.professionalCta}
             onPress={() => router.push("/(public)/professional-register" as any)}
           >
-            <Text style={styles.professionalText}>Soy professional · Crear cuenta profesional</Text>
+            <Text style={styles.professionalText}>Soy profesional · Crear cuenta profesional</Text>
+          </Pressable>
+          <Pressable onPress={() => router.push("/terms" as any)}>
+            <Text style={styles.legalLink}>Términos y Condiciones</Text>
           </Pressable>
 
           {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
@@ -508,6 +523,35 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  termsRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  checkbox: {
+    marginTop: 2,
+    width: 16,
+    height: 16,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+    backgroundColor: "#FFFFFF",
+  },
+  checkboxActive: {
+    backgroundColor: appTheme.colors.primary,
+    borderColor: appTheme.colors.primary,
+  },
+  termsText: {
+    flex: 1,
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  termsLink: {
+    color: appTheme.colors.primary,
+    fontWeight: "700",
+  },
 
   professionalCta: {
     minHeight: 44,
@@ -527,6 +571,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: "center",
     fontWeight: "700",
+  },
+  legalLink: {
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    textAlign: "center",
+    textDecorationLine: "underline",
   },
 
   errorText: {

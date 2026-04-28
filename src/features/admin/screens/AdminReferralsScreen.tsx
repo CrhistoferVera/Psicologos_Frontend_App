@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import AppCard from "../../../components/ui/AppCard";
 import { appTheme } from "../../../theme/appTheme";
 import {
+  reverseAdminReferralReward,
   getAdminReferrals,
   getAdminBonusTiers,
   upsertAdminBonusTier,
@@ -13,8 +14,10 @@ import {
 import AdminDataTable from "../components/AdminDataTable";
 import AdminEmptyState from "../components/AdminEmptyState";
 import AdminKpiCard from "../components/AdminKpiCard";
+import { useAdminResponsive } from "../hooks/useAdminResponsive";
 
 export default function AdminReferralsScreen() {
+  const { contentPadding } = useAdminResponsive();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<AdminReferralRecord[]>([]);
@@ -45,7 +48,14 @@ export default function AdminReferralsScreen() {
       ]);
 
       setRows(referrals.data);
-      setSummary(referrals.summary);
+      setSummary({
+        total: Number(referrals.summary?.total ?? 0),
+        pending: Number(referrals.summary?.pending ?? 0),
+        active: Number((referrals.summary as any)?.active ?? 0),
+        qualified: Number(referrals.summary?.qualified ?? 0),
+        rewarded: Number(referrals.summary?.rewarded ?? 0),
+        totalRewardCredits: Number(referrals.summary?.totalRewardCredits ?? 0),
+      });
       setTiers(bonusTiers);
     } catch {
       setError("No se pudo cargar datos de referidos.");
@@ -108,6 +118,20 @@ export default function AdminReferralsScreen() {
     }
   }
 
+  async function handleReverseReward(sourceTransactionId: string) {
+    try {
+      const result = await reverseAdminReferralReward(sourceTransactionId);
+      if (!result.reversed) {
+        Alert.alert("Sin cambios", result.reason ?? "No había recompensa activa para revertir.");
+      } else {
+        Alert.alert("Reversión aplicada", "La recompensa fue revertida correctamente.");
+      }
+      await loadData();
+    } catch (err: any) {
+      Alert.alert("Error", err?.message ?? "No se pudo revertir la recompensa.");
+    }
+  }
+
   const metrics = useMemo(() => {
     return {
       total: Number(summary.total ?? 0),
@@ -120,7 +144,7 @@ export default function AdminReferralsScreen() {
   }, [summary]);
 
   return (
-    <View style={styles.page}>
+    <ScrollView style={styles.page} contentContainerStyle={[styles.content, { paddingHorizontal: contentPadding }]}>
       {loading ? <Text style={styles.info}>Cargando referidos...</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -157,8 +181,8 @@ export default function AdminReferralsScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.tierLabel}>{t.label}</Text>
               <Text style={styles.tierMeta}>
-                ≥ {t.minActiveReferrals} activos → +{Number(t.bonusPercent).toFixed(2)}%{" "}
-                {t.isActive ? "✓" : "desactivado"}
+                = {t.minActiveReferrals} activos ? +{Number(t.bonusPercent).toFixed(2)}%{" "}
+                {t.isActive ? "?" : "desactivado"}
               </Text>
             </View>
 
@@ -288,16 +312,39 @@ export default function AdminReferralsScreen() {
                 </Text>
               ),
             },
+            {
+              key: "actions",
+              title: "Acciones",
+              width: 220,
+              render: (row) => {
+                const activeEvent = (row.rewardEvents ?? []).find((event) => !event.reversedAt);
+                if (!activeEvent?.sourceTransactionId) {
+                  return <Text style={styles.cellMuted}>Sin reward reversible</Text>;
+                }
+
+                return (
+                  <Pressable
+                    style={styles.deleteBtn}
+                    onPress={() => void handleReverseReward(activeEvent.sourceTransactionId)}
+                  >
+                    <Text style={styles.deleteBtnText}>Revertir reward</Text>
+                  </Pressable>
+                );
+              },
+            },
           ]}
         />
       )}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   page: {
-    padding: 24,
+    flex: 1,
+  },
+  content: {
+    paddingVertical: 24,
     gap: 12,
     backgroundColor: appTheme.colors.background,
   },
