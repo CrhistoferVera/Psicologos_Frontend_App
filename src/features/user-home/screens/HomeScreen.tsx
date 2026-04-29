@@ -5,6 +5,8 @@ import { Ionicons } from "@expo/vector-icons";
 import {
   ActivityIndicator,
   FlatList,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Pressable,
   StyleSheet,
   Text,
@@ -33,6 +35,7 @@ export default function HomeScreen() {
   const [feedHeight, setFeedHeight] = useState(0);
 
   const loadingRef = useRef(false);
+  const feedRef = useRef<FlatList<Professional> | null>(null);
 
   async function loadFeed(targetPage: number, reset: boolean) {
     if (loadingRef.current) return;
@@ -70,6 +73,17 @@ export default function HomeScreen() {
   function handleLoadMore() {
     if (!hasMore || loadingMore || loadingRef.current) return;
     void loadFeed(page + 1, false);
+  }
+
+  function handleMomentumEnd(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    if (hasMore || loadingMore || professionals.length <= 1 || CARD_HEIGHT <= 0) return;
+    const offsetY = event.nativeEvent.contentOffset.y;
+    const currentIndex = Math.round(offsetY / CARD_HEIGHT);
+    if (currentIndex < professionals.length - 1) return;
+
+    requestAnimationFrame(() => {
+      feedRef.current?.scrollToIndex({ index: 0, animated: false });
+    });
   }
 
   function handleProfile(pro: Professional) {
@@ -158,6 +172,7 @@ export default function HomeScreen() {
           </View>
         ) : (
           <FlatList
+            ref={feedRef}
             data={professionals}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
@@ -176,11 +191,15 @@ export default function HomeScreen() {
             showsVerticalScrollIndicator={false}
             onEndReached={handleLoadMore}
             onEndReachedThreshold={0.5}
+            onMomentumScrollEnd={handleMomentumEnd}
             getItemLayout={(_, index) => ({
               length: CARD_HEIGHT,
               offset: CARD_HEIGHT * index,
               index,
             })}
+            onScrollToIndexFailed={() => {
+              feedRef.current?.scrollToOffset({ offset: 0, animated: false });
+            }}
             ListFooterComponent={
               loadingMore ? (
                 <View style={[styles.footerLoader, { height: CARD_HEIGHT }]}>

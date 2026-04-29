@@ -1,12 +1,16 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import * as Google from "expo-auth-session/providers/google";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import AppScreen from "../../../components/ui/AppScreen";
 import { useAuth } from "../../../context/AuthContext";
 import { COUNTRIES_LATAM, CountryLatam } from "../../../constants/countriesLatam";
-import { loginWithEmail, sendOtp } from "../../../services/auth";
+import { GOOGLE_ANDROID_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from "../../../config";
+import { loginWithEmail, loginWithGoogle, sendOtp } from "../../../services/auth";
 import { appTheme } from "../../../theme/appTheme";
+import { GOOGLE_AUTH_STORAGE_KEY } from "../../../../app/oauthredirect";
 
 type Mode = "login" | "register";
 
@@ -26,6 +30,29 @@ export default function AuthScreen() {
 
   const router = useRouter();
   const { setSession } = useAuth();
+  // Google.useAuthRequest (from expo-auth-session/providers/google):
+  // - Auto-selects androidClientId on Android
+  // - Auto-generates redirect URI as com.psyconnect.app:/oauthredirect (package-name scheme,
+  //   allowed by Google for Android clients — custom schemes like sanamente:// are blocked)
+  // - Sends responseType=Code + PKCE automatically on Android
+  // - Auto-exchanges the authorization code for tokens (id_token) internally
+  // The id_token arrives via googleResponse state (not the promptAsync() return value)
+  const [googleRequest, googleResponse, promptGoogleAuth] = Google.useAuthRequest({
+    androidClientId: GOOGLE_ANDROID_CLIENT_ID || undefined,
+    webClientId: GOOGLE_WEB_CLIENT_ID || undefined,
+    scopes: ["openid", "profile", "email"],
+    selectAccount: true,
+  });
+
+  function navigateByRole(role: string) {
+    if (role === "ADMIN") {
+      router.replace("/admin");
+    } else if (role === "ANFITRIONA" || role === "PROFESSIONAL") {
+      router.replace("/(professional)/dashboard");
+    } else {
+      router.replace("/(user)/home");
+    }
+  }
 
   const fullPhone = useMemo(
     () => `+${selectedCountry.dialCode}${phone.trim()}`,
@@ -38,14 +65,7 @@ export default function AuthScreen() {
       setErrorMessage(null);
       const response = await loginWithEmail(email.trim(), password);
       await setSession(response.access_token, response.user);
-
-      if (response.user.role === "ADMIN") {
-        router.replace("/admin");
-      } else if (response.user.role === "ANFITRIONA" || response.user.role === "PROFESSIONAL") {
-        router.replace("/(professional)/dashboard");
-      } else {
-        router.replace("/(user)/home");
-      }
+      navigateByRole(response.user.role);
     } catch (error: any) {
       const message = error?.message ?? "Intenta nuevamente.";
       setErrorMessage(message);
@@ -70,11 +90,105 @@ export default function AuthScreen() {
     }
   }
 
-  function handleGoogle() {
-    Alert.alert("Próximamente", "Inicio con Google se habilitará en la siguiente iteración.");
+  // Google.useAuthRequest auto-exchanges the authorization code for tokens via its
+  // internal useEffect. The result (including id_token) arrives in googleResponse state,
+  // NOT in the return value of promptAsync(). We watch googleResponse here.
+  useEffect(() => {
+    if (!googleResponse) return;
+
+    console.log("[GoogleAuth] googleResponse.type:", googleResponse.type);
+
+    if (googleResponse.type === "error") {
+      setLoading(false);
+      const message = googleResponse.error?.message ?? "Error en autenticación con Google.";
+      setErrorMessage(message);
+      Alert.alert("Google Login falló", message);
+      return;
+    }
+
+    if (googleResponse.type !== "success") {
+      // dismissed or cancelled — reset loading without showing error
+      if (googleResponse.type === "dismiss" || googleResponse.type === "cancel") {
+        setLoading(false);
+      }
+      return;
+    }
+
+    const idToken =
+      (googleResponse.params as any)?.id_token ||
+      googleResponse.authentication?.idToken;
+
+    console.log("[GoogleAuth] has id_token:", Boolean(idToken));
+    console.log("[GoogleAuth] has code:", Boolean((googleResponse.params as any)?.code));
+
+    if (!idToken) {
+      // The auto-exchange effect inside the Google provider hasn't completed yet.
+      // googleResponse will update again once id_token is available — do nothing here.
+      return;
+    }
+
+    loginWithGoogle(idToken)
+      .then(async (res) => {
+        await setSession(res.access_token, res.user);
+        navigateByRole(res.user.role);
+      })
+      .catch((error: any) => {
+        const message = error?.message ?? "No se pudo iniciar sesión con Google.";
+        setErrorMessage(message);
+        Alert.alert("Google Login falló", message);
+      })
+      .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [googleResponse]);
+
+  async function handleGoogle() {
+    if (!googleRequest) {
+      Alert.alert("Google no disponible", "La configuración de Google aún no está lista.");
+      return;
+    }
+    if (!GOOGLE_ANDROID_CLIENT_ID) {
+      Alert.alert(
+        "Falta configuración",
+        "Configura EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID en variables de entorno.",
+      );
+      return;
+    }
+    try {
+      setLoading(true);
+      setErrorMessage(null);
+
+      console.log("[GoogleAuth] platform:", Platform.OS);
+      console.log("[GoogleAuth] androidClientId present:", Boolean(GOOGLE_ANDROID_CLIENT_ID));
+      console.log("[GoogleAuth] redirectUri:", googleRequest.redirectUri);
+      console.log("[GoogleAuth] has codeVerifier:", Boolean(googleRequest.codeVerifier));
+
+      // Save PKCE session data to AsyncStorage before opening the browser.
+      // When Expo Router intercepts the oauthredirect deep link, oauthredirect.tsx
+      // reads these values to complete the authorization code exchange.
+      await AsyncStorage.setItem(
+        GOOGLE_AUTH_STORAGE_KEY,
+        JSON.stringify({
+          clientId: GOOGLE_ANDROID_CLIENT_ID,
+          redirectUri: googleRequest.redirectUri,
+          codeVerifier: googleRequest.codeVerifier ?? null,
+        }),
+      );
+
+      await promptGoogleAuth();
+      // If promptAsync resolves here (expo-web-browser intercepted the redirect),
+      // the useEffect above handles the result via googleResponse state.
+      // If Expo Router intercepts first, oauthredirect.tsx handles it instead.
+    } catch (error: any) {
+      console.log("[GoogleAuth] promptAsync error:", error?.message ?? error);
+      const message = error?.message ?? "No se pudo iniciar sesión con Google.";
+      setErrorMessage(message);
+      Alert.alert("Google Login falló", message);
+      setLoading(false);
+    }
   }
 
   const loginDisabled = !email.trim() || !password || loading;
+  const googleDisabled = loading || !googleRequest;
   const registerDisabled = phone.trim().length < 7 || loading || !acceptedTerms;
 
   return (
@@ -166,9 +280,13 @@ export default function AuthScreen() {
                 <View style={styles.dividerLine} />
               </View>
 
-              <Pressable style={styles.googleBtn} onPress={handleGoogle}>
+              <Pressable
+                style={[styles.googleBtn, googleDisabled && styles.primaryBtnDisabled]}
+                onPress={handleGoogle}
+                disabled={googleDisabled}
+              >
                 <View style={styles.googleDot} />
-                <Text style={styles.googleText}>Continuar con Google</Text>
+                <Text style={styles.googleText}>{loading ? "Conectando..." : "Continuar con Google"}</Text>
               </Pressable>
             </>
           ) : (
@@ -646,4 +764,3 @@ const styles = StyleSheet.create({
     color: appTheme.colors.primary,
   },
 });
-

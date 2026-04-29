@@ -34,7 +34,7 @@ export default function SplashScreen() {
         <Text style={styles.logoText}>SA</Text>
       </View>
 
-      <Text style={styles.title}>Sanamente</Text>
+      <Text style={styles.title}>SanaMente</Text>
       <Text style={styles.subtitle}>Conecta con profesionales verificados</Text>
 
       <ActivityIndicator

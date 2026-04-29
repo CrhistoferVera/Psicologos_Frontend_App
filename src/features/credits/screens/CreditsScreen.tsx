@@ -273,7 +273,7 @@ export default function CreditsScreen() {
         paymentIntentClientSecret: clientSecret, // contiene el monto que definió el backend
         customerId,
         customerEphemeralKeySecret: ephemeralKey.secret,
-        merchantDisplayName: "Sanamente",
+        merchantDisplayName: "SanaMente",
         setupIntentClientSecret: undefined,
       });
       if (initError) {

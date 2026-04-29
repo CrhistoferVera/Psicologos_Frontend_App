@@ -65,7 +65,7 @@ export default function VersionGuard({ children }: Props) {
         </Text>
         <Text style={{ color: "#aaa", fontSize: 16, textAlign: "center", lineHeight: 26, marginBottom: 40 }}>
           Esta versión de la app ya no está disponible.{"\n"}
-          Descarga la última versión para seguir disfrutando de Sanamente.
+          Descarga la última versión para seguir disfrutando de SanaMente.
         </Text>
         <TouchableOpacity
           onPress={() => Linking.openURL(DOWNLOAD_URL)}

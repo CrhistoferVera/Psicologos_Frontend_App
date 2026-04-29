@@ -293,7 +293,11 @@ export default function CallSessionScreen() {
             style={[styles.pip, { transform: pipAnim.getTranslateTransform() }]}
             {...pipPan.panHandlers}
           >
-            <RtcSurfaceView style={StyleSheet.absoluteFill} canvas={{ uid: 0, sourceType: srcLocal }} />
+            <RtcSurfaceView
+              style={StyleSheet.absoluteFill}
+              canvas={{ uid: 0, sourceType: srcLocal }}
+              zOrderMediaOverlay
+            />
 
             {cameraMuted ? (
               <View style={styles.pipCameraOff}>

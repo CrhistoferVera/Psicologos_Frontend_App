@@ -34,12 +34,32 @@ export const VideoSourceType = new Proxy(
   },
 ) as any;
 
-type SurfaceProps = ViewProps & { canvas?: unknown; children?: ReactNode };
+type SurfaceProps = ViewProps & {
+  canvas?: unknown;
+  children?: ReactNode;
+  zOrderMediaOverlay?: boolean;
+  zOrderOnTop?: boolean;
+};
 
-export function RtcSurfaceView({ canvas: _canvas, children, ...rest }: SurfaceProps) {
+export function RtcSurfaceView({
+  canvas: _canvas,
+  children,
+  zOrderMediaOverlay,
+  zOrderOnTop,
+  ...rest
+}: SurfaceProps) {
   if (typeof document !== "undefined") {
     return <View {...rest}>{children}</View>;
   }
   const Component = loadAgoraModule().RtcSurfaceView;
-  return <Component canvas={_canvas} {...rest}>{children}</Component>;
+  return (
+    <Component
+      canvas={_canvas}
+      zOrderMediaOverlay={zOrderMediaOverlay}
+      zOrderOnTop={zOrderOnTop}
+      {...rest}
+    >
+      {children}
+    </Component>
+  );
 }

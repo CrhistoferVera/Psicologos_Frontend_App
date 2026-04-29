@@ -86,7 +86,7 @@ export default function AdminSidebar({ compact = false }: Props) {
           <Text style={styles.brandLogoText}>P</Text>
         </View>
         <View>
-          <Text style={styles.brandTitle}>Sanamente</Text>
+          <Text style={styles.brandTitle}>SanaMente</Text>
           <Text style={styles.brandSub}>Panel Admin</Text>
         </View>
       </View>

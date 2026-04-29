@@ -63,6 +63,13 @@ export async function loginWithEmail(email: string, password: string) {
   });
 }
 
+export async function loginWithGoogle(idToken: string) {
+  return apiFetch<LoginResponse>("/auth/google", {
+    method: "POST",
+    body: JSON.stringify({ idToken }),
+  });
+}
+
 export async function forgotPassword(email: string) {
   return apiFetch<{ message: string }>("/auth/forgot-password", {
     method: "POST",

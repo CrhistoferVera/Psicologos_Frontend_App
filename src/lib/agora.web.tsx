@@ -66,8 +66,19 @@ export const VideoSourceType = {
   VideoSourceRemote: 0,
 } as const;
 
-type SurfaceProps = ViewProps & { canvas?: unknown; children?: ReactNode };
+type SurfaceProps = ViewProps & {
+  canvas?: unknown;
+  children?: ReactNode;
+  zOrderMediaOverlay?: boolean;
+  zOrderOnTop?: boolean;
+};
 
-export function RtcSurfaceView({ canvas: _canvas, children, ...rest }: SurfaceProps) {
+export function RtcSurfaceView({
+  canvas: _canvas,
+  children,
+  zOrderMediaOverlay: _zOrderMediaOverlay,
+  zOrderOnTop: _zOrderOnTop,
+  ...rest
+}: SurfaceProps) {
   return <View {...rest}>{children}</View>;
 }

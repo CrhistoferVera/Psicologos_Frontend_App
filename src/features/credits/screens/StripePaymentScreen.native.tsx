@@ -55,7 +55,7 @@ export default function StripePaymentScreen() {
         paymentIntentClientSecret: clientSecret,
         customerId,
         customerEphemeralKeySecret: ephemeralKey.secret,
-        merchantDisplayName: "Sanamente",
+        merchantDisplayName: "SanaMente",
         billingDetailsCollectionConfiguration: {
           address: "full",
         },
@@ -92,7 +92,7 @@ export default function StripePaymentScreen() {
         paymentIntentClientSecret: clientSecret,
         customerId,
         customerEphemeralKeySecret: ephemeralKey.secret,
-        merchantDisplayName: "Sanamente",
+        merchantDisplayName: "SanaMente",
       });
 
       if (initError) { Alert.alert("Error", initError.message); return; }

@@ -3,6 +3,7 @@ import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Alert, BackHandler, Platform, View } from "react-native";
 import * as ScreenCapture from "expo-screen-capture";
+import * as WebBrowser from "expo-web-browser";
 import StripeProviderWrapper from "../src/components/StripeProviderWrapper";
 import { AuthProvider } from "../src/context/AuthContext";
 import { ActiveChatProvider } from "../src/context/ActiveChatContext";
@@ -13,6 +14,9 @@ import { useEffect } from "react";
 import VersionGuard from "../src/components/VersionGuard";
 import { appTheme } from "../src/theme/appTheme";
 
+// Completes any pending OAuth session (web flows). On native this is a no-op
+// but calling it at root level ensures it runs before any screen mounts.
+WebBrowser.maybeCompleteAuthSession();
 
 function BackHandlerGuard() {
   const router = useRouter();

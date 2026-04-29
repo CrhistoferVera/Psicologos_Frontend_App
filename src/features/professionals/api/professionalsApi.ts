@@ -36,6 +36,27 @@ function parsePricesFromServicePrices(servicePrices: any[] | undefined): Profess
   return prices;
 }
 
+function pickProfessionalBio(item: any): string {
+  const candidates = [
+    item?.bio,
+    item?.aboutMe,
+    item?.about,
+    item?.description,
+    item?.descripcion,
+    item?.professionalDescription,
+    item?.profileDescription,
+    item?.shortDescription,
+  ];
+
+  for (const value of candidates) {
+    if (typeof value !== "string") continue;
+    const normalized = value.trim();
+    if (normalized.length > 0) return normalized;
+  }
+
+  return "Perfil profesional disponible.";
+}
+
 function mapRawProfessional(item: any): Professional {
   const basePrice = Number(item?.rateCredits ?? item?.credits ?? 0);
   const servicePrices = parsePricesFromServicePrices(item?.servicePrices);
@@ -47,7 +68,7 @@ function mapRawProfessional(item: any): Professional {
     username: item?.username ?? undefined,
     avatar: item?.avatar ?? item?.avatarUrl ?? "",
     coverImage: coverImage || undefined,
-    bio: String(item?.bio ?? item?.shortDescription ?? "Perfil profesional disponible."),
+    bio: pickProfessionalBio(item),
     specialties: parseSpecialties(item?.specialties ?? item?.tags ?? item?.specialty),
     isOnline: Boolean(item?.isOnline ?? false),
     rating: typeof item?.rating === "number" ? item.rating : undefined,
@@ -134,5 +155,4 @@ export async function getSpecialtiesCatalog(): Promise<string[]> {
 
   return Array.from(new Set(names));
 }
-
 

@@ -5,7 +5,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import AppCard from "../../../components/ui/AppCard";
 import AppScreen from "../../../components/ui/AppScreen";
-import { apiGetMyWallet } from "../../../api/userClient";
 import { getMyChats } from "../../../api/messages";
 import { appTheme } from "../../../theme/appTheme";
 import { getProfessionalById } from "../api/professionalsApi";
@@ -20,7 +19,6 @@ export default function ProfessionalProfileScreen() {
   const professionalId = Array.isArray(params.id) ? params.id[0] : params.id ?? "";
 
   const [professional, setProfessional] = useState<Professional | null>(null);
-  const [balance, setBalance] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("info");
   const [openingChat, setOpeningChat] = useState(false);
@@ -39,12 +37,6 @@ export default function ProfessionalProfileScreen() {
         setError("No se pudo cargar el perfil profesional.");
       }
 
-      try {
-        const wallet = await apiGetMyWallet();
-        setBalance(wallet?.balance ?? 0);
-      } catch {
-        // wallet is optional for this view
-      }
     })();
   }, [professionalId]);
 
@@ -203,28 +195,13 @@ export default function ProfessionalProfileScreen() {
           </View>
         </LinearGradient>
 
-        <AppCard style={styles.creditsCard}>
-          <View style={styles.creditInfo}>
-            <View style={styles.creditIconWrap}>
-              <Ionicons name="card-outline" size={18} color={appTheme.colors.primary} />
-            </View>
-            <View>
-              <Text style={styles.creditLabel}>Tus créditos</Text>
-              <Text style={styles.creditValue}>{Math.floor(balance)}</Text>
-            </View>
-          </View>
-
-          <Pressable style={styles.creditBtn} onPress={() => router.push("/(user)/credits")}>
-            <Text style={styles.creditBtnText}>Recargar</Text>
-          </Pressable>
-        </AppCard>
 
         <View style={styles.priceCardsRow}>
           <View style={[styles.priceCard, styles.chatCard]}>
             <Ionicons name="chatbubble-ellipses-outline" size={20} color="#FFFFFF" />
             <Text style={[styles.priceTitle, { color: "#FFFFFF" }]}>Chat</Text>
             <Text style={[styles.priceAmount, { color: "#FFFFFF" }]}>
-              {professional.prices.chat ?? 15} crd/min
+              {professional.prices.chat ?? 15} crd
             </Text>
           </View>
 
@@ -670,4 +647,3 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 });
-

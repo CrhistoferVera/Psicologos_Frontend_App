@@ -22,13 +22,13 @@ export default function AdminLayout({ title, subtitle, onRefresh, children }: Pr
           <View style={[styles.brandLogo, { width: isMobile ? 34 : 42, height: isMobile ? 34 : 42, borderRadius: isMobile ? 10 : 12 }]}>
             <Text style={styles.brandLogoText}>SA</Text>
           </View>
-          <Text style={[styles.brandTitle, { fontSize: isMobile ? 22 : 30 }]}>Sanamente</Text>
+          <Text style={[styles.brandTitle, { fontSize: isMobile ? 22 : 30 }]}>SanaMente</Text>
         </View>
       </View>
 
       {!isCompactLayout ? (
         <View style={[styles.breadcrumbBar, { paddingHorizontal: contentPadding }]}>
-          <Text style={styles.crumbMuted}>Sanamente</Text>
+          <Text style={styles.crumbMuted}>SanaMente</Text>
           <Text style={styles.crumbSep}>{">"}</Text>
           <Text style={styles.crumbStrong}>Panel Admin</Text>
         </View>
