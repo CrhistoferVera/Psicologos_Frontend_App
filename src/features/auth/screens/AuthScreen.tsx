@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Google from "expo-auth-session/providers/google";
@@ -89,57 +89,6 @@ export default function AuthScreen() {
       setLoading(false);
     }
   }
-
-  // Google.useAuthRequest auto-exchanges the authorization code for tokens via its
-  // internal useEffect. The result (including id_token) arrives in googleResponse state,
-  // NOT in the return value of promptAsync(). We watch googleResponse here.
-  useEffect(() => {
-    if (!googleResponse) return;
-
-    console.log("[GoogleAuth] googleResponse.type:", googleResponse.type);
-
-    if (googleResponse.type === "error") {
-      setLoading(false);
-      const message = googleResponse.error?.message ?? "Error en autenticación con Google.";
-      setErrorMessage(message);
-      Alert.alert("Google Login falló", message);
-      return;
-    }
-
-    if (googleResponse.type !== "success") {
-      // dismissed or cancelled — reset loading without showing error
-      if (googleResponse.type === "dismiss" || googleResponse.type === "cancel") {
-        setLoading(false);
-      }
-      return;
-    }
-
-    const idToken =
-      (googleResponse.params as any)?.id_token ||
-      googleResponse.authentication?.idToken;
-
-    console.log("[GoogleAuth] has id_token:", Boolean(idToken));
-    console.log("[GoogleAuth] has code:", Boolean((googleResponse.params as any)?.code));
-
-    if (!idToken) {
-      // The auto-exchange effect inside the Google provider hasn't completed yet.
-      // googleResponse will update again once id_token is available — do nothing here.
-      return;
-    }
-
-    loginWithGoogle(idToken)
-      .then(async (res) => {
-        await setSession(res.access_token, res.user);
-        navigateByRole(res.user.role);
-      })
-      .catch((error: any) => {
-        const message = error?.message ?? "No se pudo iniciar sesión con Google.";
-        setErrorMessage(message);
-        Alert.alert("Google Login falló", message);
-      })
-      .finally(() => setLoading(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [googleResponse]);
 
   async function handleGoogle() {
     if (!googleRequest) {
