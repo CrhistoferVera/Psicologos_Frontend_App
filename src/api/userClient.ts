@@ -16,17 +16,21 @@ function parseApiError(error: any, fallback: string) {
   return fallback;
 }
 
-export const apiGetConfig = async (): Promise<{ creditToSolesRate: number; creditValueBs: number; withdrawalsEnabled: boolean }> => {
+export const apiGetConfig = async (): Promise<{ creditToSolesRate: number; creditValueBs: number; withdrawalsEnabled: boolean, bobToUsdRate: number, stripeBonusPercentage: number }> => {
   try {
     const response = await apiClient.get('users/config');
     const creditValueBs = Number(response.data?.creditValueBs ?? response.data?.creditToSolesRate ?? 1);
+    const bobToUsdRate = Number(response.data?.bobToUsdRate ?? 7);
+    const stripeBonusPercentage = Number(response.data?.stripeBonusPercentage ?? 0.35);
     return {
       creditValueBs,
       creditToSolesRate: creditValueBs,
       withdrawalsEnabled: Boolean(response.data?.withdrawalsEnabled ?? true),
+      bobToUsdRate,
+      stripeBonusPercentage
     };
   } catch {
-    return { creditToSolesRate: 1, creditValueBs: 1, withdrawalsEnabled: true };
+    return { creditToSolesRate: 1, creditValueBs: 1, withdrawalsEnabled: true, bobToUsdRate: 7, stripeBonusPercentage: 0.35 };
   }
 };
 

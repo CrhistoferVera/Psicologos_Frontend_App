@@ -26,7 +26,7 @@ import {
 import { apiGetMyWallet } from "../../../api/userClient";
 import { apiGetExpenseHistory } from "../../../api/userProfile";
 import { appTheme } from "../../../theme/appTheme";
-import { BS_PER_USD, STRIPE_CREDITS_BONUS } from "../../../config";
+import { apiGetConfig } from "../../../api/userClient";
 
 
 // Define la estructura de un paquete: id, nombre, créditos y precio
@@ -89,6 +89,10 @@ export default function CreditsScreen() {
 
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
+  //para stripe bonus percentage y tipo de cambio
+  const [bobToUsdRate, setBobToUsdRate] = useState(7);
+  const [stripeBonusPercentage, setStripeBonusPercentage] = useState(0.35);
+
   const [activeTab, setActiveTab] = useState<TabKey>("wallet");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("stripe");
 
@@ -115,13 +119,16 @@ export default function CreditsScreen() {
         setLoading(true);
         setError(null);
 
-        const [wallet, packageRes, expensesRes] = await Promise.all([
+        const [wallet, packageRes, expensesRes, config] = await Promise.all([
           apiGetMyWallet(),
           apiGetAllPackages(),
           apiGetExpenseHistory(),
+          apiGetConfig(),
         ]);
 
         setBalance(Number(wallet?.balance ?? 0));
+        setBobToUsdRate(config.bobToUsdRate);
+        setStripeBonusPercentage(config.stripeBonusPercentage);
         setPromoBalance(
           Number(
             wallet?.promotionalBalance ??
@@ -468,7 +475,7 @@ export default function CreditsScreen() {
                     <Text style={styles.pkgCredits}>{pkg.credits}</Text>
                     <Text style={styles.pkgCreditsLabel}>créditos</Text>
                     <Text style={styles.pkgPrice}>{pkg.price.toFixed(2)} Bs</Text>
-                    <Text style={styles.pkgPriceUsd}>≈ ${(pkg.price / BS_PER_USD).toFixed(2)} USD</Text>
+                    <Text style={styles.pkgPriceUsd}>≈ ${(pkg.price / bobToUsdRate).toFixed(2)} USD</Text>
                   </Pressable>
                 );
               })}
@@ -512,8 +519,8 @@ export default function CreditsScreen() {
                 <Text style={styles.buyBtnText}>
                   {selectedPackage
                     ? paymentMethod === "stripe"
-                      ? `Comprar ${Math.floor(selectedPackage.credits * (1 + STRIPE_CREDITS_BONUS))} créditos · ${selectedPackage.price.toFixed(2)} Bs (≈ $${(selectedPackage.price / BS_PER_USD).toFixed(2)} USD)`
-                      : `Comprar ${selectedPackage.credits} créditos · ${selectedPackage.price.toFixed(2)} Bs (≈ $${(selectedPackage.price / BS_PER_USD).toFixed(2)} USD)`
+                      ? `Comprar ${Math.floor(selectedPackage.credits * (1 + stripeBonusPercentage))} créditos · ${selectedPackage.price.toFixed(2)} Bs (≈ $${(selectedPackage.price / bobToUsdRate).toFixed(2)} USD)`
+                      : `Comprar ${selectedPackage.credits} créditos · ${selectedPackage.price.toFixed(2)} Bs (≈ $${(selectedPackage.price / bobToUsdRate).toFixed(2)} USD)`
                     : "Selecciona un paquete"}
                 </Text>
               </Pressable>
@@ -1090,4 +1097,3 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 });
-
