@@ -1,6 +1,6 @@
-﻿import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { AppState } from "react-native";
+import { AppState, Platform } from "react-native";
 import { getProfile } from "../services/auth";
 import type { User } from "../services/auth";
 import {
@@ -13,8 +13,13 @@ import {
   setUser,
 } from "../storage/authStorage";
 
-//importamos funciones para manejar notificaciones push
-import { registerForPushNotifications, setupForegroundNotificationHandler, setupBackgroundNotificationHandler, createNotificationChannel, appActiveRef } from "../services/notifications";
+import {
+  registerForPushNotifications,
+  setupForegroundNotificationHandler,
+  setupBackgroundNotificationHandler,
+  createNotificationChannel,
+  appActiveRef,
+} from "../services/notifications";
 
 type AuthContextValue = {
   accessToken: string | null;
@@ -27,73 +32,93 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+function isBlockedAdminOnMobile(user: User | null) {
+  return Platform.OS !== "web" && user?.role === "ADMIN";
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [accessToken, setAccessTokenState] = useState<string | null>(null);
   const [user, setUserState] = useState<User | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
 
+  const clearSessionState = useCallback(async () => {
+    await Promise.all([removeAccessToken(), removeUser(), removeTempToken()]);
+    setAccessTokenState(null);
+    setUserState(null);
+  }, []);
+
   const hydrate = useCallback(async () => {
-    const [storedToken, storedUser] = await Promise.all([
-      getAccessToken(),
-      getUser(),
-    ]);
+    const [storedToken, storedUser] = await Promise.all([getAccessToken(), getUser()]);
 
     if (!storedToken) {
-      setAccessTokenState(null);
-      setUserState(storedUser ?? null);
+      if (isBlockedAdminOnMobile(storedUser)) {
+        await clearSessionState();
+      } else {
+        setAccessTokenState(null);
+        setUserState(storedUser ?? null);
+      }
       setIsHydrated(true);
       return;
     }
 
     if (storedUser) {
-      setAccessTokenState(storedToken);
-      setUserState(storedUser);
+      if (isBlockedAdminOnMobile(storedUser)) {
+        await clearSessionState();
+      } else {
+        setAccessTokenState(storedToken);
+        setUserState(storedUser);
+      }
       setIsHydrated(true);
       return;
     }
 
     try {
       const profile = await getProfile();
-      await setUser(profile);
-      setAccessTokenState(storedToken);
-      setUserState(profile);
+      if (isBlockedAdminOnMobile(profile)) {
+        await clearSessionState();
+      } else {
+        await setUser(profile);
+        setAccessTokenState(storedToken);
+        setUserState(profile);
+      }
     } catch {
-      await Promise.all([removeAccessToken(), removeUser(), removeTempToken()]);
-      setAccessTokenState(null);
-      setUserState(null);
+      await clearSessionState();
     } finally {
       setIsHydrated(true);
     }
-  }, []);
+  }, [clearSessionState]);
 
-  const setSession = useCallback(async (token: string, nextUser: User) => {
-    await Promise.all([setAccessToken(token), setUser(nextUser)]);
-    setAccessTokenState(token);
-    setUserState(nextUser);
-    // Registrar FCM token después del login
-    //para registrar el token de FCM en el backend cada vez que el usuario inicia sesión,
-    //lo que asegura que el backend tenga el token actualizado para enviar notificaciones push al dispositivo del usuario
-    void registerForPushNotifications();
-  }, []);
+  const setSession = useCallback(
+    async (token: string, nextUser: User) => {
+      if (isBlockedAdminOnMobile(nextUser)) {
+        await clearSessionState();
+        return;
+      }
+
+      await Promise.all([setAccessToken(token), setUser(nextUser)]);
+      setAccessTokenState(token);
+      setUserState(nextUser);
+      void registerForPushNotifications();
+    },
+    [clearSessionState],
+  );
 
   const logout = useCallback(async () => {
-    await Promise.all([removeAccessToken(), removeUser(), removeTempToken()]);
-    setAccessTokenState(null);
-    setUserState(null);
-  }, []);
+    await clearSessionState();
+  }, [clearSessionState]);
 
-  //sirve para cargar el perfil del usuario al iniciar la app,
-  //y también para registrar el token de FCM y configurar los handlers de notificaciones push
   useEffect(() => {
     void hydrate();
     void createNotificationChannel();
     setupBackgroundNotificationHandler();
     const unsubscribeForeground = setupForegroundNotificationHandler();
-    // Actualizar appActiveRef cuando la app cambia de estado
-    const sub = AppState.addEventListener('change', (state) => {
-      appActiveRef.current = state === 'active';
+    const sub = AppState.addEventListener("change", (state) => {
+      appActiveRef.current = state === "active";
     });
-    return () => { unsubscribeForeground(); sub.remove(); };
+    return () => {
+      unsubscribeForeground();
+      sub.remove();
+    };
   }, [hydrate]);
 
   const value = useMemo(
@@ -111,25 +136,3 @@ export function useAuth() {
   }
   return context;
 }
-
-/*
-Ejemplos de uso (resumen):
-
-1) Esperar hidratacion y redirigir segun rol:
-
-  const { user, isHydrated } = useAuth();
-  useEffect(() => {
-    if (!isHydrated || !user) return;
-    if (user.role === "ADMIN") router.replace("/admin");
-    if (user.role === "ANFITRIONA" || user.role === "PROFESSIONAL") router.replace("/(professional)/dashboard");
-    if (user.role === "USER") router.replace("/(user)/home");
-  }, [isHydrated, user]);
-
-2) Leer datos del usuario (id, rol, etc) una vez hidratado:
-
-  const { user, isHydrated } = useAuth();
-  if (isHydrated && user) {
-    console.log(user.id, user.role, user.email);
-  }
-*/
-

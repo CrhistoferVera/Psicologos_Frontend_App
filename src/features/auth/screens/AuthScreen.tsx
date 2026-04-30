@@ -8,7 +8,7 @@ import AppScreen from "../../../components/ui/AppScreen";
 import { useAuth } from "../../../context/AuthContext";
 import { COUNTRIES_LATAM, CountryLatam } from "../../../constants/countriesLatam";
 import { GOOGLE_ANDROID_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from "../../../config";
-import { loginWithEmail, loginWithGoogle, sendOtp } from "../../../services/auth";
+import { loginWithEmail, sendOtp } from "../../../services/auth";
 import { appTheme } from "../../../theme/appTheme";
 import { GOOGLE_AUTH_STORAGE_KEY } from "../../../../app/oauthredirect";
 
@@ -29,7 +29,7 @@ export default function AuthScreen() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const router = useRouter();
-  const { setSession } = useAuth();
+  const { setSession, logout } = useAuth();
   // Google.useAuthRequest (from expo-auth-session/providers/google):
   // - Auto-selects androidClientId on Android
   // - Auto-generates redirect URI as com.psyconnect.app:/oauthredirect (package-name scheme,
@@ -37,7 +37,7 @@ export default function AuthScreen() {
   // - Sends responseType=Code + PKCE automatically on Android
   // - Auto-exchanges the authorization code for tokens (id_token) internally
   // The id_token arrives via googleResponse state (not the promptAsync() return value)
-  const [googleRequest, googleResponse, promptGoogleAuth] = Google.useAuthRequest({
+  const [googleRequest, , promptGoogleAuth] = Google.useAuthRequest({
     androidClientId: GOOGLE_ANDROID_CLIENT_ID || undefined,
     webClientId: GOOGLE_WEB_CLIENT_ID || undefined,
     scopes: ["openid", "profile", "email"],
@@ -46,7 +46,7 @@ export default function AuthScreen() {
 
   function navigateByRole(role: string) {
     if (role === "ADMIN") {
-      router.replace("/admin");
+      router.replace("/(public)/admin-only");
     } else if (role === "ANFITRIONA" || role === "PROFESSIONAL") {
       router.replace("/(professional)/dashboard");
     } else {
@@ -64,6 +64,11 @@ export default function AuthScreen() {
       setLoading(true);
       setErrorMessage(null);
       const response = await loginWithEmail(email.trim(), password);
+      if (response.user.role === "ADMIN") {
+        await logout();
+        navigateByRole(response.user.role);
+        return;
+      }
       await setSession(response.access_token, response.user);
       navigateByRole(response.user.role);
     } catch (error: any) {

@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, ActivityIndicator, TouchableOpacity, Linking } from "react-native";
 import Constants from "expo-constants";
-import { API_URL } from "../config";
-
-const DOWNLOAD_URL = "https://app.sanamente.app/#descargar";
+import { API_URL, APP_DOWNLOAD_URL } from "../config";
 
 function parseVersion(v: string): number[] {
   return v.split(".").map((n) => parseInt(n, 10) || 0);
@@ -68,7 +66,7 @@ export default function VersionGuard({ children }: Props) {
           Descarga la última versión para seguir disfrutando de SanaMente.
         </Text>
         <TouchableOpacity
-          onPress={() => Linking.openURL(DOWNLOAD_URL)}
+          onPress={() => Linking.openURL(APP_DOWNLOAD_URL)}
           style={{
             backgroundColor: "#fff",
             paddingVertical: 14,

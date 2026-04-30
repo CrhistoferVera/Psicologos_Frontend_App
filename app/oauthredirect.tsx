@@ -6,7 +6,6 @@ import * as AuthSession from "expo-auth-session";
 import { useAuth } from "../src/context/AuthContext";
 import { loginWithGoogle } from "../src/services/auth";
 
-// Keys used to pass PKCE session data from AuthScreen to this route.
 export const GOOGLE_AUTH_STORAGE_KEY = "__google_auth";
 
 const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
@@ -18,7 +17,7 @@ export default function OAuthRedirectScreen() {
     error?: string;
   }>();
   const router = useRouter();
-  const { setSession } = useAuth();
+  const { setSession, logout } = useAuth();
   const [done, setDone] = useState(false);
 
   useEffect(() => {
@@ -31,7 +30,7 @@ export default function OAuthRedirectScreen() {
 
       if (error) {
         console.log("[OAuthRedirect] Google returned error:", error);
-        Alert.alert("Google Login falló", `Google devolvió error: ${error}`);
+        Alert.alert("Google Login fallo", `Google devolvio error: ${error}`);
         router.replace("/(public)" as any);
         return;
       }
@@ -49,7 +48,7 @@ export default function OAuthRedirectScreen() {
         const session = raw ? JSON.parse(raw) : null;
 
         if (!session?.clientId || !session?.redirectUri) {
-          throw new Error("No se encontró la sesión de autenticación. Intenta de nuevo.");
+          throw new Error("No se encontro la sesion de autenticacion. Intenta de nuevo.");
         }
 
         console.log("[OAuthRedirect] has codeVerifier:", Boolean(session.codeVerifier));
@@ -71,25 +70,30 @@ export default function OAuthRedirectScreen() {
 
         if (!idToken) {
           throw new Error(
-            "Google no devolvió id_token tras el intercambio. " +
-            "Verifica que el Client ID y redirect URI estén configurados correctamente.",
+            "Google no devolvio id_token tras el intercambio. " +
+              "Verifica que el Client ID y redirect URI esten configurados correctamente.",
           );
         }
 
         const response = await loginWithGoogle(idToken);
+        const role = response.user.role;
+
+        if (role === "ADMIN") {
+          await logout();
+          router.replace("/(public)/admin-only");
+          return;
+        }
+
         await setSession(response.access_token, response.user);
 
-        const role = response.user.role;
-        if (role === "ADMIN") {
-          router.replace("/admin");
-        } else if (role === "ANFITRIONA" || role === "PROFESSIONAL") {
+        if (role === "ANFITRIONA" || role === "PROFESSIONAL") {
           router.replace("/(professional)/dashboard");
         } else {
           router.replace("/(user)/home");
         }
       } catch (err: any) {
         console.log("[OAuthRedirect] error:", err?.message ?? err);
-        Alert.alert("Google Login falló", err?.message ?? "No se pudo completar el login con Google.");
+        Alert.alert("Google Login fallo", err?.message ?? "No se pudo completar el login con Google.");
         router.replace("/(public)" as any);
       } finally {
         await AsyncStorage.removeItem(GOOGLE_AUTH_STORAGE_KEY);
@@ -97,7 +101,7 @@ export default function OAuthRedirectScreen() {
     }
 
     completeAuth();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

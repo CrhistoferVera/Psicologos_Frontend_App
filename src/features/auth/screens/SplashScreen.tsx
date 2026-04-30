@@ -14,7 +14,7 @@ export default function SplashScreen() {
     const timer = setTimeout(() => {
       if (user) {
         if (user.role === "ADMIN") {
-          router.replace("/admin");
+          router.replace("/(public)/admin-only");
         } else if (user.role === "ANFITRIONA" || user.role === "PROFESSIONAL") {
           router.replace("/(professional)/dashboard");
         } else {
@@ -37,11 +37,7 @@ export default function SplashScreen() {
       <Text style={styles.title}>SanaMente</Text>
       <Text style={styles.subtitle}>Conecta con profesionales verificados</Text>
 
-      <ActivityIndicator
-        color={appTheme.colors.primary}
-        size="small"
-        style={styles.loader}
-      />
+      <ActivityIndicator color={appTheme.colors.primary} size="small" style={styles.loader} />
     </View>
   );
 }
@@ -93,4 +89,3 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
 });
-
