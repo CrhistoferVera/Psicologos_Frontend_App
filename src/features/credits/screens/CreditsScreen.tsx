@@ -236,9 +236,17 @@ export default function CreditsScreen() {
       const data = await apiCreateBanecoQr(packageId);
       setQrData(data);
     } catch (err: any) {
+      // Mostrar mensaje amigable; ocultar mensajes técnicos del proveedor
+      const raw = typeof err?.message === 'string' ? err.message : '';
+      const isSafe =
+        raw.length > 0 &&
+        raw.length <= 150 &&
+        !/baneco|json|raw|token|stack|ECONNREFUSED|ETIMEDOUT|http|sql/i.test(raw);
       Alert.alert(
-        "No se pudo generar el QR",
-        err?.message ?? "Intenta nuevamente en unos minutos.",
+        'No se pudo generar el QR',
+        isSafe
+          ? raw
+          : 'No se pudo generar el QR en este momento. Intenta nuevamente en unos minutos.',
       );
     } finally {
       setQrLoading(false);
