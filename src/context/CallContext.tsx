@@ -17,12 +17,6 @@ export type CallSession = {
   otherUserAvatar: string | null;
   status: CallStatus;
   startedAt?: number;
-  billed?: {
-    creditsCharged: number;
-    minutesBilled: number;
-    durationSeconds: number;
-  };
-  warningBalance?: number;
 };
 
 type StartOutgoingCallInput = {
@@ -30,7 +24,6 @@ type StartOutgoingCallInput = {
   receiverName: string;
   receiverAvatar?: string | null;
   callType: CallType;
-  pricePerMinute: number;
 };
 
 type CallContextValue = {
@@ -57,8 +50,6 @@ export function CallProvider({ children }: { children: ReactNode }) {
     onCallAccepted,
     onCallRejected,
     onCallEnded,
-    onCallBilled,
-    onCallWarning,
   } = useCallSocket(user?.id);
 
   const [incomingCall, setIncomingCall] = useState<IncomingCallData | null>(null);
@@ -114,57 +105,17 @@ export function CallProvider({ children }: { children: ReactNode }) {
       });
     });
 
-    const unsubBilled = onCallBilled((data) => {
-      setSessions((prev) => {
-        const next = { ...prev };
-        const callIds = Object.keys(next);
-        if (callIds.length === 0) return prev;
-        const targetId = callIds[callIds.length - 1];
-        const current = next[targetId];
-        if (!current) return prev;
-        next[targetId] = {
-          ...current,
-          billed: {
-            creditsCharged: Number(data.creditsCharged ?? 0),
-            minutesBilled: Number(data.minutesBilled ?? 0),
-            durationSeconds: Number(data.durationSeconds ?? 0),
-          },
-        };
-        return next;
-      });
-    });
-
-    const unsubWarning = onCallWarning((data) => {
-      setSessions((prev) => {
-        const next = { ...prev };
-        const callIds = Object.keys(next);
-        if (callIds.length === 0) return prev;
-        const targetId = callIds[callIds.length - 1];
-        const current = next[targetId];
-        if (!current) return prev;
-        next[targetId] = {
-          ...current,
-          warningBalance: Number(data.balance ?? 0),
-        };
-        return next;
-      });
-    });
-
     return () => {
       unsubIncoming();
       unsubAccepted();
       unsubRejected();
       unsubEnded();
-      unsubBilled();
-      unsubWarning();
     };
   }, [
     onIncomingCall,
     onCallAccepted,
     onCallRejected,
     onCallEnded,
-    onCallBilled,
-    onCallWarning,
     pathname,
     router,
   ]);
@@ -196,7 +147,6 @@ export function CallProvider({ children }: { children: ReactNode }) {
       callType: input.callType,
       callerName,
       callerAvatar: null,
-      pricePerMinute: input.pricePerMinute,
     });
 
     router.push({ pathname: "/call/[callId]", params: { callId } } as any);

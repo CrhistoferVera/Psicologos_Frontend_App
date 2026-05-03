@@ -361,20 +361,6 @@ export default function CallSessionScreen() {
           </View>
         ) : null}
 
-        {session.warningBalance !== undefined && controlsVisible ? (
-          <View style={styles.warningPill}>
-            <Ionicons name="alert-circle-outline" size={14} color="#9A4C00" />
-            <Text style={styles.warningText}>Saldo: {Math.floor(session.warningBalance)} crd</Text>
-          </View>
-        ) : null}
-
-        {session.billed ? (
-          <View style={styles.billingCard}>
-            <Text style={styles.billingTitle}>Resumen</Text>
-            <Text style={styles.billingLine}>Créditos: {session.billed.creditsCharged}</Text>
-            <Text style={styles.billingLine}>Minutos: {session.billed.minutesBilled}</Text>
-          </View>
-        ) : null}
       </Pressable>
     );
   }
@@ -404,14 +390,6 @@ export default function CallSessionScreen() {
       ) : null}
 
       {channelError ? <Text style={styles.audioError}>{channelError}</Text> : null}
-
-      {session.billed ? (
-        <View style={styles.billingCard}>
-          <Text style={styles.billingTitle}>Resumen</Text>
-          <Text style={styles.billingLine}>Créditos: {session.billed.creditsCharged}</Text>
-          <Text style={styles.billingLine}>Minutos: {session.billed.minutesBilled}</Text>
-        </View>
-      ) : null}
 
       <View style={styles.actions}>
         {session.status === "connected" ? (
@@ -608,26 +586,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: appTheme.fonts.body,
   },
-  warningPill: {
-    position: "absolute",
-    bottom: 175,
-    alignSelf: "center",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "#FFF7E6",
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: "#F8E6B8",
-  },
-  warningText: {
-    color: "#9A4C00",
-    fontSize: 12,
-    fontWeight: "600",
-    fontFamily: appTheme.fonts.body,
-  },
   header: {
     paddingTop: 52,
     paddingHorizontal: 16,
@@ -708,29 +666,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: "center",
     paddingHorizontal: 16,
-    fontFamily: appTheme.fonts.body,
-  },
-  billingCard: {
-    alignSelf: "center",
-    marginTop: 12,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: "rgba(255,255,255,0.14)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.2)",
-    minWidth: 190,
-  },
-  billingTitle: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "700",
-    fontFamily: appTheme.fonts.heading,
-    marginBottom: 6,
-  },
-  billingLine: {
-    color: "#E6F2FF",
-    fontSize: 13,
     fontFamily: appTheme.fonts.body,
   },
   actions: {

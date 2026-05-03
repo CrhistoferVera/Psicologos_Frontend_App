@@ -1,4 +1,4 @@
-import { MessageCircle, Search, User, Wallet, House, Gift } from "lucide-react-native";
+import { MessageCircle, Search, User, House, Gift } from "lucide-react-native";
 import { usePathname, useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,7 +15,6 @@ const items: Item[] = [
   { key: "home", label: "Inicio", icon: House, route: "/(user)/home" },
   { key: "professionals", label: "Buscar", icon: Search, route: "/(user)/professionals" },
   { key: "chats", label: "Chats", icon: MessageCircle, route: "/(user)/chats" },
-  { key: "credits", label: "Créditos", icon: Wallet, route: "/(user)/credits" },
   { key: "profile", label: "Perfil", icon: User, route: "/(user)/profile" },
 ];
 

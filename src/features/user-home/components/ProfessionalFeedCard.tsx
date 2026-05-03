@@ -22,25 +22,6 @@ type Props = {
 
 const NO_IMAGE = require("../../../../assets/no_image.jpg");
 
-function PriceTag({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ComponentProps<typeof Ionicons>["name"];
-  label: string;
-  value: number | null | undefined;
-}) {
-  if (!value) return null;
-  return (
-    <View style={styles.priceTag}>
-      <Ionicons name={icon} size={13} color="rgba(255,255,255,0.85)" />
-      <Text style={styles.priceTagText}>{value} crd</Text>
-      <Text style={styles.priceTagLabel}>{label}</Text>
-    </View>
-  );
-}
-
 export default function ProfessionalFeedCard({
   professional,
   cardHeight,
@@ -132,25 +113,6 @@ export default function ProfessionalFeedCard({
             {bio}
           </Text>
         ) : null}
-
-        {/* Prices */}
-        <View style={styles.pricesRow}>
-          <PriceTag
-            icon="chatbubble-outline"
-            label="chat"
-            value={professional.prices.chat}
-          />
-          <PriceTag
-            icon="call-outline"
-            label="llamada"
-            value={professional.prices.call}
-          />
-          <PriceTag
-            icon="videocam-outline"
-            label="video"
-            value={professional.prices.video}
-          />
-        </View>
 
         {/* CTA — solo Chat */}
         <View style={styles.actionsRow}>
@@ -288,35 +250,6 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.body,
     fontSize: 13,
     lineHeight: 19,
-  },
-
-  pricesRow: {
-    flexDirection: "row",
-    gap: 8,
-    flexWrap: "wrap",
-  },
-
-  priceTag: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "rgba(255,255,255,0.10)",
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-
-  priceTagText: {
-    color: "#FFFFFF",
-    fontFamily: appTheme.fonts.heading,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-
-  priceTagLabel: {
-    color: "rgba(255,255,255,0.55)",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 11,
   },
 
   actionsRow: {

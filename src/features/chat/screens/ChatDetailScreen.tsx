@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   ActivityIndicator,
@@ -18,7 +18,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../../context/AuthContext";
 import { appTheme } from "../../../theme/appTheme";
 import { getMessages, markConversationAsRead, sendMessageToUser, type Message } from "../../../api/messages";
-import { apiGetMyWallet } from "../../../api/userClient";
 import { useSocket } from "../../../hooks/useSocket";
 import { type CallType } from "../../../hooks/useCallSocket";
 import { useCallManager } from "../../../context/CallContext";
@@ -66,7 +65,6 @@ export default function ChatDetailScreen() {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [balance, setBalance] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [inputHeight, setInputHeight] = useState(44);
   const [requestingCall, setRequestingCall] = useState(false);
@@ -95,13 +93,6 @@ export default function ChatDetailScreen() {
     void (async () => {
       setError(null);
       setLoading(true);
-
-      try {
-        const wallet = await apiGetMyWallet();
-        setBalance(wallet?.balance ?? 0);
-      } catch {
-        // Wallet errors should not block the chat view
-      }
 
       if (!conversationId) {
         setMessages([]);
@@ -157,8 +148,6 @@ export default function ChatDetailScreen() {
     return unsubscribe;
   }, [conversationId, onNewMessage, user?.id]);
 
-  const lowBalance = useMemo(() => balance < 15, [balance]);
-
   async function handleSend() {
     if (!text.trim() || !user?.id || !professionalId || sending) return;
 
@@ -182,7 +171,6 @@ export default function ChatDetailScreen() {
       }
 
       setMessages((prev) => [...prev, newMessage]);
-      setBalance((prev) => Math.max(prev - 1, 0));
       setError(null);
     } catch (err: any) {
       setText(payloadText);
@@ -206,7 +194,6 @@ export default function ChatDetailScreen() {
         receiverName: professionalName,
         receiverAvatar: professionalAvatar || null,
         callType,
-        pricePerMinute: callType === "VIDEO_CALL" ? 25 : 20,
       });
     } finally {
       setRequestingCall(false);
@@ -251,24 +238,6 @@ export default function ChatDetailScreen() {
           </Pressable>
         </View>
       </View>
-
-      <View style={styles.balanceWrap}>
-        <Pressable style={styles.balanceCard} onPress={() => router.push("/(user)/credits" as any)}>
-          <View style={styles.balanceLeft}>
-            <Ionicons name="card-outline" size={16} color={appTheme.colors.primary} />
-            <Text style={styles.balanceText}>Saldo: </Text>
-            <Text style={styles.balanceStrong}>{Math.floor(balance)}</Text>
-            <Text style={styles.balanceText}> · 15 crd/mensaje</Text>
-          </View>
-          <Text style={styles.balanceAction}>Recargar</Text>
-        </Pressable>
-      </View>
-
-      {lowBalance ? (
-        <View style={styles.warningWrap}>
-          <Text style={styles.warningText}>Saldo bajo para enviar mensajes.</Text>
-        </View>
-      ) : null}
 
       {error ? (
         <View style={styles.errorWrap}>
@@ -425,71 +394,6 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.body,
     fontSize: 14,
     fontWeight: "600",
-  },
-
-  balanceWrap: {
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    paddingBottom: 6,
-    backgroundColor: "#FFFFFF",
-    borderBottomWidth: 1,
-    borderBottomColor: appTheme.colors.border,
-  },
-
-  balanceCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
-    backgroundColor: "#F8FAFC",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-
-  balanceLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexShrink: 1,
-  },
-
-  balanceText: {
-    color: "#475569",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 13,
-  },
-
-  balanceStrong: {
-    color: appTheme.colors.text,
-    fontFamily: appTheme.fonts.heading,
-    fontSize: 14,
-    fontWeight: "700",
-  },
-
-  balanceAction: {
-    color: appTheme.colors.primary,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 14,
-    fontWeight: "700",
-  },
-
-  warningWrap: {
-    marginHorizontal: 12,
-    marginTop: 8,
-    borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: "#FFF7E6",
-    borderWidth: 1,
-    borderColor: "#F8E6B8",
-  },
-
-  warningText: {
-    color: "#9A4C00",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 12,
-    textAlign: "center",
   },
 
   errorWrap: {

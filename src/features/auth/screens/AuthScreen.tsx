@@ -3,7 +3,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Google from "expo-auth-session/providers/google";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import AppScreen from "../../../components/ui/AppScreen";
 import { useAuth } from "../../../context/AuthContext";
 import { COUNTRIES_LATAM, CountryLatam } from "../../../constants/countriesLatam";
@@ -11,6 +11,46 @@ import { GOOGLE_ANDROID_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from "../../../config"
 import { loginWithEmail, sendOtp } from "../../../services/auth";
 import { appTheme } from "../../../theme/appTheme";
 import { GOOGLE_AUTH_STORAGE_KEY } from "../../../../app/oauthredirect";
+
+type GooglePkce = { redirectUri: string; codeVerifier?: string | null };
+
+// Isolated so the hook is never called when androidClientId is missing,
+// which would cause an invariant crash before any user interaction.
+function GoogleButton({ loading, onAuthReady }: {
+  loading: boolean;
+  onAuthReady: (prompt: () => Promise<void>, pkce: GooglePkce | null) => void;
+}) {
+  const [googleRequest, , promptGoogleAuth] = Google.useAuthRequest({
+    androidClientId: GOOGLE_ANDROID_CLIENT_ID || undefined,
+    webClientId: GOOGLE_WEB_CLIENT_ID || undefined,
+    scopes: ["openid", "profile", "email"],
+    selectAccount: true,
+  });
+
+  const disabled = loading || !googleRequest;
+
+  async function handlePress() {
+    if (!googleRequest) {
+      Alert.alert("Google no disponible", "La configuración de Google aún no está lista.");
+      return;
+    }
+    await onAuthReady(
+      async () => { await promptGoogleAuth(); },
+      { redirectUri: googleRequest.redirectUri, codeVerifier: googleRequest.codeVerifier },
+    );
+  }
+
+  return (
+    <Pressable
+      style={[styles.googleBtn, disabled && styles.primaryBtnDisabled]}
+      onPress={handlePress}
+      disabled={disabled}
+    >
+      <View style={styles.googleDot} />
+      <Text style={styles.googleText}>{loading ? "Conectando..." : "Continuar con Google"}</Text>
+    </Pressable>
+  );
+}
 
 type Mode = "login" | "register";
 
@@ -30,19 +70,6 @@ export default function AuthScreen() {
 
   const router = useRouter();
   const { setSession, logout } = useAuth();
-  // Google.useAuthRequest (from expo-auth-session/providers/google):
-  // - Auto-selects androidClientId on Android
-  // - Auto-generates redirect URI as com.psyconnect.app:/oauthredirect (package-name scheme,
-  //   allowed by Google for Android clients — custom schemes like sanamente:// are blocked)
-  // - Sends responseType=Code + PKCE automatically on Android
-  // - Auto-exchanges the authorization code for tokens (id_token) internally
-  // The id_token arrives via googleResponse state (not the promptAsync() return value)
-  const [googleRequest, , promptGoogleAuth] = Google.useAuthRequest({
-    androidClientId: GOOGLE_ANDROID_CLIENT_ID || undefined,
-    webClientId: GOOGLE_WEB_CLIENT_ID || undefined,
-    scopes: ["openid", "profile", "email"],
-    selectAccount: true,
-  });
 
   function navigateByRole(role: string) {
     if (role === "ADMIN") {
@@ -114,11 +141,10 @@ export default function AuthScreen() {
     }
   }
 
-  async function handleGoogle() {
-    if (!googleRequest) {
-      Alert.alert("Google no disponible", "La configuración de Google aún no está lista.");
-      return;
-    }
+  async function handleGoogleAuth(
+    prompt: () => Promise<void>,
+    pkce: GooglePkce | null,
+  ) {
     if (!GOOGLE_ANDROID_CLIENT_ID) {
       Alert.alert(
         "Falta configuración",
@@ -130,27 +156,18 @@ export default function AuthScreen() {
       setLoading(true);
       setErrorMessage(null);
 
-      console.log("[GoogleAuth] platform:", Platform.OS);
-      console.log("[GoogleAuth] androidClientId present:", Boolean(GOOGLE_ANDROID_CLIENT_ID));
-      console.log("[GoogleAuth] redirectUri:", googleRequest.redirectUri);
-      console.log("[GoogleAuth] has codeVerifier:", Boolean(googleRequest.codeVerifier));
+      if (pkce) {
+        await AsyncStorage.setItem(
+          GOOGLE_AUTH_STORAGE_KEY,
+          JSON.stringify({
+            clientId: GOOGLE_ANDROID_CLIENT_ID,
+            redirectUri: pkce.redirectUri,
+            codeVerifier: pkce.codeVerifier ?? null,
+          }),
+        );
+      }
 
-      // Save PKCE session data to AsyncStorage before opening the browser.
-      // When Expo Router intercepts the oauthredirect deep link, oauthredirect.tsx
-      // reads these values to complete the authorization code exchange.
-      await AsyncStorage.setItem(
-        GOOGLE_AUTH_STORAGE_KEY,
-        JSON.stringify({
-          clientId: GOOGLE_ANDROID_CLIENT_ID,
-          redirectUri: googleRequest.redirectUri,
-          codeVerifier: googleRequest.codeVerifier ?? null,
-        }),
-      );
-
-      await promptGoogleAuth();
-      // If promptAsync resolves here (expo-web-browser intercepted the redirect),
-      // the useEffect above handles the result via googleResponse state.
-      // If Expo Router intercepts first, oauthredirect.tsx handles it instead.
+      await prompt();
     } catch (error: any) {
       console.log("[GoogleAuth] promptAsync error:", error?.message ?? error);
       const message = error?.message ?? "No se pudo iniciar sesión con Google.";
@@ -161,7 +178,6 @@ export default function AuthScreen() {
   }
 
   const loginDisabled = !email.trim() || !password || loading;
-  const googleDisabled = loading || !googleRequest;
   const registerDisabled = phone.trim().length < 7 || loading || !acceptedTerms;
 
   return (
@@ -253,14 +269,9 @@ export default function AuthScreen() {
                 <View style={styles.dividerLine} />
               </View>
 
-              <Pressable
-                style={[styles.googleBtn, googleDisabled && styles.primaryBtnDisabled]}
-                onPress={handleGoogle}
-                disabled={googleDisabled}
-              >
-                <View style={styles.googleDot} />
-                <Text style={styles.googleText}>{loading ? "Conectando..." : "Continuar con Google"}</Text>
-              </Pressable>
+              {GOOGLE_ANDROID_CLIENT_ID ? (
+                <GoogleButton loading={loading} onAuthReady={handleGoogleAuth} />
+              ) : null}
             </>
           ) : (
             <>

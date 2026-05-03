@@ -6,7 +6,6 @@ import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import AppCard from "../../../components/ui/AppCard";
 import AppScreen from "../../../components/ui/AppScreen";
 import { useAuth } from "../../../context/AuthContext";
-import { apiGetMyWallet } from "../../../api/userClient";
 import { apiGetMyProfileUser } from "../../../api/userProfile";
 import { appTheme } from "../../../theme/appTheme";
 
@@ -27,7 +26,6 @@ function normalizeRole(role?: string | null) {
 export default function UserProfileScreen() {
   const { user, logout } = useAuth();
   const [profile, setProfile] = useState<any>(null);
-  const [balance, setBalance] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -35,19 +33,8 @@ export default function UserProfileScreen() {
     void (async () => {
       try {
         setLoading(true);
-        const [profileData, walletData] = await Promise.allSettled([
-          apiGetMyProfileUser(),
-          apiGetMyWallet(),
-        ]);
-
-        if (profileData.status === "fulfilled") {
-          setProfile(profileData.value);
-        }
-
-        if (walletData.status === "fulfilled") {
-          const available = Number(walletData.value.balance ?? 0);
-          setBalance(available);
-        }
+        const data = await apiGetMyProfileUser();
+        setProfile(data);
       } finally {
         setLoading(false);
       }
@@ -81,7 +68,7 @@ export default function UserProfileScreen() {
         <View style={styles.headerBlock}>
           <Text style={styles.title}>Mi perfil</Text>
           <Text style={styles.subtitle}>
-            Gestiona tu cuenta, créditos y accesos principales.
+            Gestiona tu cuenta y accesos principales.
           </Text>
         </View>
 
@@ -121,45 +108,8 @@ export default function UserProfileScreen() {
           </View>
         </LinearGradient>
 
-        <Pressable
-          style={styles.balanceCard}
-          onPress={() => router.push("/(user)/credits" as any)}
-        >
-          <View style={styles.balanceLeft}>
-            <View style={styles.balanceIconWrap}>
-              <Ionicons name="card-outline" size={18} color={appTheme.colors.primary} />
-            </View>
-
-            <View>
-              <Text style={styles.balanceLabel}>Saldo disponible</Text>
-              <Text style={styles.balanceValue}>{Math.floor(balance)} créditos</Text>
-            </View>
-          </View>
-
-          <View style={styles.balanceAction}>
-            <Text style={styles.balanceActionText}>Recargar</Text>
-            <Ionicons name="chevron-forward" size={16} color={appTheme.colors.primary} />
-          </View>
-        </Pressable>
-
         <AppCard>
           <Text style={styles.sectionTitle}>Accesos rápidos</Text>
-
-          <Pressable
-            style={styles.menuRow}
-            onPress={() => router.push("/(user)/credits" as any)}
-          >
-            <View style={[styles.menuIconWrap, { backgroundColor: "#E7F2FF" }]}>
-              <Ionicons name="wallet-outline" size={18} color={appTheme.colors.primary} />
-            </View>
-
-            <View style={styles.menuTextWrap}>
-              <Text style={styles.menuTitle}>Créditos</Text>
-              <Text style={styles.menuSubtitle}>Gestiona saldo y recargas</Text>
-            </View>
-
-            <Ionicons name="chevron-forward" size={18} color="#64748B" />
-          </Pressable>
 
           <Pressable
             style={styles.menuRow}
@@ -358,63 +308,6 @@ const styles = StyleSheet.create({
     color: "#113C22",
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
-    fontWeight: "700",
-  },
-
-  balanceCard: {
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
-    borderRadius: 18,
-    backgroundColor: "#FFFFFF",
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-
-  balanceLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    flex: 1,
-  },
-
-  balanceIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#EAF3FE",
-    borderWidth: 1,
-    borderColor: "#D6E4F5",
-  },
-
-  balanceLabel: {
-    color: appTheme.colors.textMuted,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 13,
-  },
-
-  balanceValue: {
-    color: appTheme.colors.text,
-    fontFamily: appTheme.fonts.heading,
-    fontSize: 22,
-    fontWeight: "700",
-  },
-
-  balanceAction: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 2,
-    marginLeft: 10,
-  },
-
-  balanceActionText: {
-    color: appTheme.colors.primary,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 15,
     fontWeight: "700",
   },
 

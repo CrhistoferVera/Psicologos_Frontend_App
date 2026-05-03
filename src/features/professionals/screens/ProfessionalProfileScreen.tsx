@@ -119,10 +119,6 @@ export default function ProfessionalProfileScreen() {
         receiverName: professional.name,
         receiverAvatar: professional.avatar || null,
         callType,
-        pricePerMinute:
-          callType === "VIDEO_CALL"
-            ? Number(professional.prices.video ?? 25)
-            : Number(professional.prices.call ?? 20),
       });
     } finally {
       setRequestingCall(null);
@@ -197,13 +193,14 @@ export default function ProfessionalProfileScreen() {
 
 
         <View style={styles.priceCardsRow}>
-          <View style={[styles.priceCard, styles.chatCard]}>
+          <Pressable
+            style={[styles.priceCard, styles.chatCard, openingChat && styles.priceCardDisabled]}
+            onPress={handleStartChat}
+            disabled={openingChat}
+          >
             <Ionicons name="chatbubble-ellipses-outline" size={20} color="#FFFFFF" />
             <Text style={[styles.priceTitle, { color: "#FFFFFF" }]}>Chat</Text>
-            <Text style={[styles.priceAmount, { color: "#FFFFFF" }]}>
-              {professional.prices.chat ?? 15} crd
-            </Text>
-          </View>
+          </Pressable>
 
           <Pressable
             style={[
@@ -216,9 +213,6 @@ export default function ProfessionalProfileScreen() {
           >
             <Ionicons name="call-outline" size={20} color="#26A269" />
             <Text style={[styles.priceTitle, { color: "#2F855A" }]}>Llamada</Text>
-            <Text style={[styles.priceAmount, { color: "#2F855A" }]}>
-              {professional.prices.call ?? 20} crd
-            </Text>
           </Pressable>
 
           <Pressable
@@ -232,9 +226,6 @@ export default function ProfessionalProfileScreen() {
           >
             <Ionicons name="videocam-outline" size={20} color="#7E6CCF" />
             <Text style={[styles.priceTitle, { color: "#6C5BB6" }]}>Video</Text>
-            <Text style={[styles.priceAmount, { color: "#6C5BB6" }]}>
-              {professional.prices.video ?? 25} crd
-            </Text>
           </Pressable>
         </View>
 
@@ -548,12 +539,6 @@ const styles = StyleSheet.create({
   priceTitle: {
     fontFamily: appTheme.fonts.body,
     fontSize: 14,
-    fontWeight: "700",
-  },
-
-  priceAmount: {
-    fontFamily: appTheme.fonts.heading,
-    fontSize: 20,
     fontWeight: "700",
   },
 

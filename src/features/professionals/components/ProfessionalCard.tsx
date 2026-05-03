@@ -52,12 +52,6 @@ export default function ProfessionalCard({ professional, onPress }: Props) {
             </View>
           </View>
 
-          <View style={styles.priceWrap}>
-            <Text style={styles.priceLabel}>Chat</Text>
-            <Text style={styles.priceValue}>
-              {professional.prices.chat != null ? `${professional.prices.chat} cr` : "—"}
-            </Text>
-          </View>
         </View>
       </AppCard>
     </Pressable>
@@ -140,22 +134,5 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
-  priceWrap: {
-    alignItems: "flex-end",
-    gap: 4,
-  },
-
-  priceLabel: {
-    color: appTheme.colors.textMuted,
-    fontSize: 11,
-    fontFamily: appTheme.fonts.body,
-  },
-
-  priceValue: {
-    color: appTheme.colors.primary,
-    fontSize: 13,
-    fontFamily: appTheme.fonts.heading,
-    fontWeight: "700",
-  },
 });
 

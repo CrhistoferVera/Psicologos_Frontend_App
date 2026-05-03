@@ -11,7 +11,6 @@ export interface IncomingCallData {
   callType: CallType;
   callerName: string;
   callerAvatar: string | null;
-  pricePerMinute: number;
 }
 
 export function useCallSocket(userId: string | null | undefined) {
@@ -74,16 +73,6 @@ export function useCallSocket(userId: string | null | undefined) {
     return () => socketRef.current?.off('call_ended', cb);
   }
 
-  function onCallBilled(cb: (data: { creditsCharged: number; minutesBilled: number; durationSeconds: number }) => void) {
-    socketRef.current?.on('call_billed', cb);
-    return () => socketRef.current?.off('call_billed', cb);
-  }
-
-  function onCallWarning(cb: (data: { balance: number }) => void) {
-    socketRef.current?.on('call_warning', cb);
-    return () => socketRef.current?.off('call_warning', cb);
-  }
-
   return {
     requestCall,
     acceptCall,
@@ -94,7 +83,5 @@ export function useCallSocket(userId: string | null | undefined) {
     onCallAccepted,
     onCallRejected,
     onCallEnded,
-    onCallBilled,
-    onCallWarning,
   };
 }

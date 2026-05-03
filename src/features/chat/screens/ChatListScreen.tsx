@@ -6,7 +6,6 @@ import AppScreen from "../../../components/ui/AppScreen";
 import { useAuth } from "../../../context/AuthContext";
 import { appTheme } from "../../../theme/appTheme";
 import { getMyChats, type Chat } from "../../../api/messages";
-import { apiGetMyWallet } from "../../../api/userClient";
 
 function isSameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
@@ -38,7 +37,6 @@ export default function ChatListScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const [chats, setChats] = useState<Chat[]>([]);
-  const [balance, setBalance] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,18 +51,10 @@ export default function ChatListScreen() {
       try {
         setLoading(true);
         setError(null);
-
-        const [chatData, walletData] = await Promise.allSettled([getMyChats(), apiGetMyWallet()]);
-
-        if (chatData.status === "fulfilled") {
-          setChats(chatData.value);
-        } else {
-          setError("No se pudieron cargar tus chats.");
-        }
-
-        if (walletData.status === "fulfilled") {
-          setBalance(walletData.value?.balance ?? 0);
-        }
+        const data = await getMyChats();
+        setChats(data);
+      } catch {
+        setError("No se pudieron cargar tus chats.");
       } finally {
         setLoading(false);
       }
@@ -82,32 +72,11 @@ export default function ChatListScreen() {
           ListHeaderComponent={
             <View style={styles.headerBlock}>
               <Text style={styles.title}>Mensajes</Text>
-
-              <Pressable style={styles.balanceCard} onPress={() => router.push("/(user)/credits")}>
-                <View style={styles.balanceLeft}>
-                  <Ionicons name="card-outline" size={16} color={appTheme.colors.primary} />
-                  <View>
-                    <Text style={styles.balanceLabel}>Saldo disponible</Text>
-                    <Text style={styles.balanceValue}>{Math.floor(balance)} créditos</Text>
-                  </View>
-                </View>
-                <View style={styles.balanceRight}>
-                  <Text style={styles.rechargeText}>Recargar</Text>
-                  <Ionicons name="arrow-forward" size={14} color={appTheme.colors.primary} />
-                </View>
-              </Pressable>
-
               {loading ? <Text style={styles.helper}>Cargando conversaciones...</Text> : null}
               {error ? <Text style={styles.error}>{error}</Text> : null}
             </View>
           }
           ItemSeparatorComponent={() => <View style={styles.separator} />}
-          ListFooterComponent={
-            <View style={styles.footerWrap}>
-              <Ionicons name="bulb-outline" size={16} color="#B45309" />
-              <Text style={styles.footerText}>Cada mensaje consume créditos. Asegúrate de tener saldo suficiente.</Text>
-            </View>
-          }
           renderItem={({ item }) => (
             <Pressable
               style={styles.row}
@@ -186,49 +155,6 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.heading,
     fontWeight: "700",
     marginBottom: 12,
-  },
-  balanceCard: {
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    backgroundColor: "#F8FAFC",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    shadowColor: "#000",
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 1,
-  },
-  balanceLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  balanceLabel: {
-    color: appTheme.colors.textMuted,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 13,
-  },
-  balanceValue: {
-    color: appTheme.colors.text,
-    fontFamily: appTheme.fonts.heading,
-    fontSize: 20,
-    fontWeight: "700",
-  },
-  balanceRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  rechargeText: {
-    color: appTheme.colors.primary,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 15,
-    fontWeight: "700",
   },
   helper: {
     marginTop: 8,
@@ -329,26 +255,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 4,
-  },
-  footerWrap: {
-    marginTop: 14,
-    marginHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: "#FFF7E6",
-    borderWidth: 1,
-    borderColor: "#F8E6B8",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-  },
-  footerText: {
-    flex: 1,
-    color: "#9A4C00",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 13,
-    lineHeight: 19,
   },
 });
 
