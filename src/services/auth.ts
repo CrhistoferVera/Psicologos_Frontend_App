@@ -3,6 +3,12 @@ import { apiFetch } from "./api";
 export type User = {
   id: string;
   phoneNumber: string;
+  phoneDialCode?: string | null;
+  phoneNationalNumber?: string | null;
+  phoneCountryIso?: string | null;
+  phoneCountryName?: string | null;
+  billingRegion?: string | null;
+  preferredCurrency?: string | null;
   email: string | null;
   firstName: string | null;
   lastName: string | null;
@@ -14,6 +20,13 @@ export type User = {
 };
 
 export type SendOtpResponse = { message: string };
+
+export type PhoneRegistrationInput = {
+  phoneDialCode: string;
+  phoneNationalNumber: string;
+  phoneCountryIso: string;
+  phoneCountryName: string;
+};
 
 export type VerifyOtpResponse =
   | { access_token: string; user: User }
@@ -31,17 +44,26 @@ export type CompleteRegistrationInput = {
 export type CompleteRegistrationResponse = { access_token: string; user: User };
 export type LoginResponse = { access_token: string; user: User };
 
-export async function sendOtp(phoneNumber: string) {
+export async function sendOtp(input: PhoneRegistrationInput) {
+  const phoneNumber = `${input.phoneDialCode}${input.phoneNationalNumber}`;
   return apiFetch<SendOtpResponse>("/auth/send-otp", {
     method: "POST",
-    body: JSON.stringify({ phoneNumber }),
+    body: JSON.stringify({
+      ...input,
+      phoneNumber,
+    }),
   });
 }
 
-export async function verifyOtp(phoneNumber: string, code: string) {
+export async function verifyOtp(input: PhoneRegistrationInput, code: string) {
+  const phoneNumber = `${input.phoneDialCode}${input.phoneNationalNumber}`;
   return apiFetch<VerifyOtpResponse>("/auth/verify-otp", {
     method: "POST",
-    body: JSON.stringify({ phoneNumber, code }),
+    body: JSON.stringify({
+      ...input,
+      phoneNumber,
+      code,
+    }),
   });
 }
 

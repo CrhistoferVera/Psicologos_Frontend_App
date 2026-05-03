@@ -10,9 +10,24 @@ import { completeRegistration } from "../../../services/auth";
 import { appTheme } from "../../../theme/appTheme";
 
 export default function CompleteProfileScreen() {
-  const params = useLocalSearchParams<{ tempToken?: string | string[]; phone?: string | string[] }>();
+  const params = useLocalSearchParams<{
+    tempToken?: string | string[];
+    phone?: string | string[];
+    phoneDialCode?: string | string[];
+    phoneNationalNumber?: string | string[];
+    phoneCountryIso?: string | string[];
+    phoneCountryName?: string | string[];
+  }>();
   const tempToken = Array.isArray(params.tempToken) ? params.tempToken[0] : params.tempToken ?? "";
   const phone = Array.isArray(params.phone) ? params.phone[0] : params.phone ?? "";
+  const phoneDialCode = Array.isArray(params.phoneDialCode) ? params.phoneDialCode[0] : params.phoneDialCode ?? "";
+  const phoneNationalNumber = Array.isArray(params.phoneNationalNumber)
+    ? params.phoneNationalNumber[0]
+    : params.phoneNationalNumber ?? "";
+  const phoneCountryIso = Array.isArray(params.phoneCountryIso) ? params.phoneCountryIso[0] : params.phoneCountryIso ?? "";
+  const phoneCountryName = Array.isArray(params.phoneCountryName)
+    ? params.phoneCountryName[0]
+    : params.phoneCountryName ?? "";
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -39,7 +54,10 @@ export default function CompleteProfileScreen() {
     }
 
     if (phone) {
-      router.replace({ pathname: "/(public)/verify-otp", params: { phone } });
+      router.replace({
+        pathname: "/(public)/verify-otp",
+        params: { phone, phoneDialCode, phoneNationalNumber, phoneCountryIso, phoneCountryName },
+      });
       return;
     }
 

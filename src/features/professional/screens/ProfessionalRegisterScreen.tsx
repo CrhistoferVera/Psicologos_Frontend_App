@@ -31,12 +31,13 @@ const COUNTRY_CODES = [
   { code: "+57", flag: "CO", country: "Colombia" },
   { code: "+593", flag: "EC", country: "Ecuador" },
   { code: "+595", flag: "PY", country: "Paraguay" },
-  { code: "+51", flag: "PE", country: "Perú" },
+  { code: "+51", flag: "PE", country: "Peru" },
   { code: "+598", flag: "UY", country: "Uruguay" },
   { code: "+58", flag: "VE", country: "Venezuela" },
-  { code: "+52", flag: "MX", country: "México" },
-  { code: "+1", flag: "US", country: "USA / Canadá" },
-  { code: "+34", flag: "ES", country: "España" },
+  { code: "+52", flag: "MX", country: "Mexico" },
+  { code: "+1", flag: "US", country: "Estados Unidos" },
+  { code: "+1", flag: "CA", country: "Canada" },
+  { code: "+34", flag: "ES", country: "Espana" },
 ];
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -53,7 +54,7 @@ export default function ProfessionalRegisterScreen() {
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [countryCode, setCountryCode] = useState("+591");
+  const [countryIso, setCountryIso] = useState("BO");
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [phone, setPhone] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
@@ -84,7 +85,19 @@ export default function ProfessionalRegisterScreen() {
   const [matricula, setMatricula] = useState<FileAsset | null>(null);
   const [tituloProfesional, setTituloProfesional] = useState<FileAsset | null>(null);
 
-  const fullPhone = countryCode + phone.trim();
+  const selectedCountry = useMemo(
+    () => COUNTRY_CODES.find((item) => item.flag === countryIso) ?? COUNTRY_CODES[0],
+    [countryIso],
+  );
+  const phoneMetadata = useMemo(
+    () => ({
+      phoneDialCode: selectedCountry.code,
+      phoneNationalNumber: phone.trim(),
+      phoneCountryIso: selectedCountry.flag,
+      phoneCountryName: selectedCountry.country,
+    }),
+    [phone, selectedCountry.code, selectedCountry.country, selectedCountry.flag],
+  );
 
   useEffect(() => {
     if (step !== 3 || specialtiesCatalog.length > 0) return;
@@ -163,7 +176,7 @@ export default function ProfessionalRegisterScreen() {
     try {
       setLoading(true);
       setError(null);
-      await sendProfessionalVerificationOtp(fullPhone);
+      await sendProfessionalVerificationOtp(phoneMetadata);
       setOtpSent(true);
       Alert.alert("Código enviado", "Te enviamos un código OTP por WhatsApp.");
     } catch (err: any) {
@@ -177,7 +190,7 @@ export default function ProfessionalRegisterScreen() {
     try {
       setLoading(true);
       setError(null);
-      const token = await verifyProfessionalOtp(fullPhone, otpCode.trim());
+      const token = await verifyProfessionalOtp(phoneMetadata, otpCode.trim());
       setTempToken(token);
       Alert.alert("Teléfono verificado", "Ya puedes continuar con el registro profesional.");
     } catch (err: any) {
@@ -361,7 +374,7 @@ export default function ProfessionalRegisterScreen() {
             <View style={styles.phoneRow}>
               <Pressable style={styles.countryCodeBtn} onPress={() => setShowCountryPicker(true)}>
                 <Text style={styles.countryCodeText}>
-                  {COUNTRY_CODES.find((c) => c.code === countryCode)?.flag ?? "INTL"} {countryCode}
+                  {selectedCountry.flag} {selectedCountry.code}
                 </Text>
                 <Ionicons name="chevron-down" size={14} color={appTheme.colors.textMuted} />
               </Pressable>
@@ -369,7 +382,7 @@ export default function ProfessionalRegisterScreen() {
                 <AppInput
                   value={phone}
                   onChangeText={(v) => {
-                    setPhone(v);
+                    setPhone(v.replace(/\D/g, ""));
                     setTempToken(null);
                     setOtpSent(false);
                     setOtpCode("");
@@ -494,21 +507,21 @@ export default function ProfessionalRegisterScreen() {
               label="Mensaje (créditos)"
               value={chatPrice}
               onChangeText={setChatPrice}
-              keyboardType="decimal-pad"
+              keyboardType="number-pad"
               placeholder="Mayor a 0.1"
             />
             <AppInput
               label="Llamada (créditos)"
               value={callPrice}
               onChangeText={setCallPrice}
-              keyboardType="decimal-pad"
+              keyboardType="number-pad"
               placeholder="Mayor a 0.5"
             />
             <AppInput
               label="Videollamada (créditos)"
               value={videoPrice}
               onChangeText={setVideoPrice}
-              keyboardType="decimal-pad"
+              keyboardType="number-pad"
               placeholder="Mayor a 1"
             />
             <Text style={styles.hint}>Mínimos: mensaje &gt; 0.1, llamada &gt; 0.5, videollamada &gt; 1.</Text>
@@ -614,12 +627,12 @@ export default function ProfessionalRegisterScreen() {
             <Text style={styles.pickerTitle}>Seleccionar país</Text>
             <FlatList
               data={COUNTRY_CODES}
-              keyExtractor={(item) => item.code}
+              keyExtractor={(item) => `${item.flag}-${item.code}`}
               renderItem={({ item }) => (
                 <Pressable
-                  style={[styles.pickerItem, item.code === countryCode && styles.pickerItemActive]}
+                  style={[styles.pickerItem, item.flag === countryIso && styles.pickerItemActive]}
                   onPress={() => {
-                    setCountryCode(item.code);
+                    setCountryIso(item.flag);
                     setShowCountryPicker(false);
                     setTempToken(null);
                     setOtpSent(false);

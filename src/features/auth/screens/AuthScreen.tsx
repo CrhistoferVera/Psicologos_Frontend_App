@@ -59,6 +59,16 @@ export default function AuthScreen() {
     [selectedCountry.dialCode, phone],
   );
 
+  const phoneMetadata = useMemo(
+    () => ({
+      phoneDialCode: `+${selectedCountry.dialCode}`,
+      phoneNationalNumber: phone.trim(),
+      phoneCountryIso: selectedCountry.code,
+      phoneCountryName: selectedCountry.name,
+    }),
+    [phone, selectedCountry.code, selectedCountry.dialCode, selectedCountry.name],
+  );
+
   async function handleLogin() {
     try {
       setLoading(true);
@@ -84,8 +94,17 @@ export default function AuthScreen() {
     try {
       setLoading(true);
       setErrorMessage(null);
-      await sendOtp(fullPhone);
-      router.push({ pathname: "/(public)/verify-otp", params: { phone: fullPhone } });
+      await sendOtp(phoneMetadata);
+      router.push({
+        pathname: "/(public)/verify-otp",
+        params: {
+          phone: fullPhone,
+          phoneDialCode: phoneMetadata.phoneDialCode,
+          phoneNationalNumber: phoneMetadata.phoneNationalNumber,
+          phoneCountryIso: phoneMetadata.phoneCountryIso,
+          phoneCountryName: phoneMetadata.phoneCountryName,
+        },
+      });
     } catch (error: any) {
       const message = error?.message ?? "Revisa el número y vuelve a intentar.";
       setErrorMessage(message);

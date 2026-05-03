@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -27,6 +27,8 @@ import { apiGetMyWallet } from "../../../api/userClient";
 import { apiGetExpenseHistory } from "../../../api/userProfile";
 import { appTheme } from "../../../theme/appTheme";
 import { apiGetConfig } from "../../../api/userClient";
+import { useAuth } from "../../../context/AuthContext";
+import { resolvePaymentRegion } from "../../../utils/paymentRegion";
 
 
 // Define la estructura de un paquete: id, nombre, créditos y precio
@@ -45,7 +47,6 @@ type ExpenseItem = {
   tipo?: string;
 };
 
-type PaymentMethod = "stripe" | "qr";
 type TabKey = "wallet" | "recharge";
 
 function asNumber(value: string | number | null | undefined) {
@@ -86,6 +87,7 @@ function signedAmount(item: ExpenseItem) {
 
 export default function CreditsScreen() {
   const router = useRouter();
+  const { user } = useAuth();
 
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
@@ -94,7 +96,6 @@ export default function CreditsScreen() {
   const [stripeBonusPercentage, setStripeBonusPercentage] = useState(0.35);
 
   const [activeTab, setActiveTab] = useState<TabKey>("wallet");
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("stripe");
 
   const [balance, setBalance] = useState(0);
   const [promoBalance, setPromoBalance] = useState(0);
@@ -112,6 +113,20 @@ export default function CreditsScreen() {
   const [qrData, setQrData] = useState<BanecoQrCreateResponse | null>(null);
   const [qrLoading, setQrLoading] = useState(false);
   const [qrStatus, setQrStatus] = useState<"PENDING" | "PAID" | "CANCELED">("PENDING");
+
+  const paymentRegion = useMemo(
+    () =>
+      resolvePaymentRegion({
+        billingRegion: user?.billingRegion,
+        preferredCurrency: user?.preferredCurrency,
+        phoneCountryIso: user?.phoneCountryIso,
+      }),
+    [user?.billingRegion, user?.preferredCurrency, user?.phoneCountryIso],
+  );
+  const isBoliviaBilling = paymentRegion.region === "BOLIVIA";
+  const isInternationalBilling = paymentRegion.region === "INTERNATIONAL";
+  const hasKnownBillingRegion = paymentRegion.region !== "UNKNOWN";
+  const displayCurrency = paymentRegion.currency;
 
   useEffect(() => {
     void (async () => {
@@ -237,6 +252,14 @@ export default function CreditsScreen() {
   }, [qrData, qrStatus]);
 
   async function handleQrBuy(packageId: string) {
+    if (!paymentRegion.canUseQr) {
+      Alert.alert(
+        "Metodo no disponible",
+        "Tu region no permite pagos por QR Baneco.",
+      );
+      return;
+    }
+
     try {
       setQrLoading(true);
       setQrStatus("PENDING");
@@ -275,6 +298,11 @@ export default function CreditsScreen() {
   }
 
   async function handleBuy(packageId: string) {
+    if (!paymentRegion.canUseStripe) {
+      Alert.alert("Metodo no disponible", "Tu region no permite pagos con Stripe.");
+      return;
+    }
+
     try {
       // Manda el packageId al backend; el backend busca el precio real y crea el PaymentIntent
       // Stripe nunca recibe el precio desde el frontend (seguridad)
@@ -375,7 +403,11 @@ export default function CreditsScreen() {
                 <Text style={styles.walletLabel}>Saldo disponible</Text>
                 <Text style={styles.walletBalance}>{Math.floor(totalBalance)}</Text>
                 <Text style={styles.walletHint}>
-                  créditos · equiv. Bs {Math.max(totalBalance, 0).toFixed(2)}
+                  {paymentRegion.region === "INTERNATIONAL"
+                    ? `creditos · equiv. $${(Math.max(totalBalance, 0) / bobToUsdRate).toFixed(2)}`
+                    : paymentRegion.region === "BOLIVIA"
+                      ? `creditos · equiv. Bs ${Math.max(totalBalance, 0).toFixed(2)}`
+                      : "creditos"}
                 </Text>
 
                 <Pressable style={styles.walletRechargeBtn} onPress={() => setActiveTab("recharge")}>
@@ -473,9 +505,23 @@ export default function CreditsScreen() {
                       </View>
                     ) : null}
                     <Text style={styles.pkgCredits}>{pkg.credits}</Text>
-                    <Text style={styles.pkgCreditsLabel}>créditos</Text>
-                    <Text style={styles.pkgPrice}>{pkg.price.toFixed(2)} Bs</Text>
-                    <Text style={styles.pkgPriceUsd}>≈ ${(pkg.price / bobToUsdRate).toFixed(2)} USD</Text>
+                    <Text style={styles.pkgCreditsLabel}>creditos</Text>
+                    {paymentRegion.region === "INTERNATIONAL" ? (
+                      <>
+                        <Text style={styles.pkgPrice}>${(pkg.price / bobToUsdRate).toFixed(2)} USD</Text>
+                        <Text style={styles.pkgPriceUsd}>equiv. Bs {pkg.price.toFixed(2)}</Text>
+                      </>
+                    ) : paymentRegion.region === "BOLIVIA" ? (
+                      <>
+                        <Text style={styles.pkgPrice}>{pkg.price.toFixed(2)} Bs</Text>
+                        <Text style={styles.pkgPriceUsd}>equiv. ${(pkg.price / bobToUsdRate).toFixed(2)} USD</Text>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={styles.pkgPrice}>Precio no disponible</Text>
+                        <Text style={styles.pkgPriceUsd}>Define tu región de pago para continuar</Text>
+                      </>
+                    )}
                   </Pressable>
                 );
               })}
@@ -483,49 +529,56 @@ export default function CreditsScreen() {
 
             <View style={styles.sectionPad}>
               <AppCard>
-                <Text style={styles.paymentTitle}>Método de pago</Text>
-
-                <Pressable style={styles.paymentRow} onPress={() => setPaymentMethod("stripe")}>
-                  <View style={[styles.radio, paymentMethod === "stripe" && styles.radioActive]} />
-                  <Ionicons name="card" size={16} color={appTheme.colors.primary} />
-                  <Text style={styles.paymentText}>Stripe</Text>
-                </Pressable>
-
-                <Pressable style={styles.paymentRow} onPress={() => setPaymentMethod("qr")}>
-                  <View style={[styles.radio, paymentMethod === "qr" && styles.radioActive]} />
-                  <Ionicons name="qr-code-outline" size={16} color={appTheme.colors.primary} />
-                  <Text style={styles.paymentText}>Pago con QR</Text>
-                </Pressable>
+                <Text style={styles.paymentTitle}>Metodo de pago</Text>
+                {!hasKnownBillingRegion ? (
+                  <Text style={styles.errorText}>
+                    No se pudo determinar tu región de pago. Contacta soporte o actualiza tu perfil.
+                  </Text>
+                ) : isBoliviaBilling ? (
+                  <View style={styles.paymentRow}>
+                    <View style={[styles.radio, styles.radioActive]} />
+                    <Ionicons name="qr-code-outline" size={16} color={appTheme.colors.primary} />
+                    <Text style={styles.paymentText}>Pago con QR Baneco</Text>
+                  </View>
+                ) : (
+                  <View style={styles.paymentRow}>
+                    <View style={[styles.radio, styles.radioActive]} />
+                    <Ionicons name="card" size={16} color={appTheme.colors.primary} />
+                    <Text style={styles.paymentText}>Stripe</Text>
+                  </View>
+                )}
 
               </AppCard>
             </View>
 
             <View style={styles.sectionPad}>
-              <Pressable
-                style={[
-                  styles.buyBtn,
-                  (!selectedPackage || loading || qrLoading) && { opacity: 0.6 },
-                ]}
-                disabled={!selectedPackage || loading || qrLoading}
-                onPress={() => {
-                  if (!selectedPackage) return;
-                  if (paymentMethod === "qr") {
-                    void handleQrBuy(selectedPackage.id);
-                  } else {
-                    void handleBuy(selectedPackage.id);
-                  }
-                }}
-              >
-                <Text style={styles.buyBtnText}>
-                  {selectedPackage
-                    ? paymentMethod === "stripe"
-                      ? `Comprar ${Math.floor(selectedPackage.credits * (1 + stripeBonusPercentage))} créditos · ${selectedPackage.price.toFixed(2)} Bs (≈ $${(selectedPackage.price / bobToUsdRate).toFixed(2)} USD)`
-                      : `Comprar ${selectedPackage.credits} créditos · ${selectedPackage.price.toFixed(2)} Bs (≈ $${(selectedPackage.price / bobToUsdRate).toFixed(2)} USD)`
-                    : "Selecciona un paquete"}
-                </Text>
-              </Pressable>
+              {hasKnownBillingRegion ? (
+                <Pressable
+                  style={[
+                    styles.buyBtn,
+                    (!selectedPackage || loading || qrLoading) && { opacity: 0.6 },
+                  ]}
+                  disabled={!selectedPackage || loading || qrLoading}
+                  onPress={() => {
+                    if (!selectedPackage) return;
+                    if (isBoliviaBilling) {
+                      void handleQrBuy(selectedPackage.id);
+                    } else if (isInternationalBilling) {
+                      void handleBuy(selectedPackage.id);
+                    }
+                  }}
+                >
+                  <Text style={styles.buyBtnText}>
+                    {selectedPackage
+                      ? isInternationalBilling
+                        ? `Comprar ${Math.floor(selectedPackage.credits * (1 + stripeBonusPercentage))} creditos · $${(selectedPackage.price / bobToUsdRate).toFixed(2)} USD`
+                        : `Comprar ${selectedPackage.credits} creditos · ${selectedPackage.price.toFixed(2)} Bs`
+                      : "Selecciona un paquete"}
+                  </Text>
+                </Pressable>
+              ) : null}
 
-              <Text style={styles.secureText}>Pago seguro · SSL encriptado</Text>
+              <Text style={styles.secureText}>Pago seguro · SSL encriptado · Moneda {displayCurrency ?? "N/D"}</Text>
               <Pressable onPress={() => router.push("/terms" as any)}>
                 <Text style={styles.termsLink}>Al recargar, aceptas los Términos y Condiciones.</Text>
               </Pressable>
@@ -1097,3 +1150,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 });
+

@@ -17,6 +17,8 @@ export const COUNTRIES_LATAM: CountryLatam[] = [
   { code: "GT", name: "Guatemala", dialCode: "502" },
   { code: "HN", name: "Honduras", dialCode: "504" },
   { code: "MX", name: "Mexico", dialCode: "52" },
+  { code: "US", name: "Estados Unidos", dialCode: "1" },
+  { code: "CA", name: "Canada", dialCode: "1" },
   { code: "NI", name: "Nicaragua", dialCode: "505" },
   { code: "PA", name: "Panama", dialCode: "507" },
   { code: "PY", name: "Paraguay", dialCode: "595" },

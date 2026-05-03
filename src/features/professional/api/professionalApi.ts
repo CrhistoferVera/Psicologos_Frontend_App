@@ -14,7 +14,7 @@ import {
 } from "../../../api/wallet";
 import { apiGetMyServicePrices, apiUpsertServicePrice, type ServicePrice } from "../../../api/servicePrices";
 import { getMyChats, type Chat } from "../../../api/messages";
-import { sendOtp, verifyOtp } from "../../../services/auth";
+import { sendOtp, verifyOtp, type PhoneRegistrationInput } from "../../../services/auth";
 import type {
   ProfessionalChatItem,
   ProfessionalPriceInput,
@@ -71,12 +71,12 @@ function toPriceInput(prices: ServicePrice[]): ProfessionalPriceInput {
 }
 
 
-export async function sendProfessionalVerificationOtp(phoneNumber: string) {
-  return sendOtp(phoneNumber);
+export async function sendProfessionalVerificationOtp(input: PhoneRegistrationInput) {
+  return sendOtp(input);
 }
 
-export async function verifyProfessionalOtp(phoneNumber: string, code: string): Promise<string> {
-  const result = await verifyOtp(phoneNumber, code);
+export async function verifyProfessionalOtp(input: PhoneRegistrationInput, code: string): Promise<string> {
+  const result = await verifyOtp(input, code);
   if ("needsProfile" in result && result.needsProfile && result.tempToken) {
     return result.tempToken;
   }
@@ -313,5 +313,4 @@ export async function requestProfessionalWithdrawal(payload: { credits: number; 
 export async function getProfessionalWithdrawalRequests(): Promise<WithdrawalRequest[]> {
   return apiGetWithdrawalRequests();
 }
-
 

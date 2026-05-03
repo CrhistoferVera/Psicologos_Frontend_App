@@ -13,6 +13,12 @@ export type WalletData = {
 export type MyProfileData = {
     id: string;
     phoneNumber: string;
+    phoneDialCode?: string | null;
+    phoneNationalNumber?: string | null;
+    phoneCountryIso?: string | null;
+    phoneCountryName?: string | null;
+    billingRegion?: string | null;
+    preferredCurrency?: string | null;
     email: string | null;
     firstName: string | null;
     lastName: string | null;
