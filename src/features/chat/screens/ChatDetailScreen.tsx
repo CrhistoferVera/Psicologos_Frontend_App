@@ -80,6 +80,9 @@ export default function ChatDetailScreen() {
   const professionalAvatar = Array.isArray(params.professionalAvatar)
     ? params.professionalAvatar[0]
     : params.professionalAvatar ?? "";
+  const hasActiveSession = Array.isArray(params.hasActiveSession)
+    ? params.hasActiveSession[0] === "true"
+    : params.hasActiveSession === "true";
 
   const [conversationId, setConversationId] = useState(resolvedConversationId);
 
@@ -218,7 +221,14 @@ export default function ChatDetailScreen() {
           <Text style={styles.name} numberOfLines={1}>
             {professionalName}
           </Text>
-          <Text style={styles.sub}>• En línea</Text>
+          {hasActiveSession ? (
+            <View style={styles.sessionBadgeRow}>
+              <Ionicons name="calendar" size={10} color="#166534" />
+              <Text style={styles.sessionBadgeText}>Sesion activa</Text>
+            </View>
+          ) : (
+            <Text style={styles.sub}>• En línea</Text>
+          )}
         </View>
 
         <View style={styles.headerActions}>
@@ -394,6 +404,18 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.body,
     fontSize: 14,
     fontWeight: "600",
+  },
+  sessionBadgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 2,
+  },
+  sessionBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    fontFamily: appTheme.fonts.body,
+    color: "#166534",
   },
 
   errorWrap: {

@@ -69,6 +69,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUserState(storedUser);
       }
       setIsHydrated(true);
+      void getProfile().then(async (fresh) => {
+        if (!isBlockedAdminOnMobile(fresh)) {
+          await setUser(fresh);
+          setUserState(fresh);
+        }
+      }).catch(() => {});
       return;
     }
 

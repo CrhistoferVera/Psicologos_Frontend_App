@@ -6,6 +6,7 @@ import AppScreen from "../../../components/ui/AppScreen";
 import { useAuth } from "../../../context/AuthContext";
 import { appTheme } from "../../../theme/appTheme";
 import { getMyChats, type Chat } from "../../../api/messages";
+import { apiGetMyActiveSessions } from "../../../api/sessions";
 
 function isSameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
@@ -39,6 +40,7 @@ export default function ChatListScreen() {
   const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeSessionProfIds, setActiveSessionProfIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!user?.id) {
@@ -51,8 +53,12 @@ export default function ChatListScreen() {
       try {
         setLoading(true);
         setError(null);
-        const data = await getMyChats();
+        const [data, activeSessions] = await Promise.all([
+          getMyChats(),
+          apiGetMyActiveSessions().catch(() => []),
+        ]);
         setChats(data);
+        setActiveSessionProfIds(new Set(activeSessions.map((s) => s.professionalUserId)));
       } catch {
         setError("No se pudieron cargar tus chats.");
       } finally {
@@ -88,6 +94,7 @@ export default function ChatListScreen() {
                     professionalId: item.otherUserId,
                     professionalName: item.otherUserName,
                     professionalAvatar: item.otherUserAvatar ?? "",
+                    hasActiveSession: activeSessionProfIds.has(item.otherUserId) ? "true" : "false",
                   },
                 } as any)
               }
@@ -101,9 +108,17 @@ export default function ChatListScreen() {
               </View>
 
               <View style={{ flex: 1 }}>
-                <Text style={styles.name} numberOfLines={1}>
-                  {item.otherUserName}
-                </Text>
+                <View style={styles.nameRow}>
+                  <Text style={styles.name} numberOfLines={1}>
+                    {item.otherUserName}
+                  </Text>
+                  {activeSessionProfIds.has(item.otherUserId) ? (
+                    <View style={styles.sessionBadge}>
+                      <Ionicons name="calendar" size={9} color="#166534" />
+                      <Text style={styles.sessionBadgeText}>Sesion activa</Text>
+                    </View>
+                  ) : null}
+                </View>
                 <Text style={styles.message} numberOfLines={1}>
                   {item.lastMessage ?? "Aún no hay mensajes"}
                 </Text>
@@ -213,6 +228,27 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.heading,
     fontWeight: "700",
     fontSize: 18,
+  },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "wrap",
+  },
+  sessionBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "#DCFCE7",
+    borderRadius: 999,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  sessionBadgeText: {
+    fontSize: 9,
+    fontWeight: "700",
+    fontFamily: appTheme.fonts.body,
+    color: "#166534",
   },
   message: {
     color: "#475569",

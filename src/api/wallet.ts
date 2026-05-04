@@ -10,6 +10,7 @@ export interface EarningTransaction {
 
 export interface EarningsData {
   balance: number;
+  balanceUsd?: number;
   promotionalBalance?: number;
   realBalance?: number;
   withdrawableBalance?: number;
@@ -33,6 +34,7 @@ export interface BankAccount {
   bankLogoUrl: string;
   accountNumber: string;
   accountHolderName?: string;
+  currency?: 'BOB' | 'USD';
 }
 
 export interface WithdrawalRequest {
@@ -40,6 +42,7 @@ export interface WithdrawalRequest {
   credits: number;
   amountBs: number;
   soles?: number;
+  currency?: 'BOB' | 'USD';
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   notes?: string | null;
   rejectionReason?: string | null;
@@ -70,6 +73,7 @@ export const apiAddBankAccount = async (data: {
   bankId: number;
   accountNumber: string;
   accountHolderName?: string;
+  currency?: 'BOB' | 'USD';
 }): Promise<BankAccount> => {
   const response = await apiClient.post('/wallet/me/bank-accounts', data);
   return response.data;
@@ -82,6 +86,7 @@ export const apiDeleteBankAccount = async (id: string): Promise<void> => {
 export const apiCreateWithdrawalRequest = async (data: {
   credits: number;
   bankAccountId: string;
+  currency?: 'BOB' | 'USD';
 }): Promise<WithdrawalRequest> => {
   const response = await apiClient.post('/wallet/me/withdrawal-request', data);
   return response.data;

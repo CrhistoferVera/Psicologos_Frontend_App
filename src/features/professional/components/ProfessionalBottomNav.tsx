@@ -1,4 +1,4 @@
-import { MessageCircle, UserRoundCog, WalletCards, LayoutDashboard } from "lucide-react-native";
+import { MessageCircle, UserRoundCog, WalletCards, LayoutDashboard, CalendarDays } from "lucide-react-native";
 import { usePathname, useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,6 +15,7 @@ const professionalAccent = "#FFFFFF";
 
 const items: NavItem[] = [
   { key: "dashboard", label: "Dashboard", route: "/(professional)/dashboard", icon: LayoutDashboard },
+  { key: "sessions", label: "Sesiones", route: "/(professional)/sessions", icon: CalendarDays },
   { key: "messages", label: "Mensajes", route: "/(professional)/messages", icon: MessageCircle },
   { key: "earnings", label: "Ganancias", route: "/(professional)/earnings", icon: WalletCards },
   { key: "profile", label: "Perfil", route: "/(professional)/profile", icon: UserRoundCog },

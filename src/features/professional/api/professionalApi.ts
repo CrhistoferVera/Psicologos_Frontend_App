@@ -298,6 +298,7 @@ export async function addProfessionalBankAccount(payload: {
   bankId: number;
   accountNumber: string;
   accountHolderName?: string;
+  currency?: 'BOB' | 'USD';
 }) {
   return apiAddBankAccount(payload);
 }
@@ -306,7 +307,7 @@ export async function removeProfessionalBankAccount(id: string) {
   return apiDeleteBankAccount(id);
 }
 
-export async function requestProfessionalWithdrawal(payload: { credits: number; bankAccountId: string }) {
+export async function requestProfessionalWithdrawal(payload: { credits: number; bankAccountId: string; currency?: 'BOB' | 'USD' }) {
   return apiCreateWithdrawalRequest(payload);
 }
 
