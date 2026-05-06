@@ -54,6 +54,7 @@ export default function ProfessionalEarningsScreen() {
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
   const [withdrawalsEnabled, setWithdrawalsEnabled] = useState(true);
+  const [usdExchangeRate, setUsdExchangeRate] = useState(6.96);
 
   const [newBankId, setNewBankId] = useState<number | null>(null);
   const [bankSearch, setBankSearch] = useState("");
@@ -86,6 +87,7 @@ export default function ProfessionalEarningsScreen() {
       setBankAccounts(accountsData);
       setWithdrawals(withdrawalsData);
       setWithdrawalsEnabled(Boolean(earningsData?.withdrawalsEnabled ?? configData.withdrawalsEnabled ?? true));
+      setUsdExchangeRate(Number(configData.usdExchangeRate ?? 6.96));
 
       if (accountsData.length > 0) {
         const currentStillExists = accountsData.some((account) => account.id === selectedAccountId);
@@ -201,6 +203,21 @@ export default function ProfessionalEarningsScreen() {
       });
       setWithdrawCreditsInput("");
       await loadAll();
+
+      if (withdrawCurrency === "USD") {
+        const rate = usdExchangeRate;
+        Alert.alert(
+          "Solicitud enviada",
+          `Tu solicitud de retiro en dólares fue registrada correctamente.\n\nEl plazo de procesamiento es de hasta 72 horas hábiles.\n\nEl pago se realizará al cambio referencial.`,
+          [{ text: "Entendido" }],
+        );
+      } else {
+        Alert.alert(
+          "Solicitud enviada",
+          "Tu solicitud de retiro fue registrada correctamente.\n\nEl plazo de procesamiento es de hasta 48 horas hábiles.",
+          [{ text: "Entendido" }],
+        );
+      }
     } catch (err: any) {
       const msg = err?.response?.data?.message ?? err?.message ?? "No se pudo registrar la solicitud de retiro.";
       Alert.alert("Error en el retiro", msg, [{ text: "Entendido" }]);
