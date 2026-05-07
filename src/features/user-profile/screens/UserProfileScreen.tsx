@@ -129,6 +129,22 @@ export default function UserProfileScreen() {
 
           <Pressable
             style={styles.menuRow}
+            onPress={() => router.push("/(user)/bookings" as any)}
+          >
+            <View style={[styles.menuIconWrap, { backgroundColor: "#EEF4FF" }]}>
+              <Ionicons name="calendar-clear-outline" size={18} color={appTheme.colors.primary} />
+            </View>
+
+            <View style={styles.menuTextWrap}>
+              <Text style={styles.menuTitle}>Mis reservas</Text>
+              <Text style={styles.menuSubtitle}>Revisa pagos y estado de sesiones</Text>
+            </View>
+
+            <Ionicons name="chevron-forward" size={18} color="#64748B" />
+          </Pressable>
+
+          <Pressable
+            style={styles.menuRow}
             onPress={() => router.push("/(user)/settings" as any)}
           >
             <View style={[styles.menuIconWrap, { backgroundColor: "#F0F4F8" }]}>

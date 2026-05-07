@@ -29,7 +29,7 @@ export default function CreateSessionScreen() {
         setDurationInput(String(session.durationMinutes));
         setPriceInput(String(session.priceInBs));
       } catch {
-        Alert.alert("Error", "No se pudo cargar la sesion.");
+        Alert.alert("Error", "No se pudo cargar la sesión.");
         router.back();
       } finally {
         setLoadingEdit(false);
@@ -43,8 +43,8 @@ export default function CreateSessionScreen() {
     const duration = Number(durationInput);
     const price = Number(priceInput);
 
-    if (!title.trim()) { Alert.alert("Error", "Ingresa un titulo."); return; }
-    if (!Number.isFinite(duration) || duration < 15) { Alert.alert("Error", "La duracion minima es 15 minutos."); return; }
+    if (!title.trim()) { Alert.alert("Error", "Ingresa un título."); return; }
+    if (!Number.isFinite(duration) || duration < 15) { Alert.alert("Error", "La duración mínima es 15 minutos."); return; }
     if (!Number.isFinite(price) || price < 1) { Alert.alert("Error", "El precio minimo es Bs 1."); return; }
 
     try {
@@ -56,7 +56,7 @@ export default function CreateSessionScreen() {
       }
       router.back();
     } catch (err: any) {
-      Alert.alert("Error", err?.response?.data?.message ?? "No se pudo guardar la sesion.");
+      Alert.alert("Error", err?.response?.data?.message ?? "No se pudo guardar la sesión.");
     } finally {
       setLoading(false);
     }
@@ -73,11 +73,11 @@ export default function CreateSessionScreen() {
           <Pressable style={styles.backBtn} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={18} color={appTheme.colors.text} />
           </Pressable>
-          <Text style={styles.title}>{isEdit ? "Editar sesion" : "Nueva sesion"}</Text>
+          <Text style={styles.title}>{isEdit ? "Editar sesión" : "Nueva sesión"}</Text>
         </View>
 
         <AppCard style={styles.form}>
-          <Text style={styles.label}>Titulo de la sesion</Text>
+          <Text style={styles.label}>Título de la sesión</Text>
           <TextInput
             value={title}
             onChangeText={setTitle}
@@ -87,7 +87,7 @@ export default function CreateSessionScreen() {
             maxLength={200}
           />
 
-          <Text style={styles.label}>Duracion (minutos)</Text>
+          <Text style={styles.label}>Duración (minutos)</Text>
           <TextInput
             value={durationInput}
             onChangeText={setDurationInput}
@@ -120,7 +120,7 @@ export default function CreateSessionScreen() {
             onPress={() => void handleSubmit()}
           >
             <Text style={styles.submitBtnText}>
-              {loading ? "Guardando..." : isEdit ? "Guardar cambios" : "Crear sesion"}
+              {loading ? "Guardando..." : isEdit ? "Guardar cambios" : "Crear sesión"}
             </Text>
           </Pressable>
         </AppCard>

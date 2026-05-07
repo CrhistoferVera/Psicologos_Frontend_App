@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { appTheme } from "../../../theme/appTheme";
+import type { ProfessionalSessionOffering } from "../../../api/bookings";
 import type { Professional } from "../../professionals/types";
 
 type Props = {
@@ -17,6 +18,12 @@ type Props = {
   cardHeight: number;
   onProfilePress: () => void;
   onChatPress: () => void;
+  onReservePress: (offeringId: string) => void;
+  offerings: ProfessionalSessionOffering[] | null;
+  offeringsLoading?: boolean;
+  reserveLoadingOfferingId?: string | null;
+  preferredCurrency: "BOB" | "USD" | null;
+  canReserve: boolean;
   chatLoading?: boolean;
 };
 
@@ -27,6 +34,12 @@ export default function ProfessionalFeedCard({
   cardHeight,
   onProfilePress,
   onChatPress,
+  onReservePress,
+  offerings,
+  offeringsLoading = false,
+  reserveLoadingOfferingId = null,
+  preferredCurrency,
+  canReserve,
   chatLoading = false,
 }: Props) {
   const bgSource =
@@ -38,33 +51,32 @@ export default function ProfessionalFeedCard({
 
   const username = professional.username ? `@${professional.username}` : null;
   const bio = professional.bio?.trim() || null;
+  const highlightedOffering = offerings?.[0] ?? null;
+  const hasMoreOfferings = (offerings?.length ?? 0) > 1;
+
+  function formatOfferingPrice(offering: ProfessionalSessionOffering) {
+    if (preferredCurrency === "USD") {
+      return `$ ${Number(offering.priceUsd).toFixed(2)} USD`;
+    }
+    return `Bs ${Number(offering.priceBob).toFixed(2)}`;
+  }
 
   return (
-    // Tapping the card background navigates to full profile
     <Pressable
       style={[styles.card, { height: cardHeight }]}
       onPress={onProfilePress}
       android_ripple={null}
     >
-      {/* Background image */}
-      <Image
-        source={bgSource}
-        style={StyleSheet.absoluteFill}
-        resizeMode="cover"
-      />
-
-      {/* Dark overlay */}
+      <Image source={bgSource} style={StyleSheet.absoluteFill} resizeMode="cover" />
       <View style={styles.overlay} />
 
-      {/* Bottom gradient — covers ~55% of card from bottom */}
       <LinearGradient
         colors={["transparent", "rgba(5,10,20,0.50)", "rgba(5,10,20,0.94)"]}
-        locations={[0.3, 0.60, 1]}
+        locations={[0.3, 0.6, 1]}
         style={StyleSheet.absoluteFill}
         pointerEvents="none"
       />
 
-      {/* Online badge — top right of card */}
       {professional.isOnline && (
         <View style={styles.onlineBadge}>
           <View style={styles.onlineDot} />
@@ -72,9 +84,7 @@ export default function ProfessionalFeedCard({
         </View>
       )}
 
-      {/* Bottom info panel */}
       <View style={styles.infoPanel}>
-        {/* Row: mini avatar + name/username */}
         <View style={styles.nameRow}>
           <Image
             source={professional.avatar ? { uri: professional.avatar } : NO_IMAGE}
@@ -92,7 +102,6 @@ export default function ProfessionalFeedCard({
           </View>
         </View>
 
-        {/* Specialties */}
         {professional.specialties.length > 0 && (
           <ScrollView
             horizontal
@@ -107,18 +116,74 @@ export default function ProfessionalFeedCard({
           </ScrollView>
         )}
 
-        {/* Bio */}
         {bio ? (
           <Text style={styles.bio} numberOfLines={2}>
             {bio}
           </Text>
         ) : null}
 
-        {/* CTA — solo Chat */}
+        <View style={styles.offeringsBlock}>
+          <Text style={styles.offeringsTitle}>Sesiones disponibles</Text>
+
+          {offeringsLoading ? (
+            <Text style={styles.noOfferingsText}>Cargando sesiones...</Text>
+          ) : !offerings || offerings.length === 0 ? (
+            <Text style={styles.noOfferingsText}>
+              Este psicólogo aún no tiene sesiones disponibles.
+            </Text>
+          ) : (
+            <View style={styles.offeringsList}>
+              {highlightedOffering ? (
+                <View key={highlightedOffering.id} style={styles.offeringRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.offeringName} numberOfLines={1}>
+                      {highlightedOffering.title}
+                    </Text>
+                    <Text style={styles.offeringMeta}>
+                      {highlightedOffering.durationMinutes} min | {formatOfferingPrice(highlightedOffering)}
+                    </Text>
+                  </View>
+                  <Pressable
+                    style={[
+                      styles.reserveBtn,
+                      (!canReserve || reserveLoadingOfferingId === highlightedOffering.id) && styles.reserveBtnDisabled,
+                    ]}
+                    onPress={(e) => {
+                      e.stopPropagation?.();
+                      onReservePress(highlightedOffering.id);
+                    }}
+                    disabled={!canReserve || reserveLoadingOfferingId !== null}
+                  >
+                    <Text style={styles.reserveBtnText}>
+                      {reserveLoadingOfferingId === highlightedOffering.id ? "Abriendo..." : "Reservar"}
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : null}
+
+              {hasMoreOfferings ? (
+                <Pressable
+                  style={styles.viewMoreBtn}
+                  onPress={(e) => {
+                    e.stopPropagation?.();
+                    onProfilePress();
+                  }}
+                >
+                  <Text style={styles.viewMoreText}>Ver más sesiones</Text>
+                  <Ionicons name="chevron-forward" size={14} color="#BFDBFE" />
+                </Pressable>
+              ) : null}
+            </View>
+          )}
+        </View>
+
         <View style={styles.actionsRow}>
           <Pressable
             style={[styles.actionBtn, styles.chatBtn]}
-            onPress={(e) => { e.stopPropagation?.(); onChatPress(); }}
+            onPress={(e) => {
+              e.stopPropagation?.();
+              onChatPress();
+            }}
             disabled={chatLoading}
           >
             {chatLoading ? (
@@ -126,13 +191,18 @@ export default function ProfessionalFeedCard({
             ) : (
               <>
                 <Ionicons name="chatbubble" size={16} color="#FFFFFF" />
-                <Text style={styles.actionBtnText}>Chat</Text>
+                <Text style={styles.actionBtnText}>Chatear</Text>
               </>
             )}
           </Pressable>
         </View>
 
-        {/* Hint — tap card for full profile */}
+        {!canReserve && (
+          <Text style={styles.regionWarning}>
+            No se pudo determinar tu región de pago. Actualiza tu perfil para reservar.
+          </Text>
+        )}
+
         <Text style={styles.tapHint}>Toca para ver el perfil completo</Text>
       </View>
     </Pressable>
@@ -145,13 +215,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#0a0f1a",
     overflow: "hidden",
   },
-
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.15)",
   },
-
-  // Online badge — anchored 16px from top (no floating header to avoid)
   onlineBadge: {
     position: "absolute",
     top: 16,
@@ -166,22 +233,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
-
   onlineDot: {
     width: 7,
     height: 7,
     borderRadius: 4,
     backgroundColor: appTheme.colors.success,
   },
-
   onlineText: {
     color: "#A7F3C8",
     fontSize: 12,
     fontFamily: appTheme.fonts.body,
     fontWeight: "700",
   },
-
-  // Info panel — anchored to bottom with proper breathing room
   infoPanel: {
     position: "absolute",
     bottom: 0,
@@ -191,13 +254,11 @@ const styles = StyleSheet.create({
     paddingBottom: 22,
     gap: 10,
   },
-
   nameRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
   },
-
   miniAvatar: {
     width: 46,
     height: 46,
@@ -206,7 +267,6 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.65)",
     backgroundColor: "#1a2a3a",
   },
-
   name: {
     color: "#FFFFFF",
     fontFamily: appTheme.fonts.heading,
@@ -216,19 +276,16 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4,
   },
-
   username: {
     color: "rgba(255,255,255,0.60)",
     fontFamily: appTheme.fonts.body,
     fontSize: 13,
     marginTop: 1,
   },
-
   specialtiesRow: {
     flexDirection: "row",
     gap: 6,
   },
-
   chip: {
     backgroundColor: "rgba(91,155,213,0.30)",
     borderWidth: 1,
@@ -237,26 +294,90 @@ const styles = StyleSheet.create({
     paddingHorizontal: 11,
     paddingVertical: 4,
   },
-
   chipText: {
     color: "#D6EAFF",
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
     fontWeight: "700",
   },
-
   bio: {
     color: "rgba(255,255,255,0.78)",
     fontFamily: appTheme.fonts.body,
     fontSize: 13,
     lineHeight: 19,
   },
-
+  offeringsBlock: {
+    gap: 6,
+  },
+  offeringsTitle: {
+    color: "#DBEAFE",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  offeringsList: {
+    gap: 7,
+  },
+  offeringRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderColor: "rgba(191,219,254,0.22)",
+    borderRadius: 10,
+    paddingHorizontal: 9,
+    paddingVertical: 8,
+    backgroundColor: "rgba(10,20,38,0.58)",
+  },
+  offeringName: {
+    color: "#FFFFFF",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  offeringMeta: {
+    marginTop: 1,
+    color: "rgba(226,232,240,0.78)",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 11,
+  },
+  reserveBtn: {
+    backgroundColor: "#5B9BD5",
+    borderRadius: 999,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+  },
+  reserveBtnDisabled: {
+    opacity: 0.58,
+  },
+  reserveBtnText: {
+    color: "#FFFFFF",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  noOfferingsText: {
+    color: "rgba(226,232,240,0.76)",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+  },
+  viewMoreBtn: {
+    marginTop: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 2,
+  },
+  viewMoreText: {
+    color: "#BFDBFE",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    fontWeight: "700",
+  },
   actionsRow: {
     flexDirection: "row",
     gap: 8,
   },
-
   actionBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -267,19 +388,22 @@ const styles = StyleSheet.create({
     borderRadius: 99,
     minHeight: 42,
   },
-
   chatBtn: {
-    backgroundColor: appTheme.colors.primary,
+    backgroundColor: "rgba(91,155,213,0.72)",
     flex: 1,
   },
-
   actionBtnText: {
     color: "#FFFFFF",
     fontFamily: appTheme.fonts.heading,
     fontSize: 14,
     fontWeight: "700",
   },
-
+  regionWarning: {
+    color: "#FECACA",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 11,
+    textAlign: "center",
+  },
   tapHint: {
     color: "rgba(255,255,255,0.28)",
     fontFamily: appTheme.fonts.body,

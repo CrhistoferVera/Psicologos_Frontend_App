@@ -1,2 +1,3 @@
-import SessionDetailScreen from "../../../src/features/sessions/screens/SessionDetailScreen";
-export default SessionDetailScreen;
+import LegacySessionsDeprecatedScreen from "../../../src/features/sessions/screens/LegacySessionsDeprecatedScreen";
+
+export default LegacySessionsDeprecatedScreen;

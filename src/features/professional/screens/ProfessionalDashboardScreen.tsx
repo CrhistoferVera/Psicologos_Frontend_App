@@ -206,18 +206,18 @@ export default function ProfessionalDashboardScreen() {
             <Text style={[styles.quickText, { color: "#69AF8A" }]}>Ver ganancias</Text>
           </Pressable>
 
-          <Pressable style={styles.quickCard} onPress={() => router.push("/(professional)/referrals" as any)}>
+          <Pressable style={styles.quickCard} onPress={() => router.push("/(professional)/availability" as any)}>
             <View style={[styles.quickIconWrap, { backgroundColor: "#F3ECFF" }]}>
-              <Ionicons name="gift" size={18} color="#A383D0" />
+              <Ionicons name="time" size={18} color="#A383D0" />
             </View>
-            <Text style={[styles.quickText, { color: "#9D86CD" }]}>Mis referidos</Text>
+            <Text style={[styles.quickText, { color: "#9D86CD" }]}>Disponibilidad</Text>
           </Pressable>
 
-          <Pressable style={styles.quickCard} onPress={() => router.push("/(professional)/earnings") as any}>
+          <Pressable style={styles.quickCard} onPress={() => router.push("/(professional)/bookings") as any}>
             <View style={[styles.quickIconWrap, { backgroundColor: "#FFF1E7" }]}>
-              <Ionicons name="cash" size={18} color="#DD9A5B" />
+              <Ionicons name="calendar" size={18} color="#DD9A5B" />
             </View>
-            <Text style={[styles.quickText, { color: "#E19664" }]}>Retirar saldo</Text>
+            <Text style={[styles.quickText, { color: "#E19664" }]}>Agenda</Text>
           </Pressable>
         </View>
 
@@ -516,5 +516,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 });
-
 

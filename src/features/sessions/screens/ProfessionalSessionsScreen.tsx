@@ -47,33 +47,33 @@ export default function ProfessionalSessionsScreen() {
       await apiStartSession(id);
       await load();
     } catch (err: any) {
-      Alert.alert("Error", err?.response?.data?.message ?? "No se pudo iniciar la sesion.");
+      Alert.alert("Error", err?.response?.data?.message ?? "No se pudo iniciar la sesión.");
     }
   }
 
   async function handleEnd(id: string) {
-    Alert.alert("Terminar sesion", "¿Confirmas que deseas terminar esta sesion?", [
+    Alert.alert("Terminar sesión", "¿Confirmas que deseas terminar esta sesión?", [
       { text: "Cancelar", style: "cancel" },
       { text: "Terminar", style: "destructive", onPress: async () => {
         try {
           await apiEndSession(id);
           await load();
         } catch (err: any) {
-          Alert.alert("Error", err?.response?.data?.message ?? "No se pudo terminar la sesion.");
+          Alert.alert("Error", err?.response?.data?.message ?? "No se pudo terminar la sesión.");
         }
       }},
     ]);
   }
 
   async function handleCancel(id: string) {
-    Alert.alert("Cancelar sesion", "¿Confirmas que deseas cancelar esta sesion?", [
+    Alert.alert("Cancelar sesión", "¿Confirmas que deseas cancelar esta sesión?", [
       { text: "No", style: "cancel" },
-      { text: "Cancelar sesion", style: "destructive", onPress: async () => {
+      { text: "Cancelar sesión", style: "destructive", onPress: async () => {
         try {
           await apiCancelSession(id);
           await load();
         } catch (err: any) {
-          Alert.alert("Error", err?.response?.data?.message ?? "No se pudo cancelar la sesion.");
+          Alert.alert("Error", err?.response?.data?.message ?? "No se pudo cancelar la sesión.");
         }
       }},
     ]);
@@ -99,7 +99,7 @@ export default function ProfessionalSessionsScreen() {
           <AppCard style={styles.emptyCard}>
             <Ionicons name="calendar-outline" size={32} color={appTheme.colors.textMuted} />
             <Text style={styles.emptyTitle}>Sin sesiones</Text>
-            <Text style={styles.muted}>Crea tu primera sesion para que los clientes puedan reservar.</Text>
+            <Text style={styles.muted}>Crea tu primera sesión para que los clientes puedan reservar.</Text>
           </AppCard>
         ) : (
           sessions.map((session) => {

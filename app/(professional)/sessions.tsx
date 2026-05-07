@@ -1,2 +1,3 @@
-import ProfessionalSessionsScreen from "../../src/features/sessions/screens/ProfessionalSessionsScreen";
-export default ProfessionalSessionsScreen;
+import ProfessionalSessionOfferingsScreen from "../../src/features/professional/screens/ProfessionalSessionOfferingsScreen";
+
+export default ProfessionalSessionOfferingsScreen;

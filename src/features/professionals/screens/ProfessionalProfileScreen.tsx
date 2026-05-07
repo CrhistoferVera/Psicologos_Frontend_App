@@ -1,29 +1,49 @@
-import { useEffect, useMemo, useState } from "react";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
-import AppCard from "../../../components/ui/AppCard";
-import AppScreen from "../../../components/ui/AppScreen";
-import { getMyChats } from "../../../api/messages";
-import { appTheme } from "../../../theme/appTheme";
-import { getProfessionalById } from "../api/professionalsApi";
-import type { Professional } from "../types";
-import { useCallManager } from "../../../context/CallContext";
+﻿import { useEffect, useMemo, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import AppCard from '../../../components/ui/AppCard';
+import AppScreen from '../../../components/ui/AppScreen';
+import { getMyChats } from '../../../api/messages';
+import {
+  getProfessionalSessionOfferings,
+  type ProfessionalSessionOffering,
+} from '../../../api/bookings';
+import { appTheme } from '../../../theme/appTheme';
+import { useAuth } from '../../../context/AuthContext';
+import { resolvePaymentRegion } from '../../../utils/paymentRegion';
+import { getProfessionalById } from '../api/professionalsApi';
+import type { Professional } from '../types';
+import { useCallManager } from '../../../context/CallContext';
 
-type TabKey = "info" | "reviews";
+type TabKey = 'info' | 'reviews';
 
 export default function ProfessionalProfileScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const params = useLocalSearchParams<{ id?: string | string[] }>();
-  const professionalId = Array.isArray(params.id) ? params.id[0] : params.id ?? "";
+  const professionalId = Array.isArray(params.id) ? params.id[0] : params.id ?? '';
 
   const [professional, setProfessional] = useState<Professional | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<TabKey>("info");
+  const [offerings, setOfferings] = useState<ProfessionalSessionOffering[]>([]);
+  const [offeringsError, setOfferingsError] = useState<string | null>(null);
+  const [offeringsLoading, setOfferingsLoading] = useState(true);
+  const [openingBookingOfferingId, setOpeningBookingOfferingId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabKey>('info');
   const [openingChat, setOpeningChat] = useState(false);
-  const [requestingCall, setRequestingCall] = useState<"CALL" | "VIDEO_CALL" | null>(null);
+  const [requestingCall, setRequestingCall] = useState<'CALL' | 'VIDEO_CALL' | null>(null);
   const { startOutgoingCall } = useCallManager();
+  const paymentRegion = useMemo(
+    () =>
+      resolvePaymentRegion({
+        billingRegion: user?.billingRegion,
+        preferredCurrency: user?.preferredCurrency,
+        phoneCountryIso: user?.phoneCountryIso,
+      }),
+    [user?.billingRegion, user?.preferredCurrency, user?.phoneCountryIso],
+  );
 
   useEffect(() => {
     if (!professionalId) return;
@@ -31,19 +51,27 @@ export default function ProfessionalProfileScreen() {
     void (async () => {
       try {
         setError(null);
-        const profile = await getProfessionalById(professionalId);
+        setOfferingsLoading(true);
+        const [profile, sessions] = await Promise.all([
+          getProfessionalById(professionalId),
+          getProfessionalSessionOfferings(professionalId),
+        ]);
         setProfessional(profile);
+        setOfferings(sessions);
+        setOfferingsError(null);
       } catch {
-        setError("No se pudo cargar el perfil profesional.");
+        setError('No se pudo cargar el perfil profesional.');
+        setOfferingsError('No se pudieron cargar las sesiones disponibles.');
+      } finally {
+        setOfferingsLoading(false);
       }
-
     })();
   }, [professionalId]);
 
   const subtitle = useMemo(() => {
-    if (!professional) return "";
-    if (professional.specialties.length === 0) return "Psicología clínica";
-    return professional.specialties.slice(0, 2).join(" · ");
+    if (!professional) return '';
+    if (professional.specialties.length === 0) return 'Psicología clínica';
+    return professional.specialties.slice(0, 2).join(' · ');
   }, [professional]);
 
   if (!professional && !error) {
@@ -68,23 +96,22 @@ export default function ProfessionalProfileScreen() {
 
   if (!professional) return null;
 
-  const ratingText = professional.rating ? professional.rating.toFixed(1) : "4.9";
+  const ratingText = professional.rating ? professional.rating.toFixed(1) : '4.9';
   const reviewCount = 142;
 
   async function handleStartChat() {
     if (openingChat) return;
     if (!professional) return;
-
     const targetProfessional = professional;
 
     try {
       setOpeningChat(true);
       const chats = await getMyChats();
       const existing = chats.find((chat) => chat.otherUserId === targetProfessional.id);
-      const existingConversationId = existing?.conversationId ?? "";
+      const existingConversationId = existing?.conversationId ?? '';
 
       router.push({
-        pathname: "/(user)/chats/[id]",
+        pathname: '/(user)/chats/[id]',
         params: {
           id: existingConversationId || targetProfessional.id,
           conversationId: existingConversationId,
@@ -95,10 +122,10 @@ export default function ProfessionalProfileScreen() {
       } as any);
     } catch {
       router.push({
-        pathname: "/(user)/chats/[id]",
+        pathname: '/(user)/chats/[id]',
         params: {
           id: targetProfessional.id,
-          conversationId: "",
+          conversationId: '',
           professionalId: targetProfessional.id,
           professionalName: targetProfessional.name,
           professionalAvatar: targetProfessional.avatar,
@@ -109,8 +136,9 @@ export default function ProfessionalProfileScreen() {
     }
   }
 
-  function handleStartCall(callType: "CALL" | "VIDEO_CALL") {
-    if (!professional || requestingCall) return;
+  function handleStartCall(callType: 'CALL' | 'VIDEO_CALL') {
+    if (requestingCall) return;
+    if (!professional) return;
 
     try {
       setRequestingCall(callType);
@@ -125,11 +153,28 @@ export default function ProfessionalProfileScreen() {
     }
   }
 
+  function handleOpenBooking(offering: ProfessionalSessionOffering) {
+    if (!professional) return;
+    if (openingBookingOfferingId) return;
+    if (paymentRegion.region === 'UNKNOWN') return;
+
+    setOpeningBookingOfferingId(offering.id);
+    router.push({
+      pathname: '/(user)/bookings/new',
+      params: {
+        professionalId: professional.id,
+        professionalName: professional.name,
+        offeringId: offering.id,
+      },
+    } as any);
+    setOpeningBookingOfferingId(null);
+  }
+
   return (
     <AppScreen scroll contentPadding={0}>
       <View style={styles.page}>
         <LinearGradient
-          colors={["#315885", "#3D6A9A"]}
+          colors={['#315885', '#3D6A9A']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.hero}
@@ -155,7 +200,7 @@ export default function ProfessionalProfileScreen() {
                 source={
                   professional.avatar
                     ? { uri: professional.avatar }
-                    : require("../../../../assets/no_image.jpg")
+                    : require('../../../../assets/no_image.jpg')
                 }
                 style={styles.avatar}
               />
@@ -185,12 +230,11 @@ export default function ProfessionalProfileScreen() {
                   professional.isOnline ? styles.statusOnlineText : styles.statusOfflineText,
                 ]}
               >
-                {professional.isOnline ? "En línea" : "Offline"}
+                {professional.isOnline ? 'En linea' : 'Offline'}
               </Text>
             </View>
           </View>
         </LinearGradient>
-
 
         <View style={styles.priceCardsRow}>
           <Pressable
@@ -199,73 +243,129 @@ export default function ProfessionalProfileScreen() {
             disabled={openingChat}
           >
             <Ionicons name="chatbubble-ellipses-outline" size={20} color="#FFFFFF" />
-            <Text style={[styles.priceTitle, { color: "#FFFFFF" }]}>Chat</Text>
+            <Text style={[styles.priceTitle, { color: '#FFFFFF' }]}>Chat</Text>
           </Pressable>
 
           <Pressable
             style={[
               styles.priceCard,
               styles.callCard,
-              requestingCall === "CALL" && styles.priceCardDisabled,
+              requestingCall === 'CALL' && styles.priceCardDisabled,
             ]}
-            onPress={() => handleStartCall("CALL")}
+            onPress={() => handleStartCall('CALL')}
             disabled={requestingCall !== null}
           >
             <Ionicons name="call-outline" size={20} color="#26A269" />
-            <Text style={[styles.priceTitle, { color: "#2F855A" }]}>Llamada</Text>
+            <Text style={[styles.priceTitle, { color: '#2F855A' }]}>Llamada</Text>
           </Pressable>
 
           <Pressable
             style={[
               styles.priceCard,
               styles.videoCard,
-              requestingCall === "VIDEO_CALL" && styles.priceCardDisabled,
+              requestingCall === 'VIDEO_CALL' && styles.priceCardDisabled,
             ]}
-            onPress={() => handleStartCall("VIDEO_CALL")}
+            onPress={() => handleStartCall('VIDEO_CALL')}
             disabled={requestingCall !== null}
           >
             <Ionicons name="videocam-outline" size={20} color="#7E6CCF" />
-            <Text style={[styles.priceTitle, { color: "#6C5BB6" }]}>Video</Text>
+            <Text style={[styles.priceTitle, { color: '#6C5BB6' }]}>Video</Text>
           </Pressable>
         </View>
 
         <View style={styles.tabsRow}>
           <Pressable
-            style={[styles.tabBtn, activeTab === "info" && styles.tabBtnActive]}
-            onPress={() => setActiveTab("info")}
+            style={[styles.tabBtn, activeTab === 'info' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('info')}
           >
-            <Text style={[styles.tabText, activeTab === "info" && styles.tabTextActive]}>
-              Información
-            </Text>
+            <Text style={[styles.tabText, activeTab === 'info' && styles.tabTextActive]}>Información</Text>
           </Pressable>
 
           <Pressable
-            style={[styles.tabBtn, activeTab === "reviews" && styles.tabBtnActive]}
-            onPress={() => setActiveTab("reviews")}
+            style={[styles.tabBtn, activeTab === 'reviews' && styles.tabBtnActive]}
+            onPress={() => setActiveTab('reviews')}
           >
-            <Text style={[styles.tabText, activeTab === "reviews" && styles.tabTextActive]}>
+            <Text style={[styles.tabText, activeTab === 'reviews' && styles.tabTextActive]}>
               Reseñas ({reviewCount})
             </Text>
           </Pressable>
         </View>
 
-        {activeTab === "info" ? (
+        {activeTab === 'info' ? (
           <>
             <AppCard>
-              <Text style={styles.blockTitle}>Sobre mí</Text>
+              <Text style={styles.blockTitle}>Sesiones disponibles</Text>
+
+              {offeringsLoading ? (
+                <Text style={styles.bio}>Cargando sesiones...</Text>
+              ) : offerings.length === 0 ? (
+                <Text style={styles.bio}>Este profesional aún no publicó sesiones reservables.</Text>
+              ) : (
+                <View style={styles.offeringsWrap}>
+                  {offerings.map((offering) => (
+                    <View key={offering.id} style={styles.offeringCard}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.offeringTitle}>{offering.title}</Text>
+                        {!!offering.description && (
+                          <Text style={styles.offeringDescription}>{offering.description}</Text>
+                        )}
+                        <Text style={styles.offeringMeta}>{offering.durationMinutes} min</Text>
+                      </View>
+
+                      <View style={styles.offeringRight}>
+                        {paymentRegion.currency === 'USD' ? (
+                          <Text style={styles.offeringPriceBob}>
+                            $ {Number(offering.priceUsd).toFixed(2)} USD
+                          </Text>
+                        ) : (
+                          <Text style={styles.offeringPriceBob}>
+                            Bs {Number(offering.priceBob).toFixed(2)}
+                          </Text>
+                        )}
+                        <Text style={styles.offeringPriceUsd}>
+                          {paymentRegion.region === 'UNKNOWN'
+                            ? 'Región de pago no disponible'
+                            : paymentRegion.currency === 'USD'
+                            ? `Equiv. Bs ${Number(offering.priceBob).toFixed(2)}`
+                            : `Equiv. $ ${Number(offering.priceUsd).toFixed(2)} USD`}
+                        </Text>
+                        <Pressable
+                          style={[
+                            styles.reserveBtn,
+                            paymentRegion.region === 'UNKNOWN' && styles.reserveBtnDisabled,
+                            openingBookingOfferingId === offering.id && styles.reserveBtnDisabled,
+                          ]}
+                          onPress={() => handleOpenBooking(offering)}
+                          disabled={openingBookingOfferingId !== null || paymentRegion.region === 'UNKNOWN'}
+                        >
+                          <Text style={styles.reserveBtnText}>Reservar</Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {!!offeringsError && <Text style={styles.errorText}>{offeringsError}</Text>}
+              {paymentRegion.region === 'UNKNOWN' && (
+                <Text style={styles.errorText}>
+                  No se pudo determinar tu región de pago. Completa tu perfil para reservar.
+                </Text>
+              )}
+            </AppCard>
+
+            <AppCard>
+              <Text style={styles.blockTitle}>Sobre mi</Text>
               <Text style={styles.bio}>
                 {professional.bio ||
-                  "Profesional de salud mental con enfoque clínico y orientado a resultados."}
+                  'Profesional de salud mental con enfoque clínico y orientado a resultados.'}
               </Text>
             </AppCard>
 
             <AppCard>
               <Text style={styles.blockTitle}>Especialidades</Text>
               <View style={styles.specialtiesWrap}>
-                {(professional.specialties.length > 0
-                  ? professional.specialties
-                  : ["Psicología clínica"]
-                ).map((item) => (
+                {(professional.specialties.length > 0 ? professional.specialties : ['Psicología clínica']).map((item) => (
                   <View key={item} style={styles.specialtyPill}>
                     <Text style={styles.specialtyPillText}>{item}</Text>
                   </View>
@@ -286,7 +386,7 @@ export default function ProfessionalProfileScreen() {
           disabled={openingChat}
         >
           <Ionicons name="chatbubble-ellipses-outline" size={18} color="#FFFFFF" />
-          <Text style={styles.chatBtnText}>{openingChat ? "Abriendo..." : "Iniciar chat"}</Text>
+          <Text style={styles.chatBtnText}>{openingChat ? 'Abriendo...' : 'Iniciar chat'}</Text>
         </Pressable>
       </View>
     </AppScreen>
@@ -296,76 +396,66 @@ export default function ProfessionalProfileScreen() {
 const styles = StyleSheet.create({
   center: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-
   loading: {
-    color: "#475569",
+    color: '#475569',
     fontFamily: appTheme.fonts.body,
     fontSize: 14,
   },
-
   page: {
     padding: 12,
     paddingBottom: 22,
     gap: 12,
     backgroundColor: appTheme.colors.background,
   },
-
   hero: {
     borderRadius: 26,
     paddingHorizontal: 14,
     paddingTop: 10,
     paddingBottom: 16,
   },
-
   topBar: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-
   topActions: {
-    flexDirection: "row",
+    flexDirection: 'row',
     gap: 8,
   },
-
   topIconBtn: {
     width: 34,
     height: 34,
     borderRadius: 11,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.18)",
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.18)',
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.16)",
+    borderColor: 'rgba(255,255,255,0.16)',
   },
-
   heroProfileRow: {
     marginTop: 12,
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
   },
-
   avatarFrame: {
     width: 86,
     height: 86,
     borderRadius: 22,
     padding: 4,
-    backgroundColor: "rgba(255,255,255,0.75)",
+    backgroundColor: 'rgba(255,255,255,0.75)',
   },
-
   avatar: {
-    width: "100%",
-    height: "100%",
+    width: '100%',
+    height: '100%',
     borderRadius: 18,
-    backgroundColor: "#DDE5EF",
+    backgroundColor: '#DDE5EF',
   },
-
   onlineDot: {
-    position: "absolute",
+    position: 'absolute',
     right: 2,
     bottom: 2,
     width: 14,
@@ -373,262 +463,245 @@ const styles = StyleSheet.create({
     borderRadius: 7,
     backgroundColor: appTheme.colors.success,
     borderWidth: 2,
-    borderColor: "#FFFFFF",
+    borderColor: '#FFFFFF',
   },
-
   name: {
-    color: "#FFFFFF",
+    color: '#FFFFFF',
     fontSize: 23,
     lineHeight: 30,
     fontFamily: appTheme.fonts.heading,
-    fontWeight: "700",
+    fontWeight: '700',
   },
-
   subtitle: {
     marginTop: 2,
-    color: "#D4E3F5",
+    color: '#D4E3F5',
     fontSize: 16,
     lineHeight: 22,
     fontFamily: appTheme.fonts.body,
-    fontWeight: "600",
+    fontWeight: '600',
   },
-
   ratingRow: {
     marginTop: 6,
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
   },
-
   star: {
-    color: "#F7C948",
+    color: '#F7C948',
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: '700',
   },
-
   ratingValue: {
-    color: "#FFFFFF",
+    color: '#FFFFFF',
     fontSize: 13,
     fontFamily: appTheme.fonts.body,
-    fontWeight: "700",
+    fontWeight: '700',
   },
-
   reviews: {
-    color: "#D5E2F2",
+    color: '#D5E2F2',
     fontSize: 12,
     fontFamily: appTheme.fonts.body,
   },
-
   statusBadge: {
     borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    alignSelf: "flex-start",
+    alignSelf: 'flex-start',
   },
-
   statusText: {
     fontSize: 11,
     fontFamily: appTheme.fonts.body,
-    fontWeight: "700",
+    fontWeight: '700',
   },
-
   statusOnline: {
-    backgroundColor: "#77C48F",
+    backgroundColor: '#77C48F',
   },
-
   statusOffline: {
-    backgroundColor: "#CBD5E1",
+    backgroundColor: '#CBD5E1',
   },
-
   statusOnlineText: {
-    color: "#F8FFF9",
+    color: '#F8FFF9',
   },
-
   statusOfflineText: {
-    color: "#334155",
+    color: '#334155',
   },
-
-  creditsCard: {
-    marginTop: -8,
-    borderRadius: 18,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 12,
-  },
-
-  creditInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-
-  creditIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#EAF3FE",
-    borderWidth: 1,
-    borderColor: "#D6E4F5",
-  },
-
-  creditLabel: {
-    color: "#475569",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 13,
-  },
-
-  creditValue: {
-    color: appTheme.colors.text,
-    fontFamily: appTheme.fonts.heading,
-    fontSize: 24,
-    fontWeight: "700",
-  },
-
-  creditBtn: {
-    borderRadius: 12,
-    backgroundColor: "#E6F0FA",
-    borderWidth: 1,
-    borderColor: "#CFE0F0",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-
-  creditBtnText: {
-    color: appTheme.colors.primary,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 16,
-    fontWeight: "700",
-  },
-
   priceCardsRow: {
-    flexDirection: "row",
+    flexDirection: 'row',
     gap: 8,
   },
-
   priceCard: {
     flex: 1,
     borderRadius: 16,
     borderWidth: 1,
     paddingVertical: 14,
-    alignItems: "center",
+    alignItems: 'center',
     gap: 4,
   },
-
   priceCardDisabled: {
     opacity: 0.6,
   },
-
   chatCard: {
-    backgroundColor: "#5B9BD5",
-    borderColor: "#5B9BD5",
+    backgroundColor: '#5B9BD5',
+    borderColor: '#5B9BD5',
   },
-
   callCard: {
-    backgroundColor: "#E9F7EF",
-    borderColor: "#BFE2CF",
+    backgroundColor: '#E9F7EF',
+    borderColor: '#BFE2CF',
   },
-
   videoCard: {
-    backgroundColor: "#F1EFFC",
-    borderColor: "#D6D2F1",
+    backgroundColor: '#F1EFFC',
+    borderColor: '#D6D2F1',
   },
-
   priceTitle: {
     fontFamily: appTheme.fonts.body,
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: '700',
   },
-
   tabsRow: {
-    flexDirection: "row",
+    flexDirection: 'row',
     gap: 8,
   },
-
   tabBtn: {
     flex: 1,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: appTheme.colors.border,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
     paddingVertical: 11,
   },
-
   tabBtnActive: {
     backgroundColor: appTheme.colors.primary,
     borderColor: appTheme.colors.primary,
   },
-
   tabText: {
-    color: "#475569",
+    color: '#475569',
     fontFamily: appTheme.fonts.body,
     fontSize: 15,
-    fontWeight: "600",
+    fontWeight: '600',
   },
-
   tabTextActive: {
-    color: "#FFFFFF",
-    fontWeight: "700",
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
-
   blockTitle: {
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.heading,
     fontSize: 20,
-    fontWeight: "700",
+    fontWeight: '700',
   },
-
   bio: {
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.body,
     lineHeight: 24,
     fontSize: 16,
   },
-
   specialtiesWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
-
   specialtyPill: {
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    backgroundColor: "#EDF4FB",
+    backgroundColor: '#EDF4FB',
     borderWidth: 1,
-    borderColor: "#D6E6F7",
+    borderColor: '#D6E6F7',
   },
-
   specialtyPillText: {
     color: appTheme.colors.primary,
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: '600',
   },
-
+  offeringsWrap: {
+    gap: 10,
+  },
+  offeringCard: {
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    padding: 10,
+    flexDirection: 'row',
+    gap: 10,
+  },
+  offeringTitle: {
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  offeringDescription: {
+    marginTop: 2,
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  offeringMeta: {
+    marginTop: 4,
+    color: '#475569',
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  offeringRight: {
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: 6,
+  },
+  offeringPriceBob: {
+    color: appTheme.colors.primary,
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  offeringPriceUsd: {
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 11,
+  },
+  reserveBtn: {
+    borderRadius: 10,
+    backgroundColor: appTheme.colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  reserveBtnDisabled: {
+    opacity: 0.6,
+  },
+  reserveBtnText: {
+    color: '#FFFFFF',
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  errorText: {
+    marginTop: 8,
+    color: appTheme.colors.danger,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+  },
   chatBtn: {
     marginTop: 2,
     borderRadius: 14,
     backgroundColor: appTheme.colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
     gap: 8,
     paddingVertical: 13,
   },
-
   chatBtnDisabled: {
     opacity: 0.6,
   },
-
   chatBtnText: {
-    color: "#FFFFFF",
+    color: '#FFFFFF',
     fontFamily: appTheme.fonts.body,
     fontSize: 15,
-    fontWeight: "700",
+    fontWeight: '700',
   },
 });
+

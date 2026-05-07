@@ -13,7 +13,7 @@ type Item = {
 
 const items: Item[] = [
   { key: "home", label: "Inicio", icon: House, route: "/(user)/home" },
-  { key: "sessions", label: "Sesiones", icon: CalendarDays, route: "/(user)/sessions" },
+  { key: "bookings", label: "Reservas", icon: CalendarDays, route: "/(user)/bookings" },
   { key: "professionals", label: "Buscar", icon: Search, route: "/(user)/professionals" },
   { key: "chats", label: "Chats", icon: MessageCircle, route: "/(user)/chats" },
   { key: "profile", label: "Perfil", icon: User, route: "/(user)/profile" },

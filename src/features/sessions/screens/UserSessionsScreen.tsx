@@ -138,7 +138,7 @@ export default function UserSessionsScreen() {
       <View style={styles.stateWrap}>
         <Ionicons name="calendar-outline" size={40} color={appTheme.colors.textMuted} />
         <Text style={styles.emptyTitle}>Sin sesiones disponibles</Text>
-        <Text style={styles.muted}>Vuelve pronto, los psicologos publicaran nuevas sesiones.</Text>
+        <Text style={styles.muted}>Vuelve pronto, los psicólogos publicarán nuevas sesiones.</Text>
       </View>
     );
     return (
@@ -179,7 +179,7 @@ export default function UserSessionsScreen() {
               </View>
               <View style={[styles.cta, isActive && styles.ctaActive]}>
                 <Text style={[styles.ctaText, isActive && styles.ctaTextActive]}>
-                  {isActive ? "Unirse ahora" : "Reservar sesion"}
+                  {isActive ? "Unirse ahora" : "Reservar sesión"}
                 </Text>
                 <Ionicons name={isActive ? "flash" : "arrow-forward"} size={14} color={isActive ? "#FFFFFF" : appTheme.colors.primary} />
               </View>
@@ -197,8 +197,8 @@ export default function UserSessionsScreen() {
     if (myReservations.length === 0) return (
       <View style={styles.stateWrap}>
         <Ionicons name="receipt-outline" size={40} color={appTheme.colors.textMuted} />
-        <Text style={styles.emptyTitle}>Sin reservas aun</Text>
-        <Text style={styles.muted}>Cuando pagues una sesion aparecera aqui.</Text>
+        <Text style={styles.emptyTitle}>Sin reservas aún</Text>
+        <Text style={styles.muted}>Cuando pagues una sesión aparecerá aquí.</Text>
         <Pressable style={styles.goAvailableBtn} onPress={() => goToTab(0)}>
           <Text style={styles.goAvailableBtnText}>Ver sesiones disponibles</Text>
         </Pressable>
@@ -258,8 +258,8 @@ export default function UserSessionsScreen() {
     if (history.length === 0) return (
       <View style={styles.stateWrap}>
         <Ionicons name="time-outline" size={40} color={appTheme.colors.textMuted} />
-        <Text style={styles.emptyTitle}>Sin historial aun</Text>
-        <Text style={styles.muted}>Aqui apareceran tus sesiones completadas o canceladas.</Text>
+        <Text style={styles.emptyTitle}>Sin historial aún</Text>
+        <Text style={styles.muted}>Aquí aparecerán tus sesiones completadas o canceladas.</Text>
       </View>
     );
     return (
@@ -315,7 +315,7 @@ export default function UserSessionsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Sesiones</Text>
-        <Text style={styles.subtitle}>Conecta con un psicologo</Text>
+        <Text style={styles.subtitle}>Conecta con un psicólogo</Text>
       </View>
 
       {/* Tabs */}

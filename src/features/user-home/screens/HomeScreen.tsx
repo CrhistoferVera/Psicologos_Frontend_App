@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,34 +16,67 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { appTheme } from "../../../theme/appTheme";
 import { useAuth } from "../../../context/AuthContext";
 import { getMyChats } from "../../../api/messages";
+import {
+  getProfessionalSessionOfferings,
+  type ProfessionalSessionOffering,
+} from "../../../api/bookings";
+import { resolvePaymentRegion } from "../../../utils/paymentRegion";
 import { getProfessionals } from "../../professionals/api/professionalsApi";
 import type { Professional } from "../../professionals/types";
 import ProfessionalFeedCard from "../components/ProfessionalFeedCard";
 
 const PAGE_SIZE = 10;
+const FEED_REFRESH_TTL_MS = 60 * 1000;
+
+type OfferingsByProfessional = Record<string, ProfessionalSessionOffering[]>;
+type OfferingsLoadingByProfessional = Record<string, boolean>;
 
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [chatLoadingId, setChatLoadingId] = useState<string | null>(null);
+  const [reserveLoadingKey, setReserveLoadingKey] = useState<string | null>(null);
   const [feedHeight, setFeedHeight] = useState(0);
+  const [offeringsByProfessional, setOfferingsByProfessional] = useState<OfferingsByProfessional>({});
+  const [offeringsLoadingByProfessional, setOfferingsLoadingByProfessional] =
+    useState<OfferingsLoadingByProfessional>({});
 
   const loadingRef = useRef(false);
   const feedRef = useRef<FlatList<Professional> | null>(null);
+  const wrapPendingRef = useRef(false);
+  const lastLoadedAtRef = useRef(0);
+
+  const paymentRegion = useMemo(
+    () =>
+      resolvePaymentRegion({
+        billingRegion: user?.billingRegion,
+        preferredCurrency: user?.preferredCurrency,
+        phoneCountryIso: user?.phoneCountryIso,
+      }),
+    [user?.billingRegion, user?.preferredCurrency, user?.phoneCountryIso],
+  );
 
   async function loadFeed(targetPage: number, reset: boolean) {
     if (loadingRef.current) return;
     loadingRef.current = true;
+
     try {
-      if (reset) setLoading(true);
-      else setLoadingMore(true);
+      if (reset) {
+        setLoading(true);
+        wrapPendingRef.current = false;
+      } else {
+        setLoadingMore(true);
+      }
+
       const results = await getProfessionals({ page: targetPage, limit: PAGE_SIZE });
+
       if (reset) {
         setProfessionals(results);
       } else {
@@ -53,8 +86,10 @@ export default function HomeScreen() {
           return [...prev, ...fresh];
         });
       }
+
       setHasMore(results.length === PAGE_SIZE);
       setPage(targetPage);
+      lastLoadedAtRef.current = Date.now();
     } catch {
       // silent
     } finally {
@@ -66,9 +101,61 @@ export default function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      void loadFeed(1, true);
-    }, []),
+      const stale = Date.now() - lastLoadedAtRef.current > FEED_REFRESH_TTL_MS;
+      if (professionals.length === 0 || stale) {
+        void loadFeed(1, true);
+      }
+    }, [professionals.length]),
   );
+
+  useEffect(() => {
+    if (professionals.length === 0) return;
+
+    const idsToFetch = professionals
+      .map((professional) => professional.id)
+      .filter(
+        (professionalId) =>
+          !(professionalId in offeringsByProfessional) &&
+          offeringsLoadingByProfessional[professionalId] !== true,
+      );
+
+    if (idsToFetch.length === 0) return;
+
+    setOfferingsLoadingByProfessional((prev) => {
+      const next = { ...prev };
+      idsToFetch.forEach((id) => {
+        next[id] = true;
+      });
+      return next;
+    });
+
+    void Promise.all(
+      idsToFetch.map(async (professionalId) => {
+        try {
+          const offerings = await getProfessionalSessionOfferings(professionalId);
+          return { professionalId, offerings };
+        } catch {
+          return { professionalId, offerings: [] as ProfessionalSessionOffering[] };
+        }
+      }),
+    ).then((results) => {
+      setOfferingsByProfessional((prev) => {
+        const next = { ...prev };
+        results.forEach(({ professionalId, offerings }) => {
+          next[professionalId] = offerings;
+        });
+        return next;
+      });
+
+      setOfferingsLoadingByProfessional((prev) => {
+        const next = { ...prev };
+        results.forEach(({ professionalId }) => {
+          next[professionalId] = false;
+        });
+        return next;
+      });
+    });
+  }, [professionals, offeringsByProfessional, offeringsLoadingByProfessional]);
 
   function handleLoadMore() {
     if (!hasMore || loadingMore || loadingRef.current) return;
@@ -76,11 +163,29 @@ export default function HomeScreen() {
   }
 
   function handleMomentumEnd(event: NativeSyntheticEvent<NativeScrollEvent>) {
-    if (hasMore || loadingMore || professionals.length <= 1 || CARD_HEIGHT <= 0) return;
-    const offsetY = event.nativeEvent.contentOffset.y;
-    const currentIndex = Math.round(offsetY / CARD_HEIGHT);
-    if (currentIndex < professionals.length - 1) return;
+    const itemCount = professionals.length;
 
+    if (hasMore || loadingMore || itemCount <= 1 || CARD_HEIGHT <= 0) {
+      wrapPendingRef.current = false;
+      return;
+    }
+
+    const offsetY = Math.max(0, event.nativeEvent.contentOffset.y);
+    const rawIndex = offsetY / CARD_HEIGHT;
+    const currentIndex = Math.min(itemCount - 1, Math.floor(rawIndex + 0.0001));
+    const lastIndex = itemCount - 1;
+
+    if (currentIndex < lastIndex) {
+      wrapPendingRef.current = false;
+      return;
+    }
+
+    if (!wrapPendingRef.current) {
+      wrapPendingRef.current = true;
+      return;
+    }
+
+    wrapPendingRef.current = false;
     requestAnimationFrame(() => {
       feedRef.current?.scrollToIndex({ index: 0, animated: false });
     });
@@ -93,8 +198,26 @@ export default function HomeScreen() {
     } as any);
   }
 
+  function handleReserve(pro: Professional, offeringId: string) {
+    if (paymentRegion.region === "UNKNOWN") return;
+    const reserveKey = `${pro.id}:${offeringId}`;
+    if (reserveLoadingKey) return;
+
+    setReserveLoadingKey(reserveKey);
+    router.push({
+      pathname: "/(user)/bookings/new",
+      params: {
+        professionalId: pro.id,
+        professionalName: pro.name,
+        offeringId,
+      },
+    } as any);
+    setReserveLoadingKey(null);
+  }
+
   async function handleChat(pro: Professional) {
     if (chatLoadingId) return;
+
     setChatLoadingId(pro.id);
     try {
       const chats = await getMyChats();
@@ -129,7 +252,6 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.root}>
-      {/* ── Header ── */}
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <View style={styles.headerContent}>
           <View style={{ flex: 1 }}>
@@ -147,7 +269,6 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* ── Feed ── */}
       <View
         style={styles.feedContainer}
         onLayout={(e) => {
@@ -181,13 +302,23 @@ export default function HomeScreen() {
                 cardHeight={CARD_HEIGHT}
                 onProfilePress={() => handleProfile(item)}
                 onChatPress={() => handleChat(item)}
+                onReservePress={(offeringId) => handleReserve(item, offeringId)}
+                offerings={offeringsByProfessional[item.id] ?? null}
+                offeringsLoading={offeringsLoadingByProfessional[item.id] === true}
+                reserveLoadingOfferingId={
+                  reserveLoadingKey?.startsWith(`${item.id}:`)
+                    ? reserveLoadingKey.split(":")[1]
+                    : null
+                }
+                preferredCurrency={paymentRegion.currency}
+                canReserve={paymentRegion.region !== "UNKNOWN"}
                 chatLoading={chatLoadingId === item.id}
               />
             )}
             snapToInterval={CARD_HEIGHT}
             snapToAlignment="start"
             decelerationRate="fast"
-            disableIntervalMomentum={true}
+            disableIntervalMomentum
             showsVerticalScrollIndicator={false}
             onEndReached={handleLoadMore}
             onEndReachedThreshold={0.5}
@@ -224,14 +355,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#0a0f1a",
   },
-
-  // ── Header ──
   header: {
     backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
     borderBottomColor: appTheme.colors.border,
   },
-
   headerContent: {
     flexDirection: "row",
     alignItems: "center",
@@ -239,21 +367,18 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     gap: 10,
   },
-
   headerGreeting: {
     color: appTheme.colors.textMuted,
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
     letterSpacing: 0.2,
   },
-
   headerTitle: {
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.heading,
     fontSize: 20,
     fontWeight: "700",
   },
-
   headerIconBtn: {
     width: 40,
     height: 40,
@@ -264,12 +389,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-
-  // ── Feed ──
   feedContainer: {
     flex: 1,
   },
-
   feedState: {
     flex: 1,
     alignItems: "center",
@@ -277,7 +399,6 @@ const styles = StyleSheet.create({
     gap: 14,
     paddingHorizontal: 32,
   },
-
   feedStateText: {
     color: "rgba(255,255,255,0.50)",
     fontFamily: appTheme.fonts.body,
@@ -285,7 +406,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 21,
   },
-
   retryBtn: {
     marginTop: 4,
     paddingHorizontal: 22,
@@ -293,14 +413,12 @@ const styles = StyleSheet.create({
     borderRadius: 99,
     backgroundColor: appTheme.colors.primary,
   },
-
   retryText: {
     color: "#FFFFFF",
     fontFamily: appTheme.fonts.heading,
     fontSize: 15,
     fontWeight: "700",
   },
-
   footerLoader: {
     alignItems: "center",
     justifyContent: "center",

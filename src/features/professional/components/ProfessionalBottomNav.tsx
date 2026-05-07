@@ -16,8 +16,9 @@ const professionalAccent = "#FFFFFF";
 const items: NavItem[] = [
   { key: "dashboard", label: "Dashboard", route: "/(professional)/dashboard", icon: LayoutDashboard },
   { key: "sessions", label: "Sesiones", route: "/(professional)/sessions", icon: CalendarDays },
+  { key: "availability", label: "Disponib.", route: "/(professional)/availability", icon: CalendarDays },
+  { key: "bookings", label: "Agenda", route: "/(professional)/bookings", icon: WalletCards },
   { key: "messages", label: "Mensajes", route: "/(professional)/messages", icon: MessageCircle },
-  { key: "earnings", label: "Ganancias", route: "/(professional)/earnings", icon: WalletCards },
   { key: "profile", label: "Perfil", route: "/(professional)/profile", icon: UserRoundCog },
 ];
 

@@ -65,7 +65,7 @@ export default function SessionDetailScreen() {
       setSession(s);
       setPaymentStatus(ps);
     } catch {
-      Alert.alert("Error", "No se pudo cargar la sesion.");
+      Alert.alert("Error", "No se pudo cargar la sesión.");
     } finally {
       setLoading(false);
     }
@@ -180,7 +180,7 @@ export default function SessionDetailScreen() {
           <Pressable style={styles.backBtn} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={18} color={appTheme.colors.text} />
           </Pressable>
-          <Text style={styles.title}>Detalle de sesion</Text>
+          <Text style={styles.title}>Detalle de sesión</Text>
         </View>
 
         <AppCard style={styles.infoCard}>
@@ -206,7 +206,7 @@ export default function SessionDetailScreen() {
           <AppCard style={styles.approvedCard}>
             <Ionicons name="checkmark-circle" size={28} color={appTheme.colors.success} />
             <Text style={styles.approvedText}>Pago confirmado</Text>
-            <Text style={styles.approvedSub}>Ya puedes chatear, llamar o videollamar con el psicologo.</Text>
+            <Text style={styles.approvedSub}>Ya puedes chatear, llamar o videollamar con el psicólogo.</Text>
             <Pressable style={styles.enterBtn} onPress={() => void handleGoToChat()}>
               <Ionicons name="chatbubble-ellipses-outline" size={16} color="#FFFFFF" />
               <Text style={styles.enterBtnText}>Ir al chat</Text>
@@ -267,7 +267,7 @@ export default function SessionDetailScreen() {
             )}
 
             {!region.canUseQr && !region.canUseStripe && (
-              <Text style={styles.muted}>No hay metodos de pago disponibles para tu region.</Text>
+              <Text style={styles.muted}>No hay métodos de pago disponibles para tu región.</Text>
             )}
           </AppCard>
         )}

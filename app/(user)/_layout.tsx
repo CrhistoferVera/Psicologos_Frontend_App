@@ -6,7 +6,11 @@ import { appTheme } from "../../src/theme/appTheme";
 
 export default function UserLayout() {
   const pathname = usePathname();
-  const hideNav = pathname.includes("/chats/") || pathname.includes("/professionals/");
+  const hideNav =
+    pathname.includes("/chats/") ||
+    pathname.includes("/professionals/") ||
+    pathname.includes("/bookings/new") ||
+    pathname.includes("/bookings/payment/");
   const { user, isHydrated } = useAuth();
 
   if (!isHydrated) {
