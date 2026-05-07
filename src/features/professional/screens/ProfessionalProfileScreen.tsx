@@ -10,13 +10,11 @@ import AppScreen from "../../../components/ui/AppScreen";
 import { useAuth } from "../../../context/AuthContext";
 import { appTheme } from "../../../theme/appTheme";
 import {
-  getMyProfessionalPrices,
   getMyProfessionalProfile,
   getMyProfessionalSpecialtyIds,
   getProfessionalSpecialtiesCatalog,
   updateMyProfessionalProfile,
   updateMyProfessionalSpecialties,
-  upsertProfessionalPrices,
 } from "../api/professionalApi";
 
 export default function ProfessionalProfileScreen() {
@@ -33,14 +31,6 @@ export default function ProfessionalProfileScreen() {
   const [bio, setBio] = useState("");
   const [isOnline, setIsOnline] = useState(false);
 
-  const [chatPrice, setChatPrice] = useState("0");
-  const [callPrice, setCallPrice] = useState("0");
-  const [videoPrice, setVideoPrice] = useState("0");
-
-  const [monFriHours, setMonFriHours] = useState("09:00 - 19:00");
-  const [satHours, setSatHours] = useState("09:00 - 19:00");
-  const [sunHours, setSunHours] = useState("No disponible");
-
   const [catalog, setCatalog] = useState<{ id: string; name: string }[]>([]);
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
 
@@ -50,17 +40,14 @@ export default function ProfessionalProfileScreen() {
   const [editingBio, setEditingBio] = useState(false);
   const [editingSpecialties, setEditingSpecialties] = useState(false);
 
-  const [editingAvailability, setEditingAvailability] = useState(false);
-
   useEffect(() => {
     void (async () => {
       try {
         setLoading(true);
         setError(null);
 
-        const [profile, prices, specialtiesCatalog, mySpecialtyIds] = await Promise.all([
+        const [profile, specialtiesCatalog, mySpecialtyIds] = await Promise.all([
           getMyProfessionalProfile(),
-          getMyProfessionalPrices(),
           getProfessionalSpecialtiesCatalog(),
           getMyProfessionalSpecialtyIds(),
         ]);
@@ -71,15 +58,6 @@ export default function ProfessionalProfileScreen() {
         setBio(profile.bio || "");
         setIsOnline(Boolean(profile.isOnline));
         setAvatarUrl(profile.avatarUrl ?? null);
-
-        const availability = profile.availability ?? {};
-        setMonFriHours(String((availability as any).monFri ?? "09:00 - 19:00"));
-        setSatHours(String((availability as any).sat ?? "09:00 - 19:00"));
-        setSunHours(String((availability as any).sun ?? "No disponible"));
-
-        setChatPrice(String(prices.chat ?? 0));
-        setCallPrice(String(prices.call ?? 0));
-        setVideoPrice(String(prices.video ?? 0));
 
         const trimmed = specialtiesCatalog.slice(0, 48).map((item) => ({ id: item.id, name: item.name }));
         setCatalog(trimmed);
@@ -102,7 +80,7 @@ export default function ProfessionalProfileScreen() {
 
   const displayName = useMemo(() => {
     const full = `${firstName} ${lastName}`.trim();
-    if (!full) return "Professional";
+    if (!full) return "Profesional";
     return full.startsWith("Dra.") || full.startsWith("Dr.") ? full : `Dra. ${full}`;
   }, [firstName, lastName]);
 
@@ -138,20 +116,8 @@ export default function ProfessionalProfileScreen() {
   }
 
   async function handleSave() {
-    const chat = Number(chatPrice);
-    const call = Number(callPrice);
-    const video = Number(videoPrice);
-
-    if (!Number.isFinite(chat) || chat <= 0.1) {
-      setError("La tarifa de mensajes debe ser mayor a 0.1 créditos.");
-      return;
-    }
-    if (!Number.isFinite(call) || call <= 0.5) {
-      setError("La tarifa de llamadas debe ser mayor a 0.5 créditos.");
-      return;
-    }
-    if (!Number.isFinite(video) || video <= 1) {
-      setError("La tarifa de videollamadas debe ser mayor a 1 crédito.");
+    if (!firstName.trim() || !lastName.trim()) {
+      setError("Nombre y apellido son obligatorios.");
       return;
     }
 
@@ -166,27 +132,15 @@ export default function ProfessionalProfileScreen() {
           username: username.trim(),
           bio: bio.trim(),
           isOnline,
-          availability: {
-            monFri: monFriHours.trim(),
-            sat: satHours.trim(),
-            sun: sunHours.trim(),
-          },
         },
         avatarFile,
       );
-
-      await upsertProfessionalPrices({
-        chat,
-        call,
-        video,
-      });
 
       await updateMyProfessionalSpecialties(selectedSpecialties);
 
       Alert.alert("Perfil actualizado", "Tus cambios se guardaron correctamente.");
       setEditingBio(false);
       setEditingSpecialties(false);
-      setEditingAvailability(false);
     } catch (err: any) {
       const raw = err?.response?.data?.message ?? err?.message;
       setError(Array.isArray(raw) ? raw.join(", ") : raw || "No se pudo guardar tu perfil.");
@@ -208,8 +162,8 @@ export default function ProfessionalProfileScreen() {
             <Ionicons name="arrow-back" size={18} color={appTheme.colors.text} />
           </Pressable>
           <Text style={styles.headerTitle}>Mi perfil</Text>
-          <Pressable onPress={() => Alert.alert("Próximamente", "Vista pública en la siguiente iteración.")}> 
-            <Text style={styles.publicLink}>Vista pública</Text>
+          <Pressable onPress={() => Alert.alert("Proximamente", "Vista publica en la siguiente iteracion.")}> 
+            <Text style={styles.publicLink}>Vista publica</Text>
           </Pressable>
         </View>
 
@@ -226,7 +180,7 @@ export default function ProfessionalProfileScreen() {
 
           <View style={{ flex: 1 }}>
             <Text style={styles.name}>{displayName}</Text>
-            <Text style={styles.roleSubtitle}>{visibleSpecialties[0] ?? "Psicología clínica"}</Text>
+            <Text style={styles.roleSubtitle}>{visibleSpecialties[0] ?? "Psicologia clinica"}</Text>
             <View style={styles.verifiedPill}>
               <Text style={styles.verifiedText}>Verificada</Text>
             </View>
@@ -250,7 +204,7 @@ export default function ProfessionalProfileScreen() {
                 value={bio}
                 onChangeText={setBio}
                 multiline
-                placeholder="Describe tu enfoque terapéutico"
+                placeholder="Describe tu enfoque terapeutico"
                 placeholderTextColor="#7A8EA8"
                 style={styles.textArea}
               />
@@ -264,7 +218,7 @@ export default function ProfessionalProfileScreen() {
             </View>
           ) : (
             <Text style={styles.cardBodyText} numberOfLines={4}>
-              {bio || "Agrega una descripción profesional para que los clientes conozcan tu enfoque terapéutico."}
+              {bio || "Agrega una descripcion profesional para que los clientes conozcan tu enfoque terapeutico."}
             </Text>
           )}
         </AppCard>
@@ -291,129 +245,37 @@ export default function ProfessionalProfileScreen() {
 
         <AppCard style={styles.sectionCard}>
           <View style={styles.cardHead}>
-            <Text style={styles.cardTitle}>Tarifas</Text>
+            <Text style={styles.cardTitle}>Estado de disponibilidad</Text>
           </View>
 
-          <View style={styles.rateRows}>
-            <View style={styles.rateField}>
-              <View style={styles.rateFieldHead}>
-                <Text style={styles.rateFieldLabel}>Costo por mensaje</Text>
-                <View style={styles.rateUnitBadge}>
-                  <Text style={styles.rateUnitText}>Créditos</Text>
-                </View>
-              </View>
-              <TextInput
-                value={chatPrice}
-                onChangeText={setChatPrice}
-                style={styles.inlineInput}
-                keyboardType="decimal-pad"
-                placeholder="Ej: 15"
-                placeholderTextColor="#7A8EA8"
-              />
-            </View>
-            <Text style={styles.rateHint}>Debe ser mayor a 0.1 créditos.</Text>
-            <View style={styles.rateField}>
-              <View style={styles.rateFieldHead}>
-                <Text style={styles.rateFieldLabel}>Costo por llamada</Text>
-                <View style={styles.rateUnitBadge}>
-                  <Text style={styles.rateUnitText}>Créditos/min</Text>
-                </View>
-              </View>
-              <TextInput
-                value={callPrice}
-                onChangeText={setCallPrice}
-                style={styles.inlineInput}
-                keyboardType="decimal-pad"
-                placeholder="Ej: 20"
-                placeholderTextColor="#7A8EA8"
-              />
-            </View>
-            <Text style={styles.rateHint}>Debe ser mayor a 0.5 créditos.</Text>
-            <View style={styles.rateField}>
-              <View style={styles.rateFieldHead}>
-                <Text style={styles.rateFieldLabel}>Costo por videollamada</Text>
-                <View style={styles.rateUnitBadge}>
-                  <Text style={styles.rateUnitText}>Créditos/min</Text>
-                </View>
-              </View>
-              <TextInput
-                value={videoPrice}
-                onChangeText={setVideoPrice}
-                style={styles.inlineInput}
-                keyboardType="decimal-pad"
-                placeholder="Ej: 25"
-                placeholderTextColor="#7A8EA8"
-              />
-            </View>
-            <Text style={styles.rateHint}>Debe ser mayor a 1 crédito.</Text>
-          </View>
-        </AppCard>
-
-        <AppCard style={styles.sectionCard}>
-          <View style={styles.cardHead}>
-            <Text style={styles.cardTitle}>Disponibilidad</Text>
-            <Pressable onPress={() => setEditingAvailability((prev) => !prev)}>
-              <Text style={styles.editLink}>{editingAvailability ? "Listo" : "Editar"}</Text>
-            </Pressable>
+          <View style={styles.onlineRow}>
+            <Text style={styles.onlineLabel}>Estado en linea</Text>
+            <Switch
+              value={isOnline}
+              onValueChange={setIsOnline}
+              trackColor={{ false: "#CFD8E5", true: "#A7D6BB" }}
+              thumbColor="#FFFFFF"
+            />
           </View>
 
-          {editingAvailability ? (
-            <View style={{ gap: 8 }}>
-              <TextInput
-                value={monFriHours}
-                onChangeText={setMonFriHours}
-                placeholder="Lun-Vie"
-                placeholderTextColor="#7A8EA8"
-                style={styles.inlineInput}
-              />
-              <TextInput
-                value={satHours}
-                onChangeText={setSatHours}
-                placeholder="Sáb"
-                placeholderTextColor="#7A8EA8"
-                style={styles.inlineInput}
-              />
-              <TextInput
-                value={sunHours}
-                onChangeText={setSunHours}
-                placeholder="Dom"
-                placeholderTextColor="#7A8EA8"
-                style={styles.inlineInput}
-              />
+          <View style={styles.divider} />
 
-              <View style={styles.onlineRow}>
-                <Text style={styles.onlineLabel}>Estado en línea</Text>
-                <Switch
-                  value={isOnline}
-                  onValueChange={setIsOnline}
-                  trackColor={{ false: "#CFD8E5", true: "#A7D6BB" }}
-                  thumbColor="#FFFFFF"
-                />
-              </View>
-            </View>
-          ) : (
-            <View style={styles.scheduleRows}>
-              <View style={styles.scheduleRow}>
-                <Text style={styles.scheduleLeft}>Lun–Vie</Text>
-                <Text style={styles.scheduleRight}>{monFriHours}</Text>
-              </View>
-              <View style={styles.scheduleRow}>
-                <Text style={styles.scheduleLeft}>Sáb</Text>
-                <Text style={styles.scheduleRight}>{satHours}</Text>
-              </View>
-              <View style={styles.scheduleRow}>
-                <Text style={styles.scheduleLeft}>Dom</Text>
-                <Text style={[styles.scheduleRight, { color: "#B7C4D4" }]}>{sunHours}</Text>
-              </View>
-            </View>
-          )}
+          <Text style={styles.cardBodyText}>Gestiona tus sesiones en Mis sesiones.</Text>
+          <Pressable style={styles.linkBtn} onPress={() => router.push("/(professional)/sessions" as any)}>
+            <Text style={styles.linkBtnText}>Ir a Mis sesiones</Text>
+          </Pressable>
+
+          <Text style={styles.cardBodyText}>Gestiona tus horarios en Disponibilidad.</Text>
+          <Pressable style={styles.linkBtn} onPress={() => router.push("/(professional)/availability" as any)}>
+            <Text style={styles.linkBtnText}>Ir a Disponibilidad</Text>
+          </Pressable>
         </AppCard>
 
         <AppButton title="Guardar cambios" onPress={handleSave} loading={saving} />
 
         <Pressable style={styles.logoutBtn} onPress={() => void handleLogout()}>
           <Ionicons name="log-out-outline" size={18} color="#DC2626" />
-          <Text style={styles.logoutText}>Cerrar sesión</Text>
+          <Text style={styles.logoutText}>Cerrar sesion</Text>
         </Pressable>
       </View>
     </AppScreen>
@@ -588,113 +450,6 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.body,
     fontSize: 14,
   },
-  priceRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  priceCard: {
-    flex: 1,
-    backgroundColor: appTheme.colors.surface,
-    borderRadius: appTheme.radius.lg,
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
-    paddingVertical: 14,
-    alignItems: "center",
-    gap: 3,
-  },
-  priceAmount: {
-    color: "#000000",
-    fontFamily: appTheme.fonts.heading,
-    fontSize: 20,
-    fontWeight: "800",
-  },
-  priceLabel: {
-    color: appTheme.colors.textMuted,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 11,
-  },
-  priceSuffix: {
-    color: appTheme.colors.primary,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 10,
-    fontWeight: "600",
-  },
-  rateRows: {
-    gap: 8,
-  },
-  rateField: {
-    gap: 6,
-  },
-  rateFieldHead: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  rateFieldLabel: {
-    color: "#394F67",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  rateUnitBadge: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#D6E6F7",
-    backgroundColor: "#EDF4FB",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  rateUnitText: {
-    color: appTheme.colors.primary,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  rateRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  rateLeft: {
-    color: "#394F67",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 14,
-  },
-  rateRight: {
-    color: appTheme.colors.primary,
-    fontFamily: appTheme.fonts.heading,
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  rateHint: {
-    marginTop: -2,
-    color: appTheme.colors.textMuted,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 12,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#ECF1F7",
-  },
-  scheduleRows: {
-    gap: 10,
-  },
-  scheduleRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  scheduleLeft: {
-    color: "#394F67",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 14,
-  },
-  scheduleRight: {
-    color: "#69AF8A",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 14,
-    fontWeight: "600",
-  },
   onlineRow: {
     marginTop: 4,
     flexDirection: "row",
@@ -706,6 +461,25 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.body,
     fontSize: 14,
     fontWeight: "600",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#ECF1F7",
+  },
+  linkBtn: {
+    alignSelf: "flex-start",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: appTheme.colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    backgroundColor: "#FFFFFF",
+  },
+  linkBtnText: {
+    color: appTheme.colors.primary,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 13,
+    fontWeight: "700",
   },
   logoutBtn: {
     marginHorizontal: 14,
