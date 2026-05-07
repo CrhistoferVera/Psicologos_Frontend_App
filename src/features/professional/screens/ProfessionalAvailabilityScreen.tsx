@@ -61,7 +61,8 @@ export default function ProfessionalAvailabilityScreen() {
 
     try {
       const data = await getAvailabilityRules();
-      setItems(Array.isArray(data) ? data : []);
+      const activeRules = Array.isArray(data) ? data.filter((rule) => rule?.isActive !== false) : [];
+      setItems(activeRules);
     } catch {
       Alert.alert('Error', 'No se pudieron cargar tus reglas de disponibilidad.');
     } finally {

@@ -58,7 +58,9 @@ export default function ChatListScreen() {
           apiGetMyActiveSessions().catch(() => []),
         ]);
         setChats(data);
-        setActiveSessionProfIds(new Set(activeSessions.map((s) => s.professionalUserId)));
+        setActiveSessionProfIds(
+          new Set(activeSessions.map((s) => s.professional?.id).filter((id): id is string => Boolean(id))),
+        );
       } catch {
         setError("No se pudieron cargar tus chats.");
       } finally {

@@ -33,7 +33,7 @@ export default function UserSettingsScreen() {
         setLastName(profile.lastName ?? "");
         setEmail(profile.email ?? "");
         setPhoneNumber(profile.phoneNumber ?? "");
-        const profileData = profile.userProfile ?? profile.UserProfile ?? null;
+        const profileData = profile.UserProfile ?? null;
         setUserName(profileData?.userName ?? "");
         setBio(profileData?.bio ?? "");
         setAvatarUrl(profileData?.avatarUrl ?? null);

@@ -1,25 +1,35 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Alert, Image, Pressable, StyleSheet, Switch, Text, View } from "react-native";
+import { Pressable, StyleSheet, Switch, Text, View } from "react-native";
 import AppCard from "../../../components/ui/AppCard";
 import AppScreen from "../../../components/ui/AppScreen";
 import { appTheme } from "../../../theme/appTheme";
 import { getProfessionalDashboardSnapshot, updateMyProfessionalProfile } from "../api/professionalApi";
+import { getProfessionalBookings, type ProfessionalBooking } from "../../../api/sessionOfferings";
 
 function isSameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
-function formatClock(iso?: string) {
-  if (!iso) return "11:00";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "11:00";
-  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+function formatMoney(value: number, currency: "BOB" | "USD" = "BOB") {
+  if (currency === "USD") {
+    return `$ ${Number(value || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+  return `Bs ${Number(value || 0).toLocaleString("es-BO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function formatMoney(value: number) {
-  return `$${Number(value || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+function formatBookingDate(iso?: string) {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString("es-BO", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
 }
 
 export default function ProfessionalDashboardScreen() {
@@ -30,6 +40,7 @@ export default function ProfessionalDashboardScreen() {
   const [summary, setSummary] = useState<any>(null);
   const [earnings, setEarnings] = useState<any>(null);
   const [chats, setChats] = useState<any[]>([]);
+  const [bookings, setBookings] = useState<ProfessionalBooking[]>([]);
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
   useEffect(() => {
@@ -40,11 +51,15 @@ export default function ProfessionalDashboardScreen() {
     try {
       setLoading(true);
       setError(null);
-      const data = await getProfessionalDashboardSnapshot();
+      const [data, bookingRows] = await Promise.all([
+        getProfessionalDashboardSnapshot(),
+        getProfessionalBookings().catch(() => [] as ProfessionalBooking[]),
+      ]);
       setProfile(data.profile);
       setSummary(data.summary);
       setEarnings(data.earnings);
       setChats(Array.isArray(data.chats) ? data.chats : []);
+      setBookings(Array.isArray(bookingRows) ? bookingRows : []);
     } catch {
       setError("No se pudo cargar el dashboard profesional.");
     } finally {
@@ -71,46 +86,46 @@ export default function ProfessionalDashboardScreen() {
     return full || "Professional";
   }, [profile?.firstName, profile?.lastName]);
 
-  const monthEarnings = Number(summary?.totalBalance ?? earnings?.total ?? 0);
-  const monthlyGrowth = 18;
+  const bobBalance = Number(
+    earnings?.withdrawableBalance ?? earnings?.realBalance ?? summary?.totalBalance ?? earnings?.total ?? 0,
+  );
+  const usdBalance = Number(earnings?.balanceUsd ?? 0);
 
-  const sessionsToday = useMemo(() => {
+  const confirmedToday = useMemo(() => {
     const now = new Date();
-    const tx = Array.isArray(earnings?.transactions) ? earnings.transactions : [];
-    return tx.filter((item: any) => {
-      const d = new Date(item.createdAt);
+    return bookings.filter((item) => {
+      const d = new Date(item.scheduledStartAt);
       if (Number.isNaN(d.getTime())) return false;
-      return isSameDay(d, now);
+      return isSameDay(d, now) && item.status === "CONFIRMED";
     }).length;
-  }, [earnings?.transactions]);
+  }, [bookings]);
+
+  const pendingBookings = useMemo(
+    () => bookings.filter((item) => item.status === "PENDING_PAYMENT").length,
+    [bookings],
+  );
 
   const messagesCount = Number(summary?.unreadChats ?? chats.length ?? 0);
-  const newItems = Number(summary?.totalTransactions ?? 0);
 
-  const nextSessions = useMemo(() => {
-    const list = Array.isArray(chats) ? chats.slice(0, 2) : [];
-    return list.map((chat: any, index: number) => {
-      const lower = String(chat?.lastMessage ?? "").toLowerCase();
-      const type = lower.includes("video") ? "Video" : index % 2 === 0 ? "Video" : "Llamada";
-      return {
-        id: String(chat.conversationId),
-        name: chat.otherUserName || "Cliente",
-        avatar: chat.otherUserAvatar,
-        time: formatClock(chat.lastMessageAt),
-        type,
-        clientId: chat.otherUserId,
-      };
-    });
-  }, [chats]);
+  const nextBookings = useMemo(() => {
+    const now = new Date();
+    return bookings
+      .filter((item) => {
+        const start = new Date(item.scheduledStartAt);
+        return !Number.isNaN(start.getTime()) && start >= now && item.status !== "EXPIRED";
+      })
+      .sort((a, b) => new Date(a.scheduledStartAt).getTime() - new Date(b.scheduledStartAt).getTime())
+      .slice(0, 3);
+  }, [bookings]);
 
   const statCards = [
     {
-      id: "sessions",
+      id: "today",
       icon: "calendar-outline" as const,
       iconBg: "#EAF0FF",
       iconColor: "#5B7FCB",
-      value: sessionsToday,
-      label: "Sesiones\nhoy",
+      value: confirmedToday,
+      label: "Confirmadas\nhoy",
     },
     {
       id: "messages",
@@ -121,12 +136,12 @@ export default function ProfessionalDashboardScreen() {
       label: "Mensajes",
     },
     {
-      id: "new",
-      icon: "star" as const,
-      iconBg: "#EAF7EE",
+      id: "pending",
+      icon: "hourglass-outline" as const,
+      iconBg: "#FFF7E6",
       iconColor: "#D6A700",
-      value: newItems,
-      label: "Nuevos",
+      value: pendingBookings,
+      label: "Pendientes\nde pago",
     },
   ];
 
@@ -135,10 +150,9 @@ export default function ProfessionalDashboardScreen() {
       <View style={styles.page}>
         <View style={styles.headerCard}>
           <View style={styles.headerLeft}>
-            <Image
-              source={profile?.avatarUrl ? { uri: profile.avatarUrl } : require("../../../../assets/no_image.jpg")}
-              style={styles.headerAvatar}
-            />
+            <View style={styles.headerAvatar}>
+              <Ionicons name="person" size={20} color="#94A3B8" />
+            </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.welcomeText}>Bienvenida,</Text>
               <Text style={styles.nameText}>{displayName}</Text>
@@ -146,7 +160,7 @@ export default function ProfessionalDashboardScreen() {
           </View>
 
           <View style={styles.statusWrap}>
-            <Text style={styles.statusLabel}>{profile?.isOnline ? "En línea" : "Offline"}</Text>
+            <Text style={styles.statusLabel}>{profile?.isOnline ? "En linea" : "Offline"}</Text>
             <Switch
               value={Boolean(profile?.isOnline)}
               onValueChange={handleToggleOnline}
@@ -161,12 +175,9 @@ export default function ProfessionalDashboardScreen() {
         {loading ? <Text style={styles.loading}>Cargando dashboard...</Text> : null}
 
         <View style={styles.earningsCard}>
-          <Text style={styles.earningsLabel}>Ganancias del mes</Text>
-          <Text style={styles.earningsValue}>{formatMoney(monthEarnings)}</Text>
-
-          <Text style={styles.earningsHint}>
-            vs mes anterior: <Text style={styles.earningsUp}>+{monthlyGrowth}%</Text>
-          </Text>
+          <Text style={styles.earningsLabel}>Saldo disponible (BOB)</Text>
+          <Text style={styles.earningsValue}>{formatMoney(bobBalance, "BOB")}</Text>
+          <Text style={styles.earningsHint}>Cartera USD: {formatMoney(usdBalance, "USD")}</Text>
 
           <View style={styles.earningsActions}>
             <Pressable style={styles.earningsBtnPrimary} onPress={() => router.push("/(professional)/earnings") as any}>
@@ -182,7 +193,7 @@ export default function ProfessionalDashboardScreen() {
         <View style={styles.statsRow}>
           {statCards.map((item) => (
             <AppCard key={item.id} style={styles.statCard}>
-              <View style={[styles.statIconWrap, { backgroundColor: item.iconBg }]}> 
+              <View style={[styles.statIconWrap, { backgroundColor: item.iconBg }]}>
                 <Ionicons name={item.icon} size={18} color={item.iconColor} />
               </View>
               <Text style={styles.statValue}>{item.value}</Text>
@@ -199,11 +210,11 @@ export default function ProfessionalDashboardScreen() {
             <Text style={[styles.quickText, { color: "#4E86CF" }]}>Editar perfil</Text>
           </Pressable>
 
-          <Pressable style={styles.quickCard} onPress={() => router.push("/(professional)/earnings") as any}>
+          <Pressable style={styles.quickCard} onPress={() => router.push("/(professional)/sessions") as any}>
             <View style={[styles.quickIconWrap, { backgroundColor: "#EAF7EE" }]}>
-              <Ionicons name="bar-chart" size={18} color="#69AF8A" />
+              <Ionicons name="albums" size={18} color="#69AF8A" />
             </View>
-            <Text style={[styles.quickText, { color: "#69AF8A" }]}>Ver ganancias</Text>
+            <Text style={[styles.quickText, { color: "#69AF8A" }]}>Mis sesiones</Text>
           </Pressable>
 
           <Pressable style={styles.quickCard} onPress={() => router.push("/(professional)/availability" as any)}>
@@ -221,41 +232,26 @@ export default function ProfessionalDashboardScreen() {
           </Pressable>
         </View>
 
-        <Text style={styles.sectionTitle}>Próximas sesiones</Text>
+        <Text style={styles.sectionTitle}>Proximas reservas</Text>
 
-        {nextSessions.length === 0 ? (
+        {nextBookings.length === 0 ? (
           <AppCard>
-            <Text style={styles.emptyText}>Aún no tienes sesiones próximas.</Text>
+            <Text style={styles.emptyText}>Aun no tienes reservas proximas.</Text>
           </AppCard>
         ) : (
           <View style={styles.sessionsList}>
-            {nextSessions.map((session) => (
-              <AppCard key={session.id} style={styles.sessionCard}>
-                <Image
-                  source={session.avatar ? { uri: session.avatar } : require("../../../../assets/no_image.jpg")}
-                  style={styles.sessionAvatar}
-                />
-
+            {nextBookings.map((booking) => (
+              <AppCard key={booking.id} style={styles.sessionCard}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.sessionName}>{session.name}</Text>
-                  <Text style={styles.sessionMeta}>{session.type} · {session.time}</Text>
+                  <Text style={styles.sessionName}>{booking.sessionOffering?.title ?? "Reserva"}</Text>
+                  <Text style={styles.sessionMeta}>
+                    Cliente: {`${booking.client?.firstName ?? ""} ${booking.client?.lastName ?? ""}`.trim() || "Cliente"}
+                  </Text>
+                  <Text style={styles.sessionMeta}>{formatBookingDate(booking.scheduledStartAt)}</Text>
                 </View>
 
-                <Pressable
-                  style={styles.joinBtn}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/(professional)/messages/[id]",
-                      params: {
-                        id: session.id,
-                        clientId: session.clientId,
-                        clientName: session.name,
-                        clientAvatar: session.avatar ?? "",
-                      },
-                    } as any)
-                  }
-                >
-                  <Text style={styles.joinText}>Unirse</Text>
+                <Pressable style={styles.joinBtn} onPress={() => router.push("/(professional)/bookings" as any)}>
+                  <Text style={styles.joinText}>Ver agenda</Text>
                 </Pressable>
               </AppCard>
             ))}
@@ -297,6 +293,8 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 14,
     backgroundColor: "#E2E8F0",
+    alignItems: "center",
+    justifyContent: "center",
   },
   welcomeText: {
     color: "#6D84A0",
@@ -357,10 +355,6 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.body,
     fontSize: 13,
     fontWeight: "600",
-  },
-  earningsUp: {
-    color: "#7DDB9D",
-    fontWeight: "700",
   },
   earningsActions: {
     flexDirection: "row",
@@ -479,12 +473,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
   },
-  sessionAvatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: "#E2E8F0",
-  },
   sessionName: {
     color: "#172B46",
     fontFamily: appTheme.fonts.heading,
@@ -516,4 +504,3 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 });
-

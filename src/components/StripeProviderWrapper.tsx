@@ -1,7 +1,11 @@
-import type { ReactNode } from "react";
+import type { ReactElement } from "react";
 import { StripeProvider } from "@stripe/stripe-react-native";
 import { STRIPE_PUBLISHABLE_KEY } from "../config";
 
-export default function StripeProviderWrapper({ children }: { children: ReactNode }) {
+type StripeProviderWrapperProps = {
+  children: ReactElement | ReactElement[];
+};
+
+export default function StripeProviderWrapper({ children }: StripeProviderWrapperProps) {
   return <StripeProvider publishableKey={STRIPE_PUBLISHABLE_KEY}>{children}</StripeProvider>;
 }

@@ -67,7 +67,7 @@ export default function ProfessionalEarningsScreen() {
 
   const [selectedAccountId, setSelectedAccountId] = useState<string>("");
   const [withdrawCurrency, setWithdrawCurrency] = useState<'BOB' | 'USD'>('BOB');
-  const [withdrawCreditsInput, setWithdrawCreditsInput] = useState("");
+  const [withdrawAmountInput, setWithdrawAmountInput] = useState("");
   const [requestingWithdrawal, setRequestingWithdrawal] = useState(false);
 
   async function loadAll() {
@@ -167,7 +167,7 @@ export default function ProfessionalEarningsScreen() {
   }
 
   async function handleCreateWithdrawal() {
-    const credits = Number(withdrawCreditsInput);
+    const amount = Number(withdrawAmountInput);
     if (!withdrawalsEnabled) {
       Alert.alert("Retiros deshabilitados", "Los retiros se encuentran temporalmente deshabilitados. Intenta mas tarde.", [{ text: "Entendido" }]);
       return;
@@ -176,13 +176,13 @@ export default function ProfessionalEarningsScreen() {
       Alert.alert("Cuenta requerida", "Selecciona una cuenta bancaria para el retiro.", [{ text: "Entendido" }]);
       return;
     }
-    if (!Number.isFinite(credits) || credits <= 0) {
-      Alert.alert("Monto invalido", "Ingresa un monto valido de creditos mayor a 0.", [{ text: "Entendido" }]);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      Alert.alert("Monto invalido", "Ingresa un monto valido mayor a 0.", [{ text: "Entendido" }]);
       return;
     }
 
     const available = withdrawCurrency === "USD" ? totalBalanceUsd : withdrawableBalance;
-    if (credits > available) {
+    if (amount > available) {
       Alert.alert(
         "Saldo insuficiente",
         withdrawCurrency === "USD"
@@ -197,11 +197,11 @@ export default function ProfessionalEarningsScreen() {
       setRequestingWithdrawal(true);
       setError(null);
       await requestProfessionalWithdrawal({
-        credits,
+        credits: amount,
         bankAccountId: selectedAccountId,
         currency: withdrawCurrency,
       });
-      setWithdrawCreditsInput("");
+      setWithdrawAmountInput("");
       await loadAll();
 
       if (withdrawCurrency === "USD") {
@@ -266,7 +266,7 @@ export default function ProfessionalEarningsScreen() {
           </AppCard>
           <AppCard style={styles.kpiCard}>
             <Text style={styles.kpiValue}>{formatMoney(totalBalance)}</Text>
-            <Text style={styles.kpiLabel}>Wallet actual</Text>
+          <Text style={styles.kpiLabel}>Saldo actual</Text>
           </AppCard>
         </View>
 
@@ -291,7 +291,7 @@ export default function ProfessionalEarningsScreen() {
           <Text style={styles.inputLabel}>Cuenta de cobro ({withdrawCurrency})</Text>
           {accountsForWithdrawCurrency.length === 0 ? (
             <View style={styles.accountEmptyBox}>
-              <Ionicons name="bank-outline" size={16} color={appTheme.colors.textMuted} />
+              <Ionicons name="business-outline" size={16} color={appTheme.colors.textMuted} />
               <Text style={styles.accountEmptyText}>Agrega una cuenta en {withdrawCurrency} primero</Text>
             </View>
           ) : (
@@ -325,10 +325,10 @@ export default function ProfessionalEarningsScreen() {
             </View>
           )}
 
-          <Text style={styles.inputLabel}>Monto en creditos</Text>
+          <Text style={styles.inputLabel}>Monto a retirar</Text>
           <TextInput
-            value={withdrawCreditsInput}
-            onChangeText={setWithdrawCreditsInput}
+            value={withdrawAmountInput}
+            onChangeText={setWithdrawAmountInput}
             keyboardType="numeric"
             placeholder="Ej: 120"
             placeholderTextColor={appTheme.colors.textMuted}
@@ -498,7 +498,7 @@ export default function ProfessionalEarningsScreen() {
                 <AppCard key={row.id} style={styles.historyItem}>
                   <View style={styles.historyTop}>
                     <Text style={styles.historyAmount}>
-                      {Number(row.credits).toFixed(2)} cr ({formatMoney(Number(row.amountBs ?? row.soles ?? 0), (row.currency ?? 'BOB') as 'BOB' | 'USD')})
+                      {formatMoney(Number(row.amountBs ?? row.soles ?? 0), (row.currency ?? 'BOB') as 'BOB' | 'USD')} solicitado
                     </Text>
                     <View style={[styles.statusBadge, { backgroundColor: status.bg }]}>
                       <Text style={[styles.statusText, { color: status.text }]}>{status.label}</Text>

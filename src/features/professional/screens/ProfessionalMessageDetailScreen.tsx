@@ -172,7 +172,6 @@ export default function ProfessionalMessageDetailScreen() {
         receiverName: clientName,
         receiverAvatar: clientAvatar || null,
         callType,
-        pricePerMinute: callType === "VIDEO_CALL" ? 25 : 20,
       });
     } finally {
       setRequestingCall(false);

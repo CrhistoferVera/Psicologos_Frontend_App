@@ -53,6 +53,7 @@ export default function ChatDetailScreen() {
     professionalId?: string | string[];
     professionalName?: string | string[];
     professionalAvatar?: string | string[];
+    hasActiveSession?: string | string[];
   }>();
   const router = useRouter();
   const { user } = useAuth();
