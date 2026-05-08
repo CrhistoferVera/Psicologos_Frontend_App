@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { appTheme } from "../../../theme/appTheme";
 import type { ProfessionalSessionOffering } from "../../../api/bookings";
+import type { CommunicationAccess } from "../../../api/communication";
 import type { Professional } from "../../professionals/types";
 
 type Props = {
@@ -25,6 +26,8 @@ type Props = {
   preferredCurrency: "BOB" | "USD" | null;
   canReserve: boolean;
   chatLoading?: boolean;
+  communicationAccess?: CommunicationAccess | null;
+  communicationAccessLoading?: boolean;
 };
 
 const NO_IMAGE = require("../../../../assets/no_image.jpg");
@@ -41,6 +44,8 @@ export default function ProfessionalFeedCard({
   preferredCurrency,
   canReserve,
   chatLoading = false,
+  communicationAccess = null,
+  communicationAccessLoading = false,
 }: Props) {
   const bgSource =
     professional.coverImage
@@ -53,12 +58,30 @@ export default function ProfessionalFeedCard({
   const bio = professional.bio?.trim() || null;
   const highlightedOffering = offerings?.[0] ?? null;
   const hasMoreOfferings = (offerings?.length ?? 0) > 1;
+  const canCommunicate = communicationAccess?.allowed === true;
+
+  const communicationHint = communicationAccessLoading
+    ? "Validando acceso a comunicación..."
+    : canCommunicate
+    ? `Sesión activa hasta ${formatSessionTime(communicationAccess?.sessionEndsAt)}`
+    : "Reserva una sesión para habilitar mensajes y llamadas.";
 
   function formatOfferingPrice(offering: ProfessionalSessionOffering) {
     if (preferredCurrency === "USD") {
       return `$ ${Number(offering.priceUsd).toFixed(2)} USD`;
     }
     return `Bs ${Number(offering.priceBob).toFixed(2)}`;
+  }
+
+  function formatSessionTime(iso: string | null | undefined) {
+    if (!iso) return "--:--";
+    const parsed = new Date(iso);
+    if (Number.isNaN(parsed.getTime())) return "--:--";
+    return parsed.toLocaleTimeString("es-BO", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
   }
 
   return (
@@ -179,12 +202,12 @@ export default function ProfessionalFeedCard({
 
         <View style={styles.actionsRow}>
           <Pressable
-            style={[styles.actionBtn, styles.chatBtn]}
+            style={[styles.actionBtn, styles.chatBtn, (!canCommunicate || chatLoading) && styles.chatBtnDisabled]}
             onPress={(e) => {
               e.stopPropagation?.();
               onChatPress();
             }}
-            disabled={chatLoading}
+            disabled={chatLoading || !canCommunicate}
           >
             {chatLoading ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
@@ -196,6 +219,10 @@ export default function ProfessionalFeedCard({
             )}
           </Pressable>
         </View>
+
+        <Text style={[styles.communicationHint, canCommunicate && styles.communicationHintAllowed]}>
+          {communicationHint}
+        </Text>
 
         {!canReserve && (
           <Text style={styles.regionWarning}>
@@ -392,6 +419,9 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(91,155,213,0.72)",
     flex: 1,
   },
+  chatBtnDisabled: {
+    opacity: 0.45,
+  },
   actionBtnText: {
     color: "#FFFFFF",
     fontFamily: appTheme.fonts.heading,
@@ -403,6 +433,15 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.body,
     fontSize: 11,
     textAlign: "center",
+  },
+  communicationHint: {
+    color: "#FDE68A",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 11,
+    textAlign: "center",
+  },
+  communicationHintAllowed: {
+    color: "#BBF7D0",
   },
   tapHint: {
     color: "rgba(255,255,255,0.28)",

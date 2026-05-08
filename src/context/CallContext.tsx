@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "./AuthContext";
 import { appTheme } from "../theme/appTheme";
 import { useCallSocket, type CallType, type IncomingCallData } from "../hooks/useCallSocket";
+import { getCommunicationAccess } from "../api/communication";
 
 type CallStatus = "ringing" | "connected" | "ended" | "rejected";
 
@@ -27,7 +28,7 @@ type StartOutgoingCallInput = {
 };
 
 type CallContextValue = {
-  startOutgoingCall: (input: StartOutgoingCallInput) => void;
+  startOutgoingCall: (input: StartOutgoingCallInput) => Promise<void>;
   acceptIncomingCall: () => void;
   rejectIncomingCall: () => void;
   endCall: (callId: string) => void;
@@ -50,6 +51,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     onCallAccepted,
     onCallRejected,
     onCallEnded,
+    onCallError,
   } = useCallSocket(user?.id);
 
   const [incomingCall, setIncomingCall] = useState<IncomingCallData | null>(null);
@@ -105,23 +107,57 @@ export function CallProvider({ children }: { children: ReactNode }) {
       });
     });
 
+    const unsubError = onCallError(({ callId, message }) => {
+      if (callId) {
+        setSessions((prev) => {
+          const current = prev[callId];
+          if (!current) return prev;
+          return {
+            ...prev,
+            [callId]: { ...current, status: "ended" },
+          };
+        });
+      }
+
+      Alert.alert("No se pudo iniciar la llamada", message ?? "Solo puedes iniciar llamadas durante una sesión activa.");
+    });
+
     return () => {
       unsubIncoming();
       unsubAccepted();
       unsubRejected();
       unsubEnded();
+      unsubError();
     };
   }, [
     onIncomingCall,
     onCallAccepted,
     onCallRejected,
     onCallEnded,
+    onCallError,
     pathname,
     router,
   ]);
 
-  function startOutgoingCall(input: StartOutgoingCallInput) {
+  async function startOutgoingCall(input: StartOutgoingCallInput) {
     if (!user?.id) return;
+
+    try {
+      const access = await getCommunicationAccess(input.receiverId);
+      if (!access.allowed) {
+        Alert.alert(
+          "Llamada no disponible",
+          access.message ?? "Solo puedes iniciar llamadas durante una sesión activa.",
+        );
+        return;
+      }
+    } catch (error: any) {
+      Alert.alert(
+        "No se pudo validar la llamada",
+        error?.message ?? "Solo puedes iniciar llamadas durante una sesión activa.",
+      );
+      return;
+    }
 
     const callId = `call-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
     const fullName = `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();

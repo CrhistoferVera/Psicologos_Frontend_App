@@ -4,6 +4,7 @@ import { apiUpdateFcmToken } from '../api/userProfile';
 import Toast from 'react-native-toast-message';
 import { displayIncomingCall } from './callkeep';
 import notifee, { AndroidImportance } from '@notifee/react-native';
+import { formatRemainingMinText, getRemainingSessionMs } from '../utils/sessionTime';
 
 // Ref global para saber si la app está en foreground
 // Se actualiza desde AuthContext
@@ -15,13 +16,23 @@ export const activeChatRef = { current: null as string | null };
 // Se actualiza desde chats.tsx y chat/[conversationId].tsx
 export const professionalChatScreenRef = { current: false };
 
+const DEFAULT_CHANNEL_ID = 'default';
+const SESSION_CHANNEL_ID = 'sessions';
+const activeSessionNotificationRef = { current: null as string | null };
+
 // CREAR CANAL DE NOTIFICACIONES
 // Debe llamarse una vez al iniciar la app para que el sonido funcione en foreground
 export const createNotificationChannel = async (): Promise<void> => {
     if (Platform.OS === 'android') {
         await notifee.createChannel({
-            id: 'default',
+            id: DEFAULT_CHANNEL_ID,
             name: 'Notificaciones',
+            importance: AndroidImportance.HIGH,
+            sound: 'default',
+        });
+        await notifee.createChannel({
+            id: SESSION_CHANNEL_ID,
+            name: 'Sesiones',
             importance: AndroidImportance.HIGH,
             sound: 'default',
         });
@@ -126,7 +137,7 @@ export const setupForegroundNotificationHandler = (): (() => void) => {
 
         // Solo mostrar notificación del sistema si la app está en background
         if (!appActiveRef.current) {
-            const channelId = 'default';
+            const channelId = DEFAULT_CHANNEL_ID;
             await notifee.displayNotification({
                 title,
                 body,
@@ -183,4 +194,56 @@ export const setBackgroundMessageHandler = (): void => {
         }
     });
 };
+
+function sessionNotificationIdForBooking(bookingId: string) {
+    return `active-session-${bookingId}`;
+}
+
+export async function syncActiveSessionNotification(input: {
+    bookingId: string;
+    sessionEndsAt: string;
+} | null): Promise<void> {
+    if (Platform.OS !== 'android') return;
+
+    if (!input?.bookingId || !input.sessionEndsAt) {
+        if (activeSessionNotificationRef.current) {
+            await notifee.cancelNotification(activeSessionNotificationRef.current);
+            activeSessionNotificationRef.current = null;
+        }
+        return;
+    }
+
+    const remainingMs = getRemainingSessionMs(input.sessionEndsAt);
+    if (remainingMs <= 0) {
+        if (activeSessionNotificationRef.current) {
+            await notifee.cancelNotification(activeSessionNotificationRef.current);
+            activeSessionNotificationRef.current = null;
+        }
+        return;
+    }
+
+    const notificationId = sessionNotificationIdForBooking(input.bookingId);
+    if (
+        activeSessionNotificationRef.current &&
+        activeSessionNotificationRef.current !== notificationId
+    ) {
+        await notifee.cancelNotification(activeSessionNotificationRef.current);
+    }
+
+    activeSessionNotificationRef.current = notificationId;
+    await notifee.displayNotification({
+        id: notificationId,
+        title: 'Sesion activa',
+        body: `Tu sesion termina en ${formatRemainingMinText(remainingMs)}.`,
+        android: {
+            channelId: SESSION_CHANNEL_ID,
+            smallIcon: 'ic_launcher',
+            pressAction: { id: 'default' },
+            ongoing: true,
+            autoCancel: false,
+            importance: AndroidImportance.HIGH,
+            onlyAlertOnce: true,
+        },
+    });
+}
 

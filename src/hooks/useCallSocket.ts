@@ -73,6 +73,11 @@ export function useCallSocket(userId: string | null | undefined) {
     return () => socketRef.current?.off('call_ended', cb);
   }
 
+  function onCallError(cb: (data: { callId?: string; message?: string }) => void) {
+    socketRef.current?.on('call_error', cb);
+    return () => socketRef.current?.off('call_error', cb);
+  }
+
   return {
     requestCall,
     acceptCall,
@@ -83,5 +88,6 @@ export function useCallSocket(userId: string | null | undefined) {
     onCallAccepted,
     onCallRejected,
     onCallEnded,
+    onCallError,
   };
 }
