@@ -5,6 +5,7 @@ export interface EarningTransaction {
   service: string;
   clientName: string;
   amount: number;
+  currency?: 'BOB' | 'USD';
   createdAt: string;
 }
 
@@ -16,7 +17,9 @@ export interface EarningsData {
   withdrawableBalance?: number;
   withdrawalsEnabled?: boolean;
   today: number;
+  todayUsd?: number;
   thisWeek: number;
+  thisWeekUsd?: number;
   total: number;
   transactions: EarningTransaction[];
 }
