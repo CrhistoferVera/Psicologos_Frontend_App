@@ -92,11 +92,15 @@ export async function loginWithGoogle(idToken: string) {
   });
 }
 
-export async function forgotPassword(email: string) {
+export async function requestPasswordReset(email: string) {
   return apiFetch<{ message: string }>("/auth/forgot-password", {
     method: "POST",
     body: JSON.stringify({ email }),
   });
+}
+
+export async function forgotPassword(email: string) {
+  return requestPasswordReset(email);
 }
 
 export async function resetPassword(
