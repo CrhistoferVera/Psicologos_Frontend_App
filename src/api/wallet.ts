@@ -57,6 +57,15 @@ export interface WithdrawalRequest {
   updatedAt?: string;
 }
 
+export const apiGetMyBalance = async (): Promise<{
+  balance: number;
+  balanceUsd: number;
+  promotionalBalance: number;
+}> => {
+  const response = await apiClient.get('/wallet/me/balance');
+  return response.data;
+};
+
 export const apiGetMyEarnings = async (): Promise<EarningsData> => {
   const response = await apiClient.get('/wallet/me/earnings');
   return response.data;

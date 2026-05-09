@@ -70,3 +70,61 @@ export const apiFlowCreatePayment = async (packageId: string): Promise<{ payment
     throw new Error(parseApiError(error, 'No se pudo iniciar el pago'));
   }
 };
+
+// INICIAR PAGO QR BANECO (bolivianos)
+export const apiInitQrPackagePurchase = async (packageId: string): Promise<{
+  depositId: string;
+  qrId: string;
+  qrImage: string;
+  amount: number;
+  currency: string;
+  credits: number;
+  packageName: string;
+  dueDate: string;
+}> => {
+  try {
+    const response = await apiClient.post(`/baneco-qr/package/${packageId}`);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(parseApiError(error, 'No se pudo generar el QR de pago'));
+  }
+};
+
+// CONSULTAR ESTADO DEL QR
+export const apiGetQrPackageStatus = async (qrId: string): Promise<{
+  status: 'PENDING' | 'PAID' | 'CANCELED';
+  depositId: string;
+}> => {
+  try {
+    const response = await apiClient.get(`/baneco-qr/status/${qrId}`);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(parseApiError(error, 'No se pudo consultar el estado del pago'));
+  }
+};
+
+// INICIAR PAGO STRIPE (extranjeros)
+export const apiInitStripePackagePurchase = async (packageId: string): Promise<{
+  clientSecret: string;
+  customerId: string;
+  depositId: string;
+}> => {
+  try {
+    const response = await apiClient.post(`/stripe/package/${packageId}`);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(parseApiError(error, 'No se pudo iniciar el pago con Stripe'));
+  }
+};
+
+// CONSULTAR ESTADO DEL DEPOSIT (Stripe)
+export const apiGetStripeDepositStatus = async (depositId: string): Promise<{
+  status: 'PENDING' | 'PAID' | 'CANCELED';
+}> => {
+  try {
+    const response = await apiClient.get(`/stripe/deposit-status/${depositId}`);
+    return response.data;
+  } catch (error: any) {
+    throw new Error(parseApiError(error, 'No se pudo consultar el estado del pago'));
+  }
+};
