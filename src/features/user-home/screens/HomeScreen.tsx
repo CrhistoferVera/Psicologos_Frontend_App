@@ -4,6 +4,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -20,6 +21,7 @@ import {
   getProfessionalSessionOfferings,
   type ProfessionalSessionOffering,
 } from "../../../api/bookings";
+import { getCommunicationAccess, type CommunicationAccess } from "../../../api/communication";
 import { resolvePaymentRegion } from "../../../utils/paymentRegion";
 import { getProfessionals } from "../../professionals/api/professionalsApi";
 import type { Professional } from "../../professionals/types";
@@ -30,6 +32,8 @@ const FEED_REFRESH_TTL_MS = 60 * 1000;
 
 type OfferingsByProfessional = Record<string, ProfessionalSessionOffering[]>;
 type OfferingsLoadingByProfessional = Record<string, boolean>;
+type CommunicationAccessByProfessional = Record<string, CommunicationAccess>;
+type CommunicationAccessLoadingByProfessional = Record<string, boolean>;
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -47,6 +51,10 @@ export default function HomeScreen() {
   const [offeringsByProfessional, setOfferingsByProfessional] = useState<OfferingsByProfessional>({});
   const [offeringsLoadingByProfessional, setOfferingsLoadingByProfessional] =
     useState<OfferingsLoadingByProfessional>({});
+  const [communicationAccessByProfessional, setCommunicationAccessByProfessional] =
+    useState<CommunicationAccessByProfessional>({});
+  const [communicationAccessLoadingByProfessional, setCommunicationAccessLoadingByProfessional] =
+    useState<CommunicationAccessLoadingByProfessional>({});
 
   const loadingRef = useRef(false);
   const feedRef = useRef<FlatList<Professional> | null>(null);
@@ -157,6 +165,70 @@ export default function HomeScreen() {
     });
   }, [professionals, offeringsByProfessional, offeringsLoadingByProfessional]);
 
+  useEffect(() => {
+    if (!user?.id || professionals.length === 0) return;
+
+    const idsToFetch = professionals
+      .map((professional) => professional.id)
+      .filter(
+        (professionalId) =>
+          !(professionalId in communicationAccessByProfessional) &&
+          communicationAccessLoadingByProfessional[professionalId] !== true,
+      );
+
+    if (idsToFetch.length === 0) return;
+
+    setCommunicationAccessLoadingByProfessional((prev) => {
+      const next = { ...prev };
+      idsToFetch.forEach((id) => {
+        next[id] = true;
+      });
+      return next;
+    });
+
+    void Promise.all(
+      idsToFetch.map(async (professionalId) => {
+        try {
+          const access = await getCommunicationAccess(professionalId);
+          return { professionalId, access };
+        } catch {
+          return {
+            professionalId,
+            access: {
+              allowed: false,
+              bookingId: null,
+              sessionStartsAt: null,
+              sessionEndsAt: null,
+              reason: "UNKNOWN",
+              message: "No se pudo validar el acceso de comunicación.",
+            } as CommunicationAccess,
+          };
+        }
+      }),
+    ).then((results) => {
+      setCommunicationAccessByProfessional((prev) => {
+        const next = { ...prev };
+        results.forEach(({ professionalId, access }) => {
+          next[professionalId] = access;
+        });
+        return next;
+      });
+
+      setCommunicationAccessLoadingByProfessional((prev) => {
+        const next = { ...prev };
+        results.forEach(({ professionalId }) => {
+          next[professionalId] = false;
+        });
+        return next;
+      });
+    });
+  }, [
+    communicationAccessByProfessional,
+    communicationAccessLoadingByProfessional,
+    professionals,
+    user?.id,
+  ]);
+
   function handleLoadMore() {
     if (!hasMore || loadingMore || loadingRef.current) return;
     void loadFeed(page + 1, false);
@@ -220,6 +292,14 @@ export default function HomeScreen() {
 
     setChatLoadingId(pro.id);
     try {
+      const access =
+        communicationAccessByProfessional[pro.id] ?? (await getCommunicationAccess(pro.id));
+
+      if (!access.allowed) {
+        Alert.alert("Comunicación no disponible", access.message ?? "Reserva una sesión para habilitar mensajes y llamadas.");
+        return;
+      }
+
       const chats = await getMyChats();
       const existing = chats.find((c) => c.otherUserId === pro.id);
       router.push({
@@ -313,6 +393,10 @@ export default function HomeScreen() {
                 preferredCurrency={paymentRegion.currency}
                 canReserve={paymentRegion.region !== "UNKNOWN"}
                 chatLoading={chatLoadingId === item.id}
+                communicationAccess={communicationAccessByProfessional[item.id] ?? null}
+                communicationAccessLoading={
+                  communicationAccessLoadingByProfessional[item.id] === true
+                }
               />
             )}
             snapToInterval={CARD_HEIGHT}

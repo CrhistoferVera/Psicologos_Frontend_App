@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   ActivityIndicator,
@@ -19,8 +19,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../../context/AuthContext";
 import { appTheme } from "../../../theme/appTheme";
 import { getMessages, markConversationAsRead, sendMessageToUser, type Message } from "../../../api/messages";
+import { getCommunicationAccess, type CommunicationAccess } from "../../../api/communication";
 import { useSocket } from "../../../hooks/useSocket";
 import { useCallManager } from "../../../context/CallContext";
+import { useSessionRemaining } from "../../../hooks/useSessionRemaining";
+import { formatRemainingMinText } from "../../../utils/sessionTime";
 
 type MessageUI = {
   id: string;
@@ -40,7 +43,8 @@ function normalizeMessages(raw: Message[]): MessageUI[] {
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 }
 
-function formatMessageHour(iso: string) {
+function formatMessageHour(iso: string | null | undefined) {
+  if (!iso) return "";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
@@ -74,6 +78,48 @@ export default function ProfessionalMessageDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [inputHeight, setInputHeight] = useState(44);
   const [requestingCall, setRequestingCall] = useState(false);
+  const [communicationAccess, setCommunicationAccess] = useState<CommunicationAccess | null>(null);
+  const [communicationLoading, setCommunicationLoading] = useState(true);
+
+  useEffect(() => {
+    if (!clientId) {
+      setCommunicationLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadAccess = async (showLoader: boolean) => {
+      if (showLoader) setCommunicationLoading(true);
+      try {
+        const access = await getCommunicationAccess(clientId);
+        if (!cancelled) setCommunicationAccess(access);
+      } catch {
+        if (!cancelled) {
+          setCommunicationAccess({
+            allowed: false,
+            bookingId: null,
+            sessionStartsAt: null,
+            sessionEndsAt: null,
+            reason: "UNKNOWN",
+            message: "No se pudo validar el acceso de comunicacion.",
+          });
+        }
+      } finally {
+        if (!cancelled && showLoader) setCommunicationLoading(false);
+      }
+    };
+
+    void loadAccess(true);
+    const timer = setInterval(() => {
+      void loadAccess(false);
+    }, 60_000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [clientId]);
 
   useEffect(() => {
     if (!conversationId || !user?.id) {
@@ -131,8 +177,25 @@ export default function ProfessionalMessageDetailScreen() {
     return unsubscribe;
   }, [conversationId, onNewMessage, user?.id]);
 
+  const { remainingMs: sessionRemainingMs, isExpired: sessionExpired } = useSessionRemaining(
+    communicationAccess?.sessionEndsAt,
+    60_000,
+  );
+  const canCommunicateByAccess = communicationAccess?.allowed === true;
+  const hasActiveSessionNow = canCommunicateByAccess && !sessionExpired;
+  const canSendMessages = hasActiveSessionNow && !communicationLoading;
+
   async function handleSend() {
     if (!text.trim() || !clientId || !user?.id || sending) return;
+    if (!canSendMessages) {
+      setError(
+        sessionExpired
+          ? "La sesion termino."
+          : communicationAccess?.message ?? "Los mensajes estan disponibles solo durante una sesion activa.",
+      );
+      return;
+    }
+
     const payloadText = text.trim();
     setText("");
     setInputHeight(44);
@@ -152,13 +215,27 @@ export default function ProfessionalMessageDetailScreen() {
       setError(null);
     } catch (err: any) {
       setText(payloadText);
-      setError(err?.message ?? "No se pudo enviar el mensaje.");
+      const message = err?.message ?? "No se pudo enviar el mensaje.";
+      setError(message);
+      if (
+        String(message).toLowerCase().includes("sesion activa") ||
+        String(message).toLowerCase().includes("sesión activa")
+      ) {
+        setCommunicationAccess((prev) => ({
+          allowed: false,
+          bookingId: prev?.bookingId ?? null,
+          sessionStartsAt: prev?.sessionStartsAt ?? null,
+          sessionEndsAt: prev?.sessionEndsAt ?? null,
+          reason: prev?.reason ?? "UNKNOWN",
+          message,
+        }));
+      }
     } finally {
       setSending(false);
     }
   }
 
-  function handleRequestCall(callType: "CALL" | "VIDEO_CALL") {
+  async function handleRequestCall(callType: "CALL" | "VIDEO_CALL") {
     if (requestingCall) return;
     if (!clientId) {
       Alert.alert("No se pudo iniciar la llamada", "No se encontró el cliente para esta conversación.");
@@ -166,8 +243,15 @@ export default function ProfessionalMessageDetailScreen() {
     }
 
     try {
+      const access = await getCommunicationAccess(clientId);
+      setCommunicationAccess(access);
+      if (!access.allowed) {
+        Alert.alert("Llamada no disponible", access.message ?? "Las llamadas están disponibles solo durante una sesión activa.");
+        return;
+      }
+
       setRequestingCall(true);
-      startOutgoingCall({
+      await startOutgoingCall({
         receiverId: clientId,
         receiverName: clientName,
         receiverAvatar: clientAvatar || null,
@@ -179,10 +263,15 @@ export default function ProfessionalMessageDetailScreen() {
   }
 
   const showEmpty = useMemo(() => !loading && messages.length === 0 && !error, [loading, messages.length, error]);
+  const communicationHint = communicationLoading
+    ? "Validando acceso a comunicacion..."
+    : sessionExpired && canCommunicateByAccess
+      ? "La sesion termino."
+      : communicationAccess?.message ?? "Los mensajes estan disponibles solo durante una sesion activa.";
 
   return (
     <View style={styles.page}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}> 
         <Pressable onPress={() => router.back()} style={styles.back}>
           <ArrowLeft size={18} color={appTheme.colors.text} />
         </Pressable>
@@ -194,19 +283,25 @@ export default function ProfessionalMessageDetailScreen() {
           <Text style={styles.name} numberOfLines={1}>
             {clientName}
           </Text>
-          <Text style={styles.sub}>• Conversación activa</Text>
+          {hasActiveSessionNow ? (
+            <Text style={styles.sub}>
+              Sesion activa · termina en {formatRemainingMinText(sessionRemainingMs)}
+            </Text>
+          ) : (
+            <Text style={styles.sub}>• Conversación</Text>
+          )}
         </View>
         <View style={styles.headerActions}>
           <Pressable
-            style={[styles.iconBtnMuted, requestingCall && styles.iconBtnMutedDisabled]}
-            disabled={requestingCall}
+            style={[styles.iconBtnMuted, requestingCall && styles.iconBtnMutedDisabled, !canSendMessages && styles.iconBtnMutedDisabled]}
+            disabled={requestingCall || !canSendMessages}
             onPress={() => handleRequestCall("CALL")}
           >
             <Ionicons name="call" size={16} color="#C0267A" />
           </Pressable>
           <Pressable
-            style={[styles.iconBtnMuted, requestingCall && styles.iconBtnMutedDisabled]}
-            disabled={requestingCall}
+            style={[styles.iconBtnMuted, requestingCall && styles.iconBtnMutedDisabled, !canSendMessages && styles.iconBtnMutedDisabled]}
+            disabled={requestingCall || !canSendMessages}
             onPress={() => handleRequestCall("VIDEO_CALL")}
           >
             <Ionicons name="videocam" size={16} color="#6C5BB6" />
@@ -217,6 +312,12 @@ export default function ProfessionalMessageDetailScreen() {
       {error ? (
         <View style={styles.errorWrap}>
           <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : null}
+
+      {!canSendMessages ? (
+        <View style={styles.blockedBanner}>
+          <Text style={styles.blockedBannerText}>{communicationHint}</Text>
         </View>
       ) : null}
 
@@ -267,7 +368,7 @@ export default function ProfessionalMessageDetailScreen() {
           }}
         />
 
-        <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+        <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 8) }]}> 
           <TextInput
             value={text}
             onChangeText={setText}
@@ -275,14 +376,15 @@ export default function ProfessionalMessageDetailScreen() {
             placeholderTextColor={appTheme.colors.textMuted}
             style={[styles.input, { height: Math.min(Math.max(inputHeight, 44), 120) }]}
             multiline
+            editable={canSendMessages}
             maxLength={1200}
             onContentSizeChange={(event) => {
               setInputHeight(event.nativeEvent.contentSize.height + 16);
             }}
           />
           <Pressable
-            style={[styles.sendButton, (!text.trim() || sending) && styles.sendButtonDisabled]}
-            disabled={!text.trim() || sending}
+            style={[styles.sendButton, (!text.trim() || sending || !canSendMessages) && styles.sendButtonDisabled]}
+            disabled={!text.trim() || sending || !canSendMessages}
             onPress={handleSend}
           >
             <Ionicons name="send" size={16} color="#FFFFFF" />
@@ -364,6 +466,23 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
     textAlign: "center",
+  },
+  blockedBanner: {
+    marginHorizontal: 12,
+    marginTop: 8,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: "#FFFBEB",
+    borderWidth: 1,
+    borderColor: "#FCD34D",
+  },
+  blockedBannerText: {
+    color: "#92400E",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    textAlign: "center",
+    fontWeight: "600",
   },
   chatBody: {
     flex: 1,
@@ -496,3 +615,4 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
 });
+

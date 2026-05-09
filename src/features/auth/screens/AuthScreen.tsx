@@ -248,9 +248,7 @@ export default function AuthScreen() {
 
               <Pressable
                 style={styles.forgotWrap}
-                onPress={() =>
-                  Alert.alert("Próximamente", "La recuperación de contraseña se habilitará pronto.")
-                }
+                onPress={() => router.push("/(public)/forgot-password" as any)}
               >
                 <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
               </Pressable>
@@ -748,3 +746,4 @@ const styles = StyleSheet.create({
     color: appTheme.colors.primary,
   },
 });
+

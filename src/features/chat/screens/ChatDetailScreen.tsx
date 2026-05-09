@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   ActivityIndicator,
@@ -18,9 +18,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../../context/AuthContext";
 import { appTheme } from "../../../theme/appTheme";
 import { getMessages, markConversationAsRead, sendMessageToUser, type Message } from "../../../api/messages";
+import { getCommunicationAccess, type CommunicationAccess } from "../../../api/communication";
 import { useSocket } from "../../../hooks/useSocket";
 import { type CallType } from "../../../hooks/useCallSocket";
 import { useCallManager } from "../../../context/CallContext";
+import { useSessionRemaining } from "../../../hooks/useSessionRemaining";
+import { formatRemainingMinText } from "../../../utils/sessionTime";
 
 type MessageUI = {
   id: string;
@@ -40,7 +43,8 @@ function normalizeMessages(raw: Message[]): MessageUI[] {
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 }
 
-function formatMessageHour(iso: string) {
+function formatMessageHour(iso: string | null | undefined) {
+  if (!iso) return "";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
@@ -69,6 +73,8 @@ export default function ChatDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [inputHeight, setInputHeight] = useState(44);
   const [requestingCall, setRequestingCall] = useState(false);
+  const [communicationAccess, setCommunicationAccess] = useState<CommunicationAccess | null>(null);
+  const [communicationLoading, setCommunicationLoading] = useState(true);
 
   const rawId = Array.isArray(params.id) ? params.id[0] : params.id ?? "";
   const rawConversationId = Array.isArray(params.conversationId) ? params.conversationId[0] : params.conversationId;
@@ -90,6 +96,46 @@ export default function ChatDetailScreen() {
   useEffect(() => {
     setConversationId(resolvedConversationId);
   }, [resolvedConversationId]);
+
+  useEffect(() => {
+    if (!professionalId) {
+      setCommunicationLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadAccess = async (showLoader: boolean) => {
+      if (showLoader) setCommunicationLoading(true);
+      try {
+        const access = await getCommunicationAccess(professionalId);
+        if (!cancelled) setCommunicationAccess(access);
+      } catch {
+        if (!cancelled) {
+          setCommunicationAccess({
+            allowed: false,
+            bookingId: null,
+            sessionStartsAt: null,
+            sessionEndsAt: null,
+            reason: "UNKNOWN",
+            message: "No se pudo validar el acceso de comunicacion.",
+          });
+        }
+      } finally {
+        if (!cancelled && showLoader) setCommunicationLoading(false);
+      }
+    };
+
+    void loadAccess(true);
+    const timer = setInterval(() => {
+      void loadAccess(false);
+    }, 60_000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [professionalId]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -152,8 +198,25 @@ export default function ChatDetailScreen() {
     return unsubscribe;
   }, [conversationId, onNewMessage, user?.id]);
 
+  const { remainingMs: sessionRemainingMs, isExpired: sessionExpired } = useSessionRemaining(
+    communicationAccess?.sessionEndsAt,
+    60_000,
+  );
+  const canCommunicateByAccess = communicationAccess?.allowed === true;
+  const hasActiveSessionNow = canCommunicateByAccess && !sessionExpired;
+  const canSendMessages = hasActiveSessionNow && !communicationLoading;
+
   async function handleSend() {
     if (!text.trim() || !user?.id || !professionalId || sending) return;
+
+    if (!canSendMessages) {
+      setError(
+        sessionExpired
+          ? "La sesion termino."
+          : communicationAccess?.message ?? "Los mensajes estan disponibles solo durante una sesion activa.",
+      );
+      return;
+    }
 
     const payloadText = text.trim();
     setText("");
@@ -178,7 +241,22 @@ export default function ChatDetailScreen() {
       setError(null);
     } catch (err: any) {
       setText(payloadText);
-      setError(err?.message ?? "No se pudo enviar el mensaje.");
+      const message = err?.message ?? "No se pudo enviar el mensaje.";
+      setError(message);
+
+      if (
+        String(message).toLowerCase().includes("sesion activa") ||
+        String(message).toLowerCase().includes("sesión activa")
+      ) {
+        setCommunicationAccess((prev) => ({
+          allowed: false,
+          bookingId: prev?.bookingId ?? null,
+          sessionStartsAt: prev?.sessionStartsAt ?? null,
+          sessionEndsAt: prev?.sessionEndsAt ?? null,
+          reason: prev?.reason ?? "UNKNOWN",
+          message,
+        }));
+      }
     } finally {
       setSending(false);
     }
@@ -192,8 +270,15 @@ export default function ChatDetailScreen() {
     }
 
     try {
+      const access = await getCommunicationAccess(professionalId);
+      setCommunicationAccess(access);
+      if (!access.allowed) {
+        Alert.alert("Llamada no disponible", access.message ?? "Las llamadas están disponibles solo durante una sesión activa.");
+        return;
+      }
+
       setRequestingCall(true);
-      startOutgoingCall({
+      await startOutgoingCall({
         receiverId: professionalId,
         receiverName: professionalName,
         receiverAvatar: professionalAvatar || null,
@@ -205,10 +290,15 @@ export default function ChatDetailScreen() {
   }
 
   const showEmpty = !loading && messages.length === 0 && !error;
+  const communicationHint = communicationLoading
+    ? "Validando acceso a comunicacion..."
+    : sessionExpired && canCommunicateByAccess
+      ? "La sesion termino."
+      : communicationAccess?.message ?? "Los mensajes estan disponibles solo durante una sesion activa.";
 
   return (
     <View style={styles.page}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}> 
         <Pressable onPress={() => router.back()} style={styles.iconBtn}>
           <Ionicons name="arrow-back" size={18} color={appTheme.colors.text} />
         </Pressable>
@@ -222,10 +312,14 @@ export default function ChatDetailScreen() {
           <Text style={styles.name} numberOfLines={1}>
             {professionalName}
           </Text>
-          {hasActiveSession ? (
+          {hasActiveSessionNow || hasActiveSession ? (
             <View style={styles.sessionBadgeRow}>
               <Ionicons name="calendar" size={10} color="#166534" />
-              <Text style={styles.sessionBadgeText}>Sesion activa</Text>
+              <Text style={styles.sessionBadgeText}>
+                {hasActiveSessionNow
+                  ? `Sesion activa · termina en ${formatRemainingMinText(sessionRemainingMs)}`
+                  : "Sesion activa"}
+              </Text>
             </View>
           ) : (
             <Text style={styles.sub}>• En línea</Text>
@@ -234,15 +328,15 @@ export default function ChatDetailScreen() {
 
         <View style={styles.headerActions}>
           <Pressable
-            style={[styles.iconBtnMuted, requestingCall && styles.iconBtnMutedDisabled]}
-            disabled={requestingCall}
+            style={[styles.iconBtnMuted, requestingCall && styles.iconBtnMutedDisabled, !canSendMessages && styles.iconBtnMutedDisabled]}
+            disabled={requestingCall || !canSendMessages}
             onPress={() => handleRequestCall("CALL")}
           >
             <Ionicons name="call" size={16} color="#C0267A" />
           </Pressable>
           <Pressable
-            style={[styles.iconBtnMuted, requestingCall && styles.iconBtnMutedDisabled]}
-            disabled={requestingCall}
+            style={[styles.iconBtnMuted, requestingCall && styles.iconBtnMutedDisabled, !canSendMessages && styles.iconBtnMutedDisabled]}
+            disabled={requestingCall || !canSendMessages}
             onPress={() => handleRequestCall("VIDEO_CALL")}
           >
             <Ionicons name="videocam" size={16} color="#6C5BB6" />
@@ -253,6 +347,26 @@ export default function ChatDetailScreen() {
       {error ? (
         <View style={styles.errorWrap}>
           <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : null}
+
+      {!canSendMessages ? (
+        <View style={styles.blockedBanner}>
+          <Text style={styles.blockedBannerText}>{communicationHint}</Text>
+          <Pressable
+            style={styles.blockedBannerBtn}
+            onPress={() =>
+              router.push({
+                pathname: "/(user)/bookings/new",
+                params: {
+                  professionalId,
+                  professionalName,
+                },
+              } as any)
+            }
+          >
+            <Text style={styles.blockedBannerBtnText}>Reservar sesión</Text>
+          </Pressable>
         </View>
       ) : null}
 
@@ -299,7 +413,7 @@ export default function ChatDetailScreen() {
                   <Text style={[styles.messageText, mine && styles.messageTextMine]}>{item.text}</Text>
                   <Text style={[styles.messageMeta, mine && styles.messageMetaMine]}>
                     {formatMessageHour(item.createdAt)}
-                    {mine ? " ✓✓" : ""}
+                    {mine ? " ??" : ""}
                   </Text>
                 </View>
               </View>
@@ -307,7 +421,7 @@ export default function ChatDetailScreen() {
           }}
         />
 
-        <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+        <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 8) }]}> 
           <Pressable style={styles.leftIconBtn}>
             <Ionicons name="happy-outline" size={18} color="#8898AA" />
           </Pressable>
@@ -319,6 +433,7 @@ export default function ChatDetailScreen() {
             placeholderTextColor={appTheme.colors.textMuted}
             style={[styles.input, { height: Math.min(Math.max(inputHeight, 44), 120) }]}
             multiline
+            editable={canSendMessages}
             maxLength={1200}
             onContentSizeChange={(event) => {
               setInputHeight(event.nativeEvent.contentSize.height + 16);
@@ -326,8 +441,8 @@ export default function ChatDetailScreen() {
           />
 
           <Pressable
-            style={[styles.sendButton, (!text.trim() || sending) && styles.sendButtonDisabled]}
-            disabled={!text.trim() || sending}
+            style={[styles.sendButton, (!text.trim() || sending || !canSendMessages) && styles.sendButtonDisabled]}
+            disabled={!text.trim() || sending || !canSendMessages}
             onPress={handleSend}
           >
             <Ionicons name="arrow-up" size={17} color="#FFFFFF" />
@@ -435,6 +550,41 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
     textAlign: "center",
+  },
+
+  blockedBanner: {
+    marginHorizontal: 12,
+    marginTop: 8,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: "#FFFBEB",
+    borderWidth: 1,
+    borderColor: "#FCD34D",
+    gap: 8,
+  },
+
+  blockedBannerText: {
+    color: "#92400E",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    textAlign: "center",
+    fontWeight: "600",
+  },
+
+  blockedBannerBtn: {
+    alignSelf: "center",
+    backgroundColor: appTheme.colors.primary,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+
+  blockedBannerBtnText: {
+    color: "#FFFFFF",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    fontWeight: "700",
   },
 
   chatBody: {

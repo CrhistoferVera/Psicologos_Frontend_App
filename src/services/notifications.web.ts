@@ -23,3 +23,10 @@ export const setBackgroundMessageHandler = (): void => {
   // Web: not supported
 };
 
+export async function syncActiveSessionNotification(_input: {
+  bookingId: string;
+  sessionEndsAt: string;
+} | null): Promise<void> {
+  // Web: not supported
+}
+

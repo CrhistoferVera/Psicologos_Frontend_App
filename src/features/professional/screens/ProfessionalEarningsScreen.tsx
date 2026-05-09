@@ -109,9 +109,20 @@ export default function ProfessionalEarningsScreen() {
     void loadAll();
   }, []);
 
-  const gross = useMemo(() => {
-    if (!Array.isArray(earnings?.transactions)) return 0;
-    return earnings.transactions.reduce((acc: number, tx: any) => acc + Number(tx.amount ?? 0), 0);
+  const grossByCurrency = useMemo(() => {
+    if (!Array.isArray(earnings?.transactions)) return { bob: 0, usd: 0 };
+    return earnings.transactions.reduce(
+      (acc: { bob: number; usd: number }, tx: any) => {
+        const currency = String(tx?.currency ?? 'BOB').toUpperCase();
+        if (currency === 'USD') {
+          acc.usd += Number(tx.amount ?? 0);
+        } else {
+          acc.bob += Number(tx.amount ?? 0);
+        }
+        return acc;
+      },
+      { bob: 0, usd: 0 },
+    );
   }, [earnings]);
 
   const totalBalance = Number(earnings?.balance ?? earnings?.total ?? 0);
@@ -120,7 +131,9 @@ export default function ProfessionalEarningsScreen() {
     earnings?.withdrawableBalance ?? earnings?.realBalance ?? Math.max(totalBalance - Number(earnings?.promotionalBalance ?? 0), 0),
   );
   const thisWeek = Number(earnings?.thisWeek ?? 0);
+  const thisWeekUsd = Number(earnings?.thisWeekUsd ?? 0);
   const today = Number(earnings?.today ?? 0);
+  const todayUsd = Number(earnings?.todayUsd ?? 0);
 
   const accountsForWithdrawCurrency = bankAccounts.filter((a) => (a.currency ?? 'BOB') === withdrawCurrency);
 
@@ -255,19 +268,46 @@ export default function ProfessionalEarningsScreen() {
           <Text style={styles.heroLabel}>Cartera Dolares (USD)</Text>
           <Text style={styles.heroValue}>{formatMoney(totalBalanceUsd, 'USD')}</Text>
           <View style={styles.heroMetaRow}>
-            <Text style={styles.heroMeta}>Ganancias de clientes internacionales</Text>
+            <Text style={styles.heroMeta}>Hoy: {formatMoney(todayUsd, 'USD')}</Text>
+            <Text style={styles.heroMeta}>Semana: {formatMoney(thisWeekUsd, 'USD')}</Text>
           </View>
         </View>
 
         <View style={styles.kpisRow}>
           <AppCard style={styles.kpiCard}>
-            <Text style={styles.kpiValue}>{formatMoney(gross)}</Text>
-            <Text style={styles.kpiLabel}>Ingresos historicos</Text>
+            <Text style={styles.kpiValue}>{formatMoney(grossByCurrency.bob, 'BOB')}</Text>
+            <Text style={styles.kpiLabel}>Ingresos historicos Bs</Text>
           </AppCard>
           <AppCard style={styles.kpiCard}>
             <Text style={styles.kpiValue}>{formatMoney(totalBalance)}</Text>
           <Text style={styles.kpiLabel}>Saldo actual</Text>
           </AppCard>
+        </View>
+
+        <Text style={styles.sectionTitle}>Historial de ganancias</Text>
+        <View style={styles.historyList}>
+          {!Array.isArray(earnings?.transactions) || earnings.transactions.length === 0 ? (
+            <AppCard>
+              <Text style={styles.muted}>Aun no tienes ganancias registradas.</Text>
+            </AppCard>
+          ) : (
+            earnings.transactions.map((tx: any) => {
+              const currency = String(tx?.currency ?? 'BOB').toUpperCase() === 'USD' ? 'USD' : 'BOB';
+              return (
+                <AppCard key={tx.id} style={styles.historyItem}>
+                  <View style={styles.historyTop}>
+                    <Text style={styles.historyAmount}>{formatMoney(Number(tx.amount ?? 0), currency)}</Text>
+                    <View style={[styles.currencyBadge, currency === 'USD' && styles.currencyBadgeUsd]}>
+                      <Text style={styles.currencyBadgeText}>{currency}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.muted}>{tx.service || 'Ganancia'}</Text>
+                  {tx.clientName ? <Text style={styles.muted}>Cliente: {tx.clientName}</Text> : null}
+                  <Text style={styles.muted}>Fecha: {formatDateTime(tx.createdAt)}</Text>
+                </AppCard>
+              );
+            })
+          )}
         </View>
 
         <Text style={styles.sectionTitle}>Solicitar retiro</Text>

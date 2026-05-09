@@ -16,6 +16,9 @@ import { appTheme } from "../../../theme/appTheme";
 import { useCallManager } from "../../../context/CallContext";
 import { useAuth } from "../../../context/AuthContext";
 import { getAgoraToken } from "../../../api/calls";
+import { getCommunicationAccess, type CommunicationAccess } from "../../../api/communication";
+import { useSessionRemaining } from "../../../hooks/useSessionRemaining";
+import { formatRemainingClock, formatRemainingMinText } from "../../../utils/sessionTime";
 import {
   ChannelProfileType,
   ClientRoleType,
@@ -54,6 +57,7 @@ export default function CallSessionScreen() {
   const [engineReady, setEngineReady] = useState(false);
   const [remoteUid, setRemoteUid] = useState<number | null>(null);
   const [channelError, setChannelError] = useState<string | null>(null);
+  const [communicationAccess, setCommunicationAccess] = useState<CommunicationAccess | null>(null);
 
   const [agoraConnectedAt, setAgoraConnectedAt] = useState<number | null>(null);
   const hasConnectedRef = useRef(false);
@@ -93,6 +97,34 @@ export default function CallSessionScreen() {
       if (hideTimer.current) clearTimeout(hideTimer.current);
     };
   }, [isVideoCall, session?.status]);
+
+  useEffect(() => {
+    if (!session?.otherUserId) {
+      setCommunicationAccess(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadAccess = async () => {
+      try {
+        const access = await getCommunicationAccess(session.otherUserId);
+        if (!cancelled) setCommunicationAccess(access);
+      } catch {
+        if (!cancelled) setCommunicationAccess(null);
+      }
+    };
+
+    void loadAccess();
+    const timer = setInterval(() => {
+      void loadAccess();
+    }, 30_000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [session?.otherUserId]);
 
   useEffect(() => {
     if (!session || session.status !== "connected" || !user?.id) return;
@@ -151,7 +183,7 @@ export default function CallSessionScreen() {
           if (denied) throw new Error("Permisos de cámara/micrófono denegados");
         }
 
-        const tokenData = await getAgoraToken(session.callId, numericUid);
+        const tokenData = await getAgoraToken(session.callId, numericUid, session.otherUserId);
         if (cancelled) return;
 
         engine.initialize({
@@ -236,6 +268,18 @@ export default function CallSessionScreen() {
     router.back();
   };
 
+  const { remainingMs: sessionRemainingMs, isExpired: sessionExpired } = useSessionRemaining(
+    communicationAccess?.sessionEndsAt,
+    1_000,
+  );
+  const hasActiveSessionNow = communicationAccess?.allowed === true && !sessionExpired;
+  const sessionInfoLabel = hasActiveSessionNow
+    ? `Sesion activa · termina en ${formatRemainingMinText(sessionRemainingMs)}`
+    : communicationAccess?.allowed
+      ? "La sesion termino."
+      : null;
+  const sessionInfoTimer = hasActiveSessionNow ? formatRemainingClock(sessionRemainingMs) : null;
+
   if (!session) {
     return (
       <View style={styles.page}>
@@ -279,6 +323,8 @@ export default function CallSessionScreen() {
           <View style={styles.topBar} pointerEvents="none">
             <Text style={styles.topName}>{session.otherUserName}</Text>
             <Text style={styles.topTimer}>{statusLabel}</Text>
+            {sessionInfoLabel ? <Text style={styles.topSessionInfo}>{sessionInfoLabel}</Text> : null}
+            {sessionInfoTimer ? <Text style={styles.topSessionClock}>{sessionInfoTimer}</Text> : null}
           </View>
         )}
 
@@ -379,6 +425,8 @@ export default function CallSessionScreen() {
         </View>
         <Text style={styles.name}>{session.otherUserName}</Text>
         <Text style={styles.subtitle}>{statusLabel}</Text>
+        {sessionInfoLabel ? <Text style={styles.sessionInfoAudio}>{sessionInfoLabel}</Text> : null}
+        {sessionInfoTimer ? <Text style={styles.sessionClockAudio}>{sessionInfoTimer}</Text> : null}
         <Text style={styles.callTypeLabel}>{isVideoCall ? "Videollamada" : "Llamada de voz"}</Text>
       </View>
 
@@ -472,6 +520,20 @@ const styles = StyleSheet.create({
   topTimer: {
     color: "#D3E3F2",
     fontSize: 14,
+    fontFamily: appTheme.fonts.body,
+    marginTop: 2,
+  },
+  topSessionInfo: {
+    color: "#D9F99D",
+    fontSize: 12,
+    fontWeight: "600",
+    fontFamily: appTheme.fonts.body,
+    marginTop: 6,
+  },
+  topSessionClock: {
+    color: "#F8FAFC",
+    fontSize: 12,
+    fontWeight: "700",
     fontFamily: appTheme.fonts.body,
     marginTop: 2,
   },
@@ -630,6 +692,22 @@ const styles = StyleSheet.create({
     marginTop: 6,
     color: "#D3E3F2",
     fontSize: 16,
+    fontFamily: appTheme.fonts.body,
+    textAlign: "center",
+  },
+  sessionInfoAudio: {
+    marginTop: 6,
+    color: "#D9F99D",
+    fontSize: 13,
+    fontWeight: "600",
+    fontFamily: appTheme.fonts.body,
+    textAlign: "center",
+  },
+  sessionClockAudio: {
+    marginTop: 3,
+    color: "#F8FAFC",
+    fontSize: 14,
+    fontWeight: "700",
     fontFamily: appTheme.fonts.body,
     textAlign: "center",
   },

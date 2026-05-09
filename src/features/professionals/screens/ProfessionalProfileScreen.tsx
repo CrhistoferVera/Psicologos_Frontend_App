@@ -2,7 +2,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import AppCard from '../../../components/ui/AppCard';
 import AppScreen from '../../../components/ui/AppScreen';
 import { getMyChats } from '../../../api/messages';
@@ -10,12 +10,15 @@ import {
   getProfessionalSessionOfferings,
   type ProfessionalSessionOffering,
 } from '../../../api/bookings';
+import { getCommunicationAccess, type CommunicationAccess } from '../../../api/communication';
 import { appTheme } from '../../../theme/appTheme';
 import { useAuth } from '../../../context/AuthContext';
 import { resolvePaymentRegion } from '../../../utils/paymentRegion';
 import { getProfessionalById } from '../api/professionalsApi';
 import type { Professional } from '../types';
 import { useCallManager } from '../../../context/CallContext';
+import { useSessionRemaining } from '../../../hooks/useSessionRemaining';
+import { formatRemainingMinText } from '../../../utils/sessionTime';
 
 type TabKey = 'info' | 'reviews';
 
@@ -34,6 +37,8 @@ export default function ProfessionalProfileScreen() {
   const [activeTab, setActiveTab] = useState<TabKey>('info');
   const [openingChat, setOpeningChat] = useState(false);
   const [requestingCall, setRequestingCall] = useState<'CALL' | 'VIDEO_CALL' | null>(null);
+  const [communicationAccess, setCommunicationAccess] = useState<CommunicationAccess | null>(null);
+  const [communicationLoading, setCommunicationLoading] = useState(true);
   const { startOutgoingCall } = useCallManager();
   const paymentRegion = useMemo(
     () =>
@@ -59,13 +64,71 @@ export default function ProfessionalProfileScreen() {
         setProfessional(profile);
         setOfferings(sessions);
         setOfferingsError(null);
+
+        try {
+          setCommunicationLoading(true);
+          const access = await getCommunicationAccess(professionalId);
+          setCommunicationAccess(access);
+        } catch {
+          setCommunicationAccess({
+            allowed: false,
+            bookingId: null,
+            sessionStartsAt: null,
+            sessionEndsAt: null,
+            reason: 'UNKNOWN',
+            message: 'No se pudo validar el acceso de comunicación.',
+          });
+        } finally {
+          setCommunicationLoading(false);
+        }
       } catch {
         setError('No se pudo cargar el perfil profesional.');
         setOfferingsError('No se pudieron cargar las sesiones disponibles.');
+        setCommunicationLoading(false);
       } finally {
         setOfferingsLoading(false);
       }
     })();
+  }, [professionalId]);
+
+  useEffect(() => {
+    if (!professionalId) {
+      setCommunicationLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadAccess = async (showLoader: boolean) => {
+      if (showLoader) setCommunicationLoading(true);
+      try {
+        const access = await getCommunicationAccess(professionalId);
+        if (!cancelled) setCommunicationAccess(access);
+      } catch {
+        if (!cancelled) {
+          setCommunicationAccess({
+            allowed: false,
+            bookingId: null,
+            sessionStartsAt: null,
+            sessionEndsAt: null,
+            reason: 'UNKNOWN',
+            message: 'No se pudo validar el acceso de comunicacion.',
+          });
+        }
+      } finally {
+        if (!cancelled && showLoader) setCommunicationLoading(false);
+      }
+    };
+
+    void loadAccess(false);
+    const timer = setInterval(() => {
+      void loadAccess(false);
+    }, 60_000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
   }, [professionalId]);
 
   const subtitle = useMemo(() => {
@@ -73,6 +136,21 @@ export default function ProfessionalProfileScreen() {
     if (professional.specialties.length === 0) return 'Psicología clínica';
     return professional.specialties.slice(0, 2).join(' · ');
   }, [professional]);
+
+  const { remainingMs: sessionRemainingMs, isExpired: sessionExpired } = useSessionRemaining(
+    communicationAccess?.sessionEndsAt,
+    60_000,
+  );
+  const canCommunicateByAccess = communicationAccess?.allowed === true;
+  const canCommunicate = canCommunicateByAccess && !sessionExpired;
+
+  const communicationLabel = communicationLoading
+    ? 'Validando acceso a comunicacion...'
+    : canCommunicate
+      ? `Sesion activa · termina en ${formatRemainingMinText(sessionRemainingMs)}`
+      : sessionExpired && canCommunicateByAccess
+        ? 'La sesion termino.'
+        : communicationAccess?.message ?? 'Reserva una sesion para habilitar mensajes y llamadas.';
 
   if (!professional && !error) {
     return (
@@ -103,6 +181,18 @@ export default function ProfessionalProfileScreen() {
     if (openingChat) return;
     if (!professional) return;
     const targetProfessional = professional;
+
+    try {
+      const access = await getCommunicationAccess(targetProfessional.id);
+      setCommunicationAccess(access);
+      if (!access.allowed) {
+        Alert.alert('Chat no disponible', access.message ?? 'Reserva una sesión para habilitar mensajes y llamadas.');
+        return;
+      }
+    } catch {
+      Alert.alert('Chat no disponible', 'Reserva una sesión para habilitar mensajes y llamadas.');
+      return;
+    }
 
     try {
       setOpeningChat(true);
@@ -136,13 +226,20 @@ export default function ProfessionalProfileScreen() {
     }
   }
 
-  function handleStartCall(callType: 'CALL' | 'VIDEO_CALL') {
+  async function handleStartCall(callType: 'CALL' | 'VIDEO_CALL') {
     if (requestingCall) return;
     if (!professional) return;
 
     try {
+      const access = await getCommunicationAccess(professional.id);
+      setCommunicationAccess(access);
+      if (!access.allowed) {
+        Alert.alert('Llamada no disponible', access.message ?? 'Las llamadas están disponibles solo durante una sesión activa.');
+        return;
+      }
+
       setRequestingCall(callType);
-      startOutgoingCall({
+      await startOutgoingCall({
         receiverId: professional.id,
         receiverName: professional.name,
         receiverAvatar: professional.avatar || null,
@@ -238,9 +335,13 @@ export default function ProfessionalProfileScreen() {
 
         <View style={styles.priceCardsRow}>
           <Pressable
-            style={[styles.priceCard, styles.chatCard, openingChat && styles.priceCardDisabled]}
+            style={[
+              styles.priceCard,
+              styles.chatCard,
+              (openingChat || !canCommunicate) && styles.priceCardDisabled,
+            ]}
             onPress={handleStartChat}
-            disabled={openingChat}
+            disabled={openingChat || !canCommunicate}
           >
             <Ionicons name="chatbubble-ellipses-outline" size={20} color="#FFFFFF" />
             <Text style={[styles.priceTitle, { color: '#FFFFFF' }]}>Chat</Text>
@@ -251,9 +352,10 @@ export default function ProfessionalProfileScreen() {
               styles.priceCard,
               styles.callCard,
               requestingCall === 'CALL' && styles.priceCardDisabled,
+              !canCommunicate && styles.priceCardDisabled,
             ]}
             onPress={() => handleStartCall('CALL')}
-            disabled={requestingCall !== null}
+            disabled={requestingCall !== null || !canCommunicate}
           >
             <Ionicons name="call-outline" size={20} color="#26A269" />
             <Text style={[styles.priceTitle, { color: '#2F855A' }]}>Llamada</Text>
@@ -264,14 +366,19 @@ export default function ProfessionalProfileScreen() {
               styles.priceCard,
               styles.videoCard,
               requestingCall === 'VIDEO_CALL' && styles.priceCardDisabled,
+              !canCommunicate && styles.priceCardDisabled,
             ]}
             onPress={() => handleStartCall('VIDEO_CALL')}
-            disabled={requestingCall !== null}
+            disabled={requestingCall !== null || !canCommunicate}
           >
             <Ionicons name="videocam-outline" size={20} color="#7E6CCF" />
             <Text style={[styles.priceTitle, { color: '#6C5BB6' }]}>Video</Text>
           </Pressable>
         </View>
+
+        <Text style={[styles.communicationHint, canCommunicate && styles.communicationHintAllowed]}>
+          {communicationLabel}
+        </Text>
 
         <View style={styles.tabsRow}>
           <Pressable
@@ -381,12 +488,14 @@ export default function ProfessionalProfileScreen() {
         )}
 
         <Pressable
-          style={[styles.chatBtn, openingChat && styles.chatBtnDisabled]}
+          style={[styles.chatBtn, (openingChat || !canCommunicate) && styles.chatBtnDisabled]}
           onPress={handleStartChat}
-          disabled={openingChat}
+          disabled={openingChat || !canCommunicate}
         >
           <Ionicons name="chatbubble-ellipses-outline" size={18} color="#FFFFFF" />
-          <Text style={styles.chatBtnText}>{openingChat ? 'Abriendo...' : 'Iniciar chat'}</Text>
+          <Text style={styles.chatBtnText}>
+            {openingChat ? 'Abriendo...' : canCommunicate ? 'Iniciar chat' : 'Reserva para chatear'}
+          </Text>
         </Pressable>
       </View>
     </AppScreen>
@@ -557,6 +666,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+  communicationHint: {
+    marginTop: -4,
+    color: '#92400E',
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  communicationHintAllowed: {
+    color: '#166534',
+  },
   tabsRow: {
     flexDirection: 'row',
     gap: 8,
@@ -704,4 +824,3 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
-
