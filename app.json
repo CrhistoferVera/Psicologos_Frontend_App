@@ -15,7 +15,7 @@
     },
     "android": {
       "softwareKeyboardLayoutMode": "resize",
-      "package": "com.psyconnect.app",
+      "package": "com.sanamenteoficial.app",
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
