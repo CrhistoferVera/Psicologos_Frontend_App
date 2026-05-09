@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
-import { Alert, Image, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import AppButton from "../../../components/ui/AppButton";
 import AppScreen from "../../../components/ui/AppScreen";
 import { apiGetMyProfileUser, apiUpdateMyProfileUser } from "../../../api/userProfile";
@@ -33,7 +33,7 @@ export default function UserSettingsScreen() {
         setLastName(profile.lastName ?? "");
         setEmail(profile.email ?? "");
         setPhoneNumber(profile.phoneNumber ?? "");
-        const profileData = profile.UserProfile ?? null;
+        const profileData = profile.UserProfile ?? profile.userProfile ?? null;
         setUserName(profileData?.userName ?? "");
         setBio(profileData?.bio ?? "");
         setAvatarUrl(profileData?.avatarUrl ?? null);
@@ -94,8 +94,16 @@ export default function UserSettingsScreen() {
   }
 
   return (
-    <AppScreen scroll>
-      <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.container}>
         <View style={styles.headerRow}>
           <Pressable style={styles.backBtn} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={18} color={appTheme.colors.text} />
@@ -124,14 +132,20 @@ export default function UserSettingsScreen() {
         </Pressable>
 
         <AppButton title={saving ? "Guardando..." : "Guardar cambios"} onPress={handleSave} loading={saving} disabled={saving} />
-      </View>
-    </AppScreen>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     gap: 10,
+    padding: 16,
+    paddingBottom: 40,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   headerRow: {
     flexDirection: "row",

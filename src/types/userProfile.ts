@@ -24,6 +24,7 @@ export type MyProfileData = {
     lastName: string | null;
     role: string;
     isProfileComplete: boolean;
+    userProfile?: UserProfileData | null;
     UserProfile?: UserProfileData | null;
     wallet?: WalletData | null;
 };
