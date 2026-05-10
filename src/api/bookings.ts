@@ -10,7 +10,7 @@ export type BookingStatus =
   | 'EXPIRED';
 
 export type BookingPaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED' | 'EXPIRED';
-export type BookingPaymentMethod = 'BANECO_QR' | 'STRIPE';
+export type BookingPaymentMethod = 'BANECO_QR' | 'STRIPE' | 'WALLET';
 
 export type ProfessionalSessionOffering = {
   id: string;

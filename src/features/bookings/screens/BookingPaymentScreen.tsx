@@ -226,7 +226,7 @@ export default function BookingPaymentScreen() {
             <Ionicons name="arrow-back" size={18} color={appTheme.colors.text} />
           </Pressable>
           <View style={{ flex: 1 }}>
-            <Text style={styles.title}>Pago de reserva</Text>
+            <Text style={styles.title}>{isConfirmed ? 'Reserva confirmada' : 'Pago de reserva'}</Text>
             <Text style={styles.subtitle}>{professionalName || 'SanaMente'}</Text>
           </View>
         </View>
@@ -271,8 +271,15 @@ export default function BookingPaymentScreen() {
           <AppCard style={styles.confirmedCard}>
             <Ionicons name="checkmark-circle" size={30} color={appTheme.colors.success} />
             <Text style={styles.confirmedTitle}>Reserva confirmada</Text>
-            <Text style={styles.muted}>Tu pago fue confirmado correctamente.</Text>
+            <Text style={styles.muted}>El saldo fue descontado de tu billetera correctamente.</Text>
           </AppCard>
+        )}
+
+        {isConfirmed && (
+          <AppButton
+            title="Ver mis reservas"
+            onPress={() => router.replace('/(user)/bookings' as any)}
+          />
         )}
 
         {isPending && paymentData?.paymentMethod === 'BANECO_QR' && (

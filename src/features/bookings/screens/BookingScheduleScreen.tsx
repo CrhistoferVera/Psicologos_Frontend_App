@@ -281,7 +281,7 @@ export default function BookingScheduleScreen() {
         </AppCard>
 
         <AppButton
-          title={submitting ? 'Creando reserva...' : 'Continuar al pago'}
+          title={submitting ? 'Creando reserva...' : 'Continuar '}
           onPress={() => void handleCreateBooking()}
           loading={submitting}
           disabled={
