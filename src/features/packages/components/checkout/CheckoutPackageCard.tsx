@@ -1,15 +1,14 @@
 import { StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { Package } from "lucide-react-native";
+import { Package, Wallet } from "lucide-react-native";
 import { appTheme } from "../../../../theme/appTheme";
 
 type Props = {
   name: string;
-  credits: string;
   displayPrice: string;
 };
 
-export function CheckoutPackageCard({ name, credits, displayPrice }: Props) {
+export function CheckoutPackageCard({ name, displayPrice }: Props) {
   return (
     <LinearGradient
       colors={["#1E40AF", "#3B82F6", "#60A5FA"]}
@@ -26,7 +25,10 @@ export function CheckoutPackageCard({ name, credits, displayPrice }: Props) {
         </View>
         <View style={styles.info}>
           <Text style={styles.name}>{name}</Text>
-          <Text style={styles.credits}>{Number(credits).toLocaleString()} unidades</Text>
+          <View style={styles.walletBadge}>
+            <Wallet size={12} color="rgba(255,255,255,0.9)" />
+            <Text style={styles.walletText}>Se acredita a tu wallet</Text>
+          </View>
         </View>
         <Text style={styles.price}>{displayPrice}</Text>
       </View>
@@ -78,7 +80,7 @@ const styles = StyleSheet.create({
   },
   info: {
     flex: 1,
-    gap: 4,
+    gap: 6,
   },
   name: {
     color: "#FFFFFF",
@@ -86,10 +88,21 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
   },
-  credits: {
-    color: "rgba(255,255,255,0.75)",
+  walletBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(255,255,255,0.15)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 99,
+  },
+  walletText: {
+    color: "rgba(255,255,255,0.9)",
     fontFamily: appTheme.fonts.body,
-    fontSize: 13,
+    fontSize: 11,
+    fontWeight: "600",
   },
   price: {
     color: "#FFFFFF",

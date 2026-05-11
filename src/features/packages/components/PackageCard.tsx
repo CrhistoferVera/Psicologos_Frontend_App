@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Package } from "lucide-react-native";
+import { Package, Wallet } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { appTheme } from "../../../theme/appTheme";
 import type { PackageData } from "../../../types/package";
@@ -39,9 +39,9 @@ export function PackageCard({ item, index, formattedPrice, onPress }: Props) {
           <View style={styles.titleWrap}>
             <Text style={styles.name}>{item.name}</Text>
             <View style={[styles.creditsBadge, { backgroundColor: `${accent}20` }]}>
-              <Ionicons name="star" size={11} color={accent} />
+              <Wallet size={11} color={accent} />
               <Text style={[styles.creditsText, { color: accent }]}>
-                {item.credits.toLocaleString()} unidades
+                Se acredita directo a tu wallet
               </Text>
             </View>
           </View>
@@ -53,7 +53,7 @@ export function PackageCard({ item, index, formattedPrice, onPress }: Props) {
         {/* Bottom */}
         <View style={styles.bottom}>
           <View>
-            <Text style={styles.priceLabel}>Precio</Text>
+            <Text style={styles.priceLabel}>Recarga a tu wallet</Text>
             <Text style={styles.price}>{formattedPrice}</Text>
           </View>
           <LinearGradient
@@ -141,6 +141,12 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   priceLabel: {
+    color: "#6B7280",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 11,
+    marginBottom: 2,
+  },
+  walletLabel: {
     color: "#6B7280",
     fontFamily: appTheme.fonts.body,
     fontSize: 11,

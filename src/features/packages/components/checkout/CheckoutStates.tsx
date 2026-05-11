@@ -17,9 +17,9 @@ export function CheckoutStatePending() {
 }
 
 // ── Pago confirmado ──────────────────────────────────────────────────────────
-type PaidProps = { displayCredits: string; onBack: () => void };
+type PaidProps = { displayAmount: string; onBack: () => void };
 
-export function CheckoutStatePaid({ displayCredits, onBack }: PaidProps) {
+export function CheckoutStatePaid({ displayAmount, onBack }: PaidProps) {
   return (
     <View style={styles.card}>
       <LinearGradient colors={["#D1FAE5", "#ECFDF5"]} style={styles.iconWrap}>
@@ -27,7 +27,7 @@ export function CheckoutStatePaid({ displayCredits, onBack }: PaidProps) {
       </LinearGradient>
       <Text style={[styles.title, { color: "#10B981" }]}>¡Pago confirmado!</Text>
       <Text style={styles.sub}>
-        {displayCredits} unidades fueron agregadas a tu wallet.
+        {displayAmount} fueron acreditados directamente a tu wallet.
       </Text>
       <Pressable style={styles.primaryBtn} onPress={onBack}>
         <Text style={styles.btnText}>Volver a paquetes</Text>

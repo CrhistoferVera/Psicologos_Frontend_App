@@ -26,11 +26,10 @@ import {
 type PayStatus = "NONE" | "PENDING" | "PAID" | "CANCELED";
 
 export default function PackageCheckoutScreen() {
-  const { packageId, packageName, credits, priceBob, priceUsd } =
+  const { packageId, packageName, priceBob, priceUsd } =
     useLocalSearchParams<{
       packageId: string;
       packageName: string;
-      credits: string;
       priceBob: string;
       priceUsd: string;
     }>();
@@ -131,8 +130,6 @@ export default function PackageCheckoutScreen() {
       ? formatBob(priceBob)
       : formatUsd(priceUsd);
 
-  const displayCredits = Number(credits).toLocaleString();
-
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
       {/* Header */}
@@ -148,7 +145,6 @@ export default function PackageCheckoutScreen() {
 
         <CheckoutPackageCard
           name={packageName ?? ""}
-          credits={credits ?? "0"}
           displayPrice={displayPrice}
         />
         {!canDetermineRegion ? (
@@ -174,7 +170,7 @@ export default function PackageCheckoutScreen() {
 
         {payStatus === "PAID" && (
           <CheckoutStatePaid
-            displayCredits={displayCredits}
+            displayAmount={displayPrice}
             onBack={() => router.back()}
           />
         )}

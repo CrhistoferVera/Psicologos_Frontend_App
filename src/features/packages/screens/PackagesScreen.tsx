@@ -56,7 +56,6 @@ export default function PackagesScreen() {
       params: {
         packageId: item.id,
         packageName: item.name,
-        credits: item.credits,
         priceBob: item.price,
         priceUsd: item.priceUsd ?? 0,
       },
@@ -98,7 +97,7 @@ export default function PackagesScreen() {
             <View style={styles.note}>
               <Ionicons name="information-circle-outline" size={15} color={appTheme.colors.textMuted} />
               <Text style={styles.noteText}>
-                El saldo del paquete se acredita automáticamente a tu wallet tras confirmar el pago.
+                El saldo del paquete se acredita automï¿½ticamente a tu wallet tras confirmar el pago.
               </Text>
             </View>
           }
