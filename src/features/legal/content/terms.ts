@@ -5,7 +5,7 @@ export const TERMS_SECTIONS: Array<{ title: string; body: string[] }> = [
     title: "1. Objeto",
     body: [
       "SanaMente es una plataforma digital que conecta usuarios con psic贸logos y profesionales de salud mental verificados.",
-      "La plataforma facilita comunicaci贸n, pagos de cr茅ditos, sesiones y funcionalidades administrativas asociadas.",
+      "La plataforma facilita comunicaci贸n, pagos y recargas, sesiones y funcionalidades administrativas asociadas.",
     ],
   },
   {
@@ -25,10 +25,10 @@ export const TERMS_SECTIONS: Array<{ title: string; body: string[] }> = [
     ],
   },
   {
-    title: "4. Cr茅ditos, recargas y retiros",
+    title: "4. Saldos, recargas y retiros",
     body: [
       "Las recargas se realizan mediante los m茅todos habilitados en la plataforma.",
-      "Los cr茅ditos se acreditan tras la confirmaci贸n del pago conforme al m茅todo utilizado.",
+      "El saldo se acredita tras la confirmaci髇 del pago conforme al m閠odo utilizado.",
       "Los retiros de profesionales est谩n sujetos a revisi贸n administrativa, validaciones y comprobantes cuando aplique.",
       "SanaMente puede rechazar operaciones que no cumplan requisitos de seguridad o trazabilidad.",
     ],
@@ -77,3 +77,4 @@ export const TERMS_SECTIONS: Array<{ title: string; body: string[] }> = [
     ],
   },
 ];
+

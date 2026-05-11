@@ -13,6 +13,7 @@ import { appTheme } from "../../../theme/appTheme";
 import type { ProfessionalSessionOffering } from "../../../api/bookings";
 import type { CommunicationAccess } from "../../../api/communication";
 import type { Professional } from "../../professionals/types";
+import { formatBob, formatUsd } from "../../../utils/money";
 
 type Props = {
   professional: Professional;
@@ -57,6 +58,9 @@ export default function ProfessionalFeedCard({
   const username = professional.username ? `@${professional.username}` : null;
   const bio = professional.bio?.trim() || null;
   const highlightedOffering = offerings?.[0] ?? null;
+  const highlightedOfferingPrice = highlightedOffering
+    ? formatOfferingPrice(highlightedOffering)
+    : null;
   const hasMoreOfferings = (offerings?.length ?? 0) > 1;
   const canCommunicate = communicationAccess?.allowed === true;
 
@@ -67,10 +71,11 @@ export default function ProfessionalFeedCard({
     : "Reserva una sesión para habilitar mensajes y llamadas.";
 
   function formatOfferingPrice(offering: ProfessionalSessionOffering) {
+    if (!canReserve) return null;
     if (preferredCurrency === "USD") {
-      return `$ ${Number(offering.priceUsd).toFixed(2)} USD`;
+      return formatUsd(offering.priceUsd, true);
     }
-    return `Bs ${Number(offering.priceBob).toFixed(2)}`;
+    return formatBob(offering.priceBob);
   }
 
   function formatSessionTime(iso: string | null | undefined) {
@@ -163,7 +168,8 @@ export default function ProfessionalFeedCard({
                       {highlightedOffering.title}
                     </Text>
                     <Text style={styles.offeringMeta}>
-                      {highlightedOffering.durationMinutes} min | {formatOfferingPrice(highlightedOffering)}
+                      {highlightedOffering.durationMinutes} min
+                      {highlightedOfferingPrice ? ` | ${highlightedOfferingPrice}` : ""}
                     </Text>
                   </View>
                   <Pressable
@@ -226,7 +232,7 @@ export default function ProfessionalFeedCard({
 
         {!canReserve && (
           <Text style={styles.regionWarning}>
-            No se pudo determinar tu región de pago. Actualiza tu perfil para reservar.
+            Completa tu país y teléfono para continuar.
           </Text>
         )}
 

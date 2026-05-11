@@ -6,6 +6,7 @@ import AppCard from '../../../components/ui/AppCard';
 import AppScreen from '../../../components/ui/AppScreen';
 import { appTheme } from '../../../theme/appTheme';
 import { getMyBookings, type Booking } from '../../../api/bookings';
+import { formatMoneyByCurrency } from '../../../utils/money';
 
 function statusLabel(status: Booking['status']) {
   if (status === 'PENDING_PAYMENT') return 'Pendiente de pago';
@@ -90,9 +91,11 @@ export default function MyBookingsScreen() {
           </View>
         ) : (
           bookings.map((booking) => {
-            const amount = booking.currency === 'USD'
-              ? `$ ${Number(booking.priceUsd).toFixed(2)} USD`
-              : `Bs ${Number(booking.priceBob).toFixed(2)} BOB`;
+            const amount = formatMoneyByCurrency(
+              booking.currency === 'USD' ? booking.priceUsd : booking.priceBob,
+              booking.currency,
+              true,
+            );
 
             return (
               <Pressable

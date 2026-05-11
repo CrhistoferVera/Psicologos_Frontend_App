@@ -6,6 +6,7 @@ import AppCard from "../../../components/ui/AppCard";
 import AppScreen from "../../../components/ui/AppScreen";
 import { appTheme } from "../../../theme/appTheme";
 import { apiGetConfig } from "../../../api/userClient";
+import { formatBob, formatUsd } from "../../../utils/money";
 import type { Bank, BankAccount, WithdrawalRequest } from "../../../api/wallet";
 import {
   addProfessionalBankAccount,
@@ -18,10 +19,7 @@ import {
 } from "../api/professionalApi";
 
 function formatMoney(value: number, currency: 'BOB' | 'USD' = 'BOB') {
-  if (currency === 'USD') {
-    return `$ ${Number(value || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  }
-  return `Bs ${Number(value || 0).toLocaleString("es-BO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return currency === 'USD' ? formatUsd(value) : formatBob(value);
 }
 
 function formatDateTime(iso?: string) {

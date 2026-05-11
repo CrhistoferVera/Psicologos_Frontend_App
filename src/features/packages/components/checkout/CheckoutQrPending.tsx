@@ -1,6 +1,7 @@
 import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { appTheme } from "../../../../theme/appTheme";
+import { formatBob } from "../../../../utils/money";
 
 type Props = {
   qrImage: string | null;
@@ -11,7 +12,7 @@ export function CheckoutQrPending({ qrImage, amount }: Props) {
   return (
     <View style={styles.card}>
       <Text style={styles.title}>Escanea para pagar</Text>
-      <Text style={styles.amount}>Bs {amount.toFixed(2)}</Text>
+      <Text style={styles.amount}>{formatBob(amount)}</Text>
 
       <View style={styles.imageWrap}>
         {qrImage ? (

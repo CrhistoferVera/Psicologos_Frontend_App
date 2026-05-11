@@ -16,7 +16,8 @@ import {
   type SessionPaymentStatus,
 } from "../../../api/sessions";
 import { useAuth } from "../../../context/AuthContext";
-import { resolvePaymentRegion } from "../../../utils/paymentRegion";
+import { useUserRegion } from "../../../hooks/useUserRegion";
+import { formatBob, formatUsd } from "../../../utils/money";
 
 function formatDuration(minutes: number) {
   if (minutes < 60) return `${minutes} min`;
@@ -29,6 +30,7 @@ export default function SessionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuth();
+  const { isBolivian } = useUserRegion();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
   const [session, setSession] = useState<Session | null>(null);
@@ -39,21 +41,10 @@ export default function SessionDetailScreen() {
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const region = resolvePaymentRegion({
-    billingRegion: user?.billingRegion,
-    preferredCurrency: user?.preferredCurrency,
-    phoneCountryIso: user?.phoneCountryIso,
-  });
-
-  console.log('[REGION DEBUG]', {
-    userId: user?.id,
-    phoneCountryIso: user?.phoneCountryIso,
-    billingRegion: user?.billingRegion,
-    preferredCurrency: user?.preferredCurrency,
-    region: region.region,
-    canUseQr: region.canUseQr,
-    canUseStripe: region.canUseStripe,
-  });
+  const canDetermineRegion = Boolean((user?.phoneDialCode ?? "").trim());
+  const currency = canDetermineRegion ? (isBolivian ? "BOB" : "USD") : null;
+  const canUseQr = canDetermineRegion && isBolivian;
+  const canUseStripe = canDetermineRegion && !isBolivian;
 
   async function load() {
     if (!id) return;
@@ -88,6 +79,7 @@ export default function SessionDetailScreen() {
   }, [paymentStatus.status, id]);
 
   async function handlePayQr() {
+    if (!canDetermineRegion) return;
     if (!id) return;
     try {
       setPaying(true);
@@ -102,6 +94,7 @@ export default function SessionDetailScreen() {
   }
 
   async function handlePayStripe() {
+    if (!canDetermineRegion) return;
     if (!id) return;
     try {
       setPaying(true);
@@ -166,9 +159,11 @@ export default function SessionDetailScreen() {
     return <AppScreen><Text style={styles.muted}>Cargando...</Text></AppScreen>;
   }
 
-  const price = region.currency === "USD"
-    ? `$ ${Number(session.priceInUsd).toFixed(2)} USD`
-    : `Bs ${Number(session.priceInBs).toFixed(2)}`;
+  const price = !canDetermineRegion
+    ? "Completa tu país y teléfono para continuar."
+    : currency === "USD"
+      ? formatUsd(session.priceInUsd, true)
+      : formatBob(session.priceInBs);
 
   const isApproved = paymentStatus.status === "APPROVED";
   const isPending = paymentStatus.status === "PENDING";
@@ -217,7 +212,7 @@ export default function SessionDetailScreen() {
         {isPending && qrData && (
           <AppCard style={styles.qrCard}>
             <Text style={styles.qrTitle}>Escanea el QR para pagar</Text>
-            <Text style={styles.qrAmount}>Bs {qrData.amount.toFixed(2)}</Text>
+            <Text style={styles.qrAmount}>{formatBob(qrData.amount)}</Text>
             {qrData.qrImage ? (
               <Image source={{ uri: `data:image/png;base64,${qrData.qrImage}` }} style={styles.qrImage} resizeMode="contain" />
             ) : (
@@ -244,7 +239,7 @@ export default function SessionDetailScreen() {
           <AppCard style={styles.payCard}>
             <Text style={styles.payTitle}>Selecciona tu metodo de pago</Text>
 
-            {region.canUseQr && (
+            {canUseQr && (
               <Pressable
                 style={[styles.payBtn, paying && styles.disabledBtn]}
                 disabled={paying}
@@ -255,7 +250,7 @@ export default function SessionDetailScreen() {
               </Pressable>
             )}
 
-            {region.canUseStripe && (
+            {canUseStripe && (
               <Pressable
                 style={[styles.payBtnStripe, paying && styles.disabledBtn]}
                 disabled={paying}
@@ -266,8 +261,8 @@ export default function SessionDetailScreen() {
               </Pressable>
             )}
 
-            {!region.canUseQr && !region.canUseStripe && (
-              <Text style={styles.muted}>No hay métodos de pago disponibles para tu región.</Text>
+            {!canUseQr && !canUseStripe && (
+              <Text style={styles.muted}>Completa tu país y teléfono para continuar.</Text>
             )}
           </AppCard>
         )}

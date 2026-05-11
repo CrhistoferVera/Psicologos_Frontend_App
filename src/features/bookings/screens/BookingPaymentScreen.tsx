@@ -13,6 +13,7 @@ import {
   type Booking,
   type BookingPaymentInitResponse,
 } from '../../../api/bookings';
+import { formatBob, formatMoneyByCurrency } from '../../../utils/money';
 
 function normalizeStatus(status: string) {
   if (status === 'PENDING_PAYMENT') return 'Pendiente de pago';
@@ -134,8 +135,8 @@ export default function BookingPaymentScreen() {
 
   const amountLabel = useMemo(() => {
     if (!booking) return '';
-    if (booking.currency === 'USD') return `$ ${Number(booking.priceUsd).toFixed(2)} USD`;
-    return `Bs ${Number(booking.priceBob).toFixed(2)} BOB`;
+    const amount = booking.currency === 'USD' ? booking.priceUsd : booking.priceBob;
+    return formatMoneyByCurrency(amount, booking.currency, true);
   }, [booking]);
 
   async function handleInitPayment() {
@@ -285,6 +286,7 @@ export default function BookingPaymentScreen() {
         {isPending && paymentData?.paymentMethod === 'BANECO_QR' && (
           <AppCard style={styles.qrCard}>
             <Text style={styles.blockTitle}>Escanea el QR para pagar</Text>
+            <Text style={styles.meta}>Monto: {formatBob(paymentData.amount, true)}</Text>
             {qrImage ? (
               <Image source={{ uri: `data:image/png;base64,${qrImage}` }} style={styles.qrImage} resizeMode="contain" />
             ) : (

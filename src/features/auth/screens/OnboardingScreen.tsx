@@ -17,9 +17,9 @@ const slides = [
       "Inicia conversaciones privadas con un flujo simple y transparente.",
   },
   {
-    title: "Gestiona tus créditos con claridad",
+    title: "Gestiona tu saldo con claridad",
     description:
-      "Visualiza tu saldo y recargas en una experiencia clara y sin fricción.",
+      "Visualiza tu saldo y pagos en una experiencia clara y sin fricci�n.",
   },
 ];
 
@@ -122,4 +122,5 @@ const styles = StyleSheet.create({
     backgroundColor: appTheme.colors.primary,
   },
 });
+
 

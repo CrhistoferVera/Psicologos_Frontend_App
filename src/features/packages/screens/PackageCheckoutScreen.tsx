@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { appTheme } from "../../../theme/appTheme";
 import { useAuth } from "../../../context/AuthContext";
 import { useUserRegion } from "../../../hooks/useUserRegion";
+import { formatBob, formatUsd } from "../../../utils/money";
 import {
   apiInitQrPackagePurchase,
   apiGetQrPackageStatus,
@@ -38,6 +39,7 @@ export default function PackageCheckoutScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { isBolivian } = useUserRegion();
+  const canDetermineRegion = Boolean((user?.phoneDialCode ?? "").trim());
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
   const [payStatus, setPayStatus] = useState<PayStatus>("NONE");
@@ -75,6 +77,7 @@ export default function PackageCheckoutScreen() {
   }, [payStatus, stripeDepositId]);
 
   async function handlePayQr() {
+    if (!canDetermineRegion) return;
     if (!packageId) return;
     try {
       setPaying(true);
@@ -89,6 +92,7 @@ export default function PackageCheckoutScreen() {
   }
 
   async function handlePayStripe() {
+    if (!canDetermineRegion) return;
     if (!packageId) return;
     try {
       setPaying(true);
@@ -121,9 +125,11 @@ export default function PackageCheckoutScreen() {
     }
   }
 
-  const displayPrice = isBolivian
-    ? `Bs ${Number(priceBob).toFixed(2)}`
-    : `$${Number(priceUsd).toFixed(2)}`;
+  const displayPrice = !canDetermineRegion
+    ? "Completa tu país y teléfono para continuar."
+    : isBolivian
+      ? formatBob(priceBob)
+      : formatUsd(priceUsd);
 
   const displayCredits = Number(credits).toLocaleString();
 
@@ -145,8 +151,13 @@ export default function PackageCheckoutScreen() {
           credits={credits ?? "0"}
           displayPrice={displayPrice}
         />
+        {!canDetermineRegion ? (
+          <View style={styles.warningBox}>
+            <Text style={styles.warningText}>Completa tu país y teléfono para continuar.</Text>
+          </View>
+        ) : null}
 
-        {payStatus === "NONE" && (
+        {payStatus === "NONE" && canDetermineRegion && (
           <CheckoutPayMethod
             isBolivian={isBolivian}
             paying={paying}
@@ -210,5 +221,18 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 16,
     paddingBottom: 40,
+  },
+  warningBox: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    backgroundColor: "#FEF2F2",
+    padding: 12,
+  },
+  warningText: {
+    color: appTheme.colors.danger,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    fontWeight: "600",
   },
 });

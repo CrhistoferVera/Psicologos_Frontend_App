@@ -4,8 +4,10 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
 import { apiGetMyBalance } from "../../../api/wallet";
+import { useAuth } from "../../../context/AuthContext";
 import { useUserRegion } from "../../../hooks/useUserRegion";
 import { appTheme } from "../../../theme/appTheme";
+import { formatBob, formatUsd } from "../../../utils/money";
 
 type Balance = {
   balance: number;
@@ -14,9 +16,11 @@ type Balance = {
 };
 
 export function WalletBalanceBanner() {
+  const { user } = useAuth();
   const { isBolivian } = useUserRegion();
   const [balance, setBalance] = useState<Balance | null>(null);
   const [loading, setLoading] = useState(true);
+  const canDetermineRegion = Boolean((user?.phoneDialCode ?? "").trim());
 
   useEffect(() => {
     apiGetMyBalance()
@@ -34,11 +38,13 @@ export function WalletBalanceBanner() {
     }, []),
   );
 
-  const displayBalance = isBolivian
-    ? `Bs ${(balance?.balance ?? 0).toFixed(2)}`
-    : `$${(balance?.balanceUsd ?? 0).toFixed(2)}`;
+  const displayBalance = !canDetermineRegion
+    ? "—"
+    : isBolivian
+      ? formatBob(balance?.balance ?? 0)
+      : formatUsd(balance?.balanceUsd ?? 0);
 
-  const currency = isBolivian ? "BOB" : "USD";
+  const currency = !canDetermineRegion ? "N/A" : isBolivian ? "BOB" : "USD";
 
   return (
     <LinearGradient
@@ -69,7 +75,9 @@ export function WalletBalanceBanner() {
         ) : (
           <>
             <Text style={styles.balanceAmount}>{displayBalance}</Text>
-            <Text style={styles.balanceLabel}>Saldo disponible</Text>
+            <Text style={styles.balanceLabel}>
+              {canDetermineRegion ? "Saldo disponible" : "Completa tu país y teléfono para continuar."}
+            </Text>
           </>
         )}
       </View>

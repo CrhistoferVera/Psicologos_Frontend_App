@@ -54,7 +54,7 @@ function ReferralCard({ item }: { item: ReferralHistoryItem }) {
       <View style={styles.referralRewardRow}>
         <Text style={styles.rewardLabel}>Recompensas acumuladas</Text>
         <Text style={[styles.rewardValue, { color: appTheme.colors.success }]}>
-          {item.totalRewardCredits.toFixed(2)} créditos
+          {item.totalRewardCredits.toFixed(2)}
         </Text>
       </View>
 
@@ -68,7 +68,7 @@ function ReferralCard({ item }: { item: ReferralHistoryItem }) {
                 {new Date(ev.createdAt).toLocaleDateString()}
               </Text>
               <Text style={styles.eventPercent}>{ev.percentageApplied}%</Text>
-              <Text style={styles.eventAmount}>+{ev.rewardAmount.toFixed(2)} cr</Text>
+              <Text style={styles.eventAmount}>+{ev.rewardAmount.toFixed(2)}</Text>
             </View>
           ))}
         </View>
@@ -170,7 +170,7 @@ export default function ReferralsScreen() {
               <Text style={[styles.statValue, { color: appTheme.colors.success }]}>
                 {bonus.toFixed(2)}
               </Text>
-              <Text style={styles.statLabel}>Créditos ganados</Text>
+              <Text style={styles.statLabel}>Recompensas ganadas</Text>
             </View>
 
             <View style={styles.statCell}>
@@ -447,3 +447,4 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 });
+

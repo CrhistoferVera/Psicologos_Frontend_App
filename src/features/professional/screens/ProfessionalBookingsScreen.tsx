@@ -8,6 +8,7 @@ import { appTheme } from '../../../theme/appTheme';
 import { getProfessionalBookings, type ProfessionalBooking } from '../../../api/sessionOfferings';
 import { getMyChats } from '../../../api/messages';
 import { useCallManager } from '../../../context/CallContext';
+import { formatMoneyByCurrency } from '../../../utils/money';
 
 function formatDateTime(iso: string) {
   const d = new Date(iso);
@@ -178,9 +179,11 @@ export default function ProfessionalBookingsScreen() {
             <View style={styles.list}>
               {sortedItems.map((booking) => {
                 const fullName = `${booking.client?.firstName ?? ''} ${booking.client?.lastName ?? ''}`.trim() || 'Cliente';
-                const amount = booking.currency === 'USD'
-                  ? `$ ${Number(booking.priceUsd).toFixed(2)} USD`
-                  : `Bs ${Number(booking.priceBob).toFixed(2)} BOB`;
+                const amount = formatMoneyByCurrency(
+                  booking.currency === 'USD' ? booking.priceUsd : booking.priceBob,
+                  booking.currency === 'USD' ? 'USD' : 'BOB',
+                  true,
+                );
 
                 const activeNow = isCommunicationActive(booking);
 

@@ -7,7 +7,8 @@ import AppScreen from '../../../components/ui/AppScreen';
 import AppButton from '../../../components/ui/AppButton';
 import { appTheme } from '../../../theme/appTheme';
 import { useAuth } from '../../../context/AuthContext';
-import { resolvePaymentRegion } from '../../../utils/paymentRegion';
+import { useUserRegion } from '../../../hooks/useUserRegion';
+import { formatBob, formatUsd } from '../../../utils/money';
 import {
   createBooking,
   getAvailableSlots,
@@ -52,6 +53,7 @@ function formatTime(iso: string) {
 export default function BookingScheduleScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { isBolivian } = useUserRegion();
   const params = useLocalSearchParams<{
     professionalId?: string | string[];
     professionalName?: string | string[];
@@ -78,15 +80,11 @@ export default function BookingScheduleScreen() {
   const [selectedSlotStartAt, setSelectedSlotStartAt] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
   const selectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/La_Paz';
-  const paymentRegion = useMemo(
-    () =>
-      resolvePaymentRegion({
-        billingRegion: user?.billingRegion,
-        preferredCurrency: user?.preferredCurrency,
-        phoneCountryIso: user?.phoneCountryIso,
-      }),
-    [user?.billingRegion, user?.preferredCurrency, user?.phoneCountryIso],
+  const canDetermineRegion = useMemo(
+    () => Boolean((user?.phoneDialCode ?? '').trim()),
+    [user?.phoneDialCode],
   );
+  const currency = canDetermineRegion ? (isBolivian ? 'BOB' : 'USD') : null;
 
   useEffect(() => {
     if (!professionalId) return;
@@ -207,27 +205,24 @@ export default function BookingScheduleScreen() {
                       <Text style={styles.optionMeta}>{offering.durationMinutes} min</Text>
                     </View>
                     <View style={styles.priceWrap}>
-                      {paymentRegion.currency === 'USD' ? (
-                        <Text style={styles.priceBob}>$ {Number(offering.priceUsd).toFixed(2)} USD</Text>
+                      {!canDetermineRegion ? (
+                        <Text style={styles.priceUsd}>
+                          Completa tu país y teléfono para continuar.
+                        </Text>
+                      ) : currency === 'USD' ? (
+                        <Text style={styles.priceBob}>{formatUsd(offering.priceUsd, true)}</Text>
                       ) : (
-                        <Text style={styles.priceBob}>Bs {Number(offering.priceBob).toFixed(2)}</Text>
+                        <Text style={styles.priceBob}>{formatBob(offering.priceBob)}</Text>
                       )}
-                      <Text style={styles.priceUsd}>
-                        {paymentRegion.region === 'UNKNOWN'
-                          ? 'Región de pago no disponible'
-                          : paymentRegion.currency === 'USD'
-                          ? `Equiv. Bs ${Number(offering.priceBob).toFixed(2)}`
-                          : `Equiv. $ ${Number(offering.priceUsd).toFixed(2)} USD`}
-                      </Text>
                     </View>
                   </Pressable>
                 );
               })}
             </View>
           )}
-          {paymentRegion.region === 'UNKNOWN' && (
+          {!canDetermineRegion && (
             <Text style={[styles.muted, { marginTop: 8, color: appTheme.colors.danger }]}>
-              No se pudo determinar tu región de pago. Completa tu perfil para reservar.
+              Completa tu país y teléfono para continuar.
             </Text>
           )}
         </AppCard>
@@ -289,7 +284,7 @@ export default function BookingScheduleScreen() {
             !selectedSlot ||
             loadingOfferings ||
             loadingSlots ||
-            paymentRegion.region === 'UNKNOWN'
+            !canDetermineRegion
           }
         />
       </ScrollView>

@@ -22,7 +22,7 @@ import {
   type ProfessionalSessionOffering,
 } from "../../../api/bookings";
 import { getCommunicationAccess, type CommunicationAccess } from "../../../api/communication";
-import { resolvePaymentRegion } from "../../../utils/paymentRegion";
+import { useUserRegion } from "../../../hooks/useUserRegion";
 import { getProfessionals } from "../../professionals/api/professionalsApi";
 import type { Professional } from "../../professionals/types";
 import ProfessionalFeedCard from "../components/ProfessionalFeedCard";
@@ -39,6 +39,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const { isBolivian } = useUserRegion();
 
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [page, setPage] = useState(1);
@@ -61,15 +62,12 @@ export default function HomeScreen() {
   const wrapPendingRef = useRef(false);
   const lastLoadedAtRef = useRef(0);
 
-  const paymentRegion = useMemo(
-    () =>
-      resolvePaymentRegion({
-        billingRegion: user?.billingRegion,
-        preferredCurrency: user?.preferredCurrency,
-        phoneCountryIso: user?.phoneCountryIso,
-      }),
-    [user?.billingRegion, user?.preferredCurrency, user?.phoneCountryIso],
+  const canDetermineRegion = useMemo(
+    () => Boolean((user?.phoneDialCode ?? "").trim()),
+    [user?.phoneDialCode],
   );
+
+  const preferredCurrency = canDetermineRegion ? (isBolivian ? "BOB" : "USD") : null;
 
   async function loadFeed(targetPage: number, reset: boolean) {
     if (loadingRef.current) return;
@@ -271,7 +269,7 @@ export default function HomeScreen() {
   }
 
   function handleReserve(pro: Professional, offeringId: string) {
-    if (paymentRegion.region === "UNKNOWN") return;
+    if (!canDetermineRegion) return;
     const reserveKey = `${pro.id}:${offeringId}`;
     if (reserveLoadingKey) return;
 
@@ -347,6 +345,9 @@ export default function HomeScreen() {
             <Ionicons name="search" size={20} color={appTheme.colors.primary} />
           </Pressable>
         </View>
+        {!canDetermineRegion ? (
+          <Text style={styles.regionWarning}>Completa tu país y teléfono para continuar.</Text>
+        ) : null}
       </View>
 
       <View
@@ -390,8 +391,8 @@ export default function HomeScreen() {
                     ? reserveLoadingKey.split(":")[1]
                     : null
                 }
-                preferredCurrency={paymentRegion.currency}
-                canReserve={paymentRegion.region !== "UNKNOWN"}
+                preferredCurrency={preferredCurrency}
+                canReserve={canDetermineRegion}
                 chatLoading={chatLoadingId === item.id}
                 communicationAccess={communicationAccessByProfessional[item.id] ?? null}
                 communicationAccessLoading={
@@ -462,6 +463,15 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.heading,
     fontSize: 20,
     fontWeight: "700",
+  },
+  regionWarning: {
+    marginTop: 2,
+    paddingHorizontal: 18,
+    paddingBottom: 10,
+    color: appTheme.colors.danger,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    fontWeight: "600",
   },
   headerIconBtn: {
     width: 40,

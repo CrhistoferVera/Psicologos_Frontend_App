@@ -161,9 +161,9 @@ export default function ProfessionalRegisterScreen() {
       const chat = Number(chatPrice || 0);
       const call = Number(callPrice || 0);
       const video = Number(videoPrice || 0);
-      if (!Number.isFinite(chat) || chat <= 0.1) return "La tarifa de mensajes debe ser mayor a 0.1 créditos.";
-      if (!Number.isFinite(call) || call <= 0.5) return "La tarifa de llamadas debe ser mayor a 0.5 créditos.";
-      if (!Number.isFinite(video) || video <= 1) return "La tarifa de videollamadas debe ser mayor a 1 crédito.";
+      if (!Number.isFinite(chat) || chat <= 0.1) return "La tarifa de mensajes debe ser mayor a 0.1.";
+      if (!Number.isFinite(call) || call <= 0.5) return "La tarifa de llamadas debe ser mayor a 0.5.";
+      if (!Number.isFinite(video) || video <= 1) return "La tarifa de videollamadas debe ser mayor a 1.";
     }
     return null;
   }
@@ -502,23 +502,23 @@ export default function ProfessionalRegisterScreen() {
               ))}
             </View>
 
-            <Text style={styles.sectionTitle}>Tarifas (créditos)</Text>
+            <Text style={styles.sectionTitle}>Tarifas</Text>
             <AppInput
-              label="Mensaje (créditos)"
+              label="Mensaje"
               value={chatPrice}
               onChangeText={setChatPrice}
               keyboardType="number-pad"
               placeholder="Mayor a 0.1"
             />
             <AppInput
-              label="Llamada (créditos)"
+              label="Llamada"
               value={callPrice}
               onChangeText={setCallPrice}
               keyboardType="number-pad"
               placeholder="Mayor a 0.5"
             />
             <AppInput
-              label="Videollamada (créditos)"
+              label="VideoLlamada"
               value={videoPrice}
               onChangeText={setVideoPrice}
               keyboardType="number-pad"
@@ -920,3 +920,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 });
+

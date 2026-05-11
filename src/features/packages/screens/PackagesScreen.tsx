@@ -4,9 +4,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { apiGetAllPackages } from "../../../api/package";
+import { useAuth } from "../../../context/AuthContext";
 import { useUserRegion } from "../../../hooks/useUserRegion";
 import { appTheme } from "../../../theme/appTheme";
 import type { PackageData } from "../../../types/package";
+import { formatBob, formatUsd } from "../../../utils/money";
 import { PackageCard } from "../components/PackageCard";
 import { PackagesEmptyState } from "../components/PackagesEmptyState";
 import { PackagesHeader } from "../components/PackagesHeader";
@@ -15,7 +17,9 @@ import { WalletBalanceBanner } from "../components/WalletBalanceBanner";
 export default function PackagesScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { user } = useAuth();
   const { isBolivian } = useUserRegion();
+  const canDetermineRegion = Boolean((user?.phoneDialCode ?? "").trim());
 
   const [packages, setPackages] = useState<PackageData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,12 +45,12 @@ export default function PackagesScreen() {
   }
 
   function formatPrice(pkg: PackageData) {
-    return isBolivian
-      ? `Bs ${Number(pkg.price).toFixed(2)}`
-      : `$${Number(pkg.priceUsd ?? 0).toFixed(2)}`;
+    if (!canDetermineRegion) return "Completa tu país y teléfono para continuar.";
+    return isBolivian ? formatBob(pkg.price) : formatUsd(pkg.priceUsd ?? 0);
   }
 
   function handleBuy(item: PackageData) {
+    if (!canDetermineRegion) return;
     router.push({
       pathname: "/(user)/packages/checkout",
       params: {
@@ -63,6 +67,11 @@ export default function PackagesScreen() {
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <PackagesHeader />
       <WalletBalanceBanner />
+      {!canDetermineRegion ? (
+        <View style={styles.warningBox}>
+          <Text style={styles.warningText}>Completa tu país y teléfono para continuar.</Text>
+        </View>
+      ) : null}
 
       {loading ? (
         <PackagesEmptyState state="loading" />
@@ -89,7 +98,7 @@ export default function PackagesScreen() {
             <View style={styles.note}>
               <Ionicons name="information-circle-outline" size={15} color={appTheme.colors.textMuted} />
               <Text style={styles.noteText}>
-                Los créditos se acreditan automáticamente a tu wallet tras confirmar el pago.
+                El saldo del paquete se acredita autom�ticamente a tu wallet tras confirmar el pago.
               </Text>
             </View>
           }
@@ -128,4 +137,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
   },
+  warningBox: {
+    marginHorizontal: 16,
+    marginTop: 10,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    backgroundColor: "#FEF2F2",
+  },
+  warningText: {
+    color: appTheme.colors.danger,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    fontWeight: "600",
+  },
 });
+

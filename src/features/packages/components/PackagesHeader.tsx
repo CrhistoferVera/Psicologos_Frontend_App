@@ -10,7 +10,7 @@ export function PackagesHeader() {
       </View>
       <View style={styles.textWrap}>
         <Text style={styles.title}>Paquetes</Text>
-        <Text style={styles.subtitle}>Recarga créditos para tus sesiones</Text>
+        <Text style={styles.subtitle}>Recarga saldo para tus sesiones</Text>
       </View>
     </View>
   );
@@ -51,3 +51,4 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 });
+

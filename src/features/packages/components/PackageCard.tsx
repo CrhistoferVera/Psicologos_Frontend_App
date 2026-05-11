@@ -41,7 +41,7 @@ export function PackageCard({ item, index, formattedPrice, onPress }: Props) {
             <View style={[styles.creditsBadge, { backgroundColor: `${accent}20` }]}>
               <Ionicons name="star" size={11} color={accent} />
               <Text style={[styles.creditsText, { color: accent }]}>
-                {item.credits.toLocaleString()} créditos
+                {item.credits.toLocaleString()} unidades
               </Text>
             </View>
           </View>

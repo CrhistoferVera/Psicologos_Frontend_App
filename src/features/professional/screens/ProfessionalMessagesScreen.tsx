@@ -4,7 +4,7 @@ import { FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native
 import { Ionicons } from "@expo/vector-icons";
 import AppScreen from "../../../components/ui/AppScreen";
 import { appTheme } from "../../../theme/appTheme";
-import { getMyProfessionalPrices, getProfessionalChats } from "../api/professionalApi";
+import { getProfessionalChats } from "../api/professionalApi";
 import type { ProfessionalChatItem } from "../types";
 
 type FilterMode = "active" | "history" | "archived";
@@ -41,7 +41,6 @@ export default function ProfessionalMessagesScreen() {
   const [mode, setMode] = useState<FilterMode>("active");
 
   const [items, setItems] = useState<ProfessionalChatItem[]>([]);
-  const [chatPrice, setChatPrice] = useState(15);
 
   useEffect(() => {
     void (async () => {
@@ -49,10 +48,9 @@ export default function ProfessionalMessagesScreen() {
         setLoading(true);
         setError(null);
 
-        const [chats, prices] = await Promise.all([getProfessionalChats(), getMyProfessionalPrices()]);
+        const chats = await getProfessionalChats();
 
         setItems(Array.isArray(chats) ? chats : []);
-        setChatPrice(Number(prices.chat ?? 15) || 15);
       } catch {
         setError("No se pudieron cargar tus conversaciones.");
       } finally {
@@ -76,12 +74,6 @@ export default function ProfessionalMessagesScreen() {
 
     return [] as ProfessionalChatItem[];
   }, [items, mode]);
-
-  function rowCredits(item: ProfessionalChatItem) {
-    const unread = Number(item.unreadCount ?? 0);
-    if (unread > 0) return unread * chatPrice;
-    return chatPrice;
-  }
 
   return (
     <AppScreen contentPadding={0}>
@@ -141,8 +133,6 @@ export default function ProfessionalMessagesScreen() {
             ) : null
           }
           renderItem={({ item }) => {
-            const credits = rowCredits(item);
-
             return (
               <Pressable
                 style={styles.row}
@@ -181,10 +171,6 @@ export default function ProfessionalMessagesScreen() {
                   <Text style={styles.message} numberOfLines={1}>
                     {item.lastMessage ?? "Sin mensajes recientes"}
                   </Text>
-                </View>
-
-                <View style={styles.creditPill}>
-                  <Text style={styles.creditPillText}>+{credits} crd</Text>
                 </View>
               </Pressable>
             );
@@ -349,18 +335,6 @@ const styles = StyleSheet.create({
     color: "#5F7896",
     fontFamily: appTheme.fonts.body,
     fontSize: 16,
-  },
-  creditPill: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    backgroundColor: "#E6F4EC",
-  },
-  creditPillText: {
-    color: appTheme.colors.success,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 13,
-    fontWeight: "700",
   },
   emptyWrap: {
     marginHorizontal: 16,

@@ -13,7 +13,8 @@ import {
 import { getCommunicationAccess, type CommunicationAccess } from '../../../api/communication';
 import { appTheme } from '../../../theme/appTheme';
 import { useAuth } from '../../../context/AuthContext';
-import { resolvePaymentRegion } from '../../../utils/paymentRegion';
+import { useUserRegion } from '../../../hooks/useUserRegion';
+import { formatBob, formatUsd } from '../../../utils/money';
 import { getProfessionalById } from '../api/professionalsApi';
 import type { Professional } from '../types';
 import { useCallManager } from '../../../context/CallContext';
@@ -25,6 +26,7 @@ type TabKey = 'info' | 'reviews';
 export default function ProfessionalProfileScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { isBolivian } = useUserRegion();
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const professionalId = Array.isArray(params.id) ? params.id[0] : params.id ?? '';
 
@@ -40,15 +42,11 @@ export default function ProfessionalProfileScreen() {
   const [communicationAccess, setCommunicationAccess] = useState<CommunicationAccess | null>(null);
   const [communicationLoading, setCommunicationLoading] = useState(true);
   const { startOutgoingCall } = useCallManager();
-  const paymentRegion = useMemo(
-    () =>
-      resolvePaymentRegion({
-        billingRegion: user?.billingRegion,
-        preferredCurrency: user?.preferredCurrency,
-        phoneCountryIso: user?.phoneCountryIso,
-      }),
-    [user?.billingRegion, user?.preferredCurrency, user?.phoneCountryIso],
+  const canDetermineRegion = useMemo(
+    () => Boolean((user?.phoneDialCode ?? '').trim()),
+    [user?.phoneDialCode],
   );
+  const preferredCurrency = canDetermineRegion ? (isBolivian ? 'BOB' : 'USD') : null;
 
   useEffect(() => {
     if (!professionalId) return;
@@ -253,7 +251,7 @@ export default function ProfessionalProfileScreen() {
   function handleOpenBooking(offering: ProfessionalSessionOffering) {
     if (!professional) return;
     if (openingBookingOfferingId) return;
-    if (paymentRegion.region === 'UNKNOWN') return;
+    if (!canDetermineRegion) return;
 
     setOpeningBookingOfferingId(offering.id);
     router.push({
@@ -420,30 +418,27 @@ export default function ProfessionalProfileScreen() {
                       </View>
 
                       <View style={styles.offeringRight}>
-                        {paymentRegion.currency === 'USD' ? (
+                        {!canDetermineRegion ? (
+                          <Text style={styles.offeringPriceUsd}>
+                            Completa tu país y teléfono para continuar.
+                          </Text>
+                        ) : preferredCurrency === 'USD' ? (
                           <Text style={styles.offeringPriceBob}>
-                            $ {Number(offering.priceUsd).toFixed(2)} USD
+                            {formatUsd(offering.priceUsd, true)}
                           </Text>
                         ) : (
                           <Text style={styles.offeringPriceBob}>
-                            Bs {Number(offering.priceBob).toFixed(2)}
+                            {formatBob(offering.priceBob)}
                           </Text>
                         )}
-                        <Text style={styles.offeringPriceUsd}>
-                          {paymentRegion.region === 'UNKNOWN'
-                            ? 'Región de pago no disponible'
-                            : paymentRegion.currency === 'USD'
-                            ? `Equiv. Bs ${Number(offering.priceBob).toFixed(2)}`
-                            : `Equiv. $ ${Number(offering.priceUsd).toFixed(2)} USD`}
-                        </Text>
                         <Pressable
                           style={[
                             styles.reserveBtn,
-                            paymentRegion.region === 'UNKNOWN' && styles.reserveBtnDisabled,
+                            !canDetermineRegion && styles.reserveBtnDisabled,
                             openingBookingOfferingId === offering.id && styles.reserveBtnDisabled,
                           ]}
                           onPress={() => handleOpenBooking(offering)}
-                          disabled={openingBookingOfferingId !== null || paymentRegion.region === 'UNKNOWN'}
+                          disabled={openingBookingOfferingId !== null || !canDetermineRegion}
                         >
                           <Text style={styles.reserveBtnText}>Reservar</Text>
                         </Pressable>
@@ -454,9 +449,9 @@ export default function ProfessionalProfileScreen() {
               )}
 
               {!!offeringsError && <Text style={styles.errorText}>{offeringsError}</Text>}
-              {paymentRegion.region === 'UNKNOWN' && (
+              {!canDetermineRegion && (
                 <Text style={styles.errorText}>
-                  No se pudo determinar tu región de pago. Completa tu perfil para reservar.
+                  Completa tu país y teléfono para continuar.
                 </Text>
               )}
             </AppCard>

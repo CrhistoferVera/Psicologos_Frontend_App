@@ -26,7 +26,7 @@ export function CheckoutPackageCard({ name, credits, displayPrice }: Props) {
         </View>
         <View style={styles.info}>
           <Text style={styles.name}>{name}</Text>
-          <Text style={styles.credits}>{Number(credits).toLocaleString()} créditos</Text>
+          <Text style={styles.credits}>{Number(credits).toLocaleString()} unidades</Text>
         </View>
         <Text style={styles.price}>{displayPrice}</Text>
       </View>

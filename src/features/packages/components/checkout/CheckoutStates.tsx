@@ -27,7 +27,7 @@ export function CheckoutStatePaid({ displayCredits, onBack }: PaidProps) {
       </LinearGradient>
       <Text style={[styles.title, { color: "#10B981" }]}>¡Pago confirmado!</Text>
       <Text style={styles.sub}>
-        {displayCredits} créditos fueron agregados a tu wallet.
+        {displayCredits} unidades fueron agregadas a tu wallet.
       </Text>
       <Pressable style={styles.primaryBtn} onPress={onBack}>
         <Text style={styles.btnText}>Volver a paquetes</Text>
@@ -111,3 +111,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 });
+

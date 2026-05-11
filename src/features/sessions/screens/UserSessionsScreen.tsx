@@ -9,7 +9,8 @@ import AppScreen from "../../../components/ui/AppScreen";
 import { appTheme } from "../../../theme/appTheme";
 import { apiGetOpenSessions, apiGetMyActiveSessions, apiGetSessionAccess, type Session } from "../../../api/sessions";
 import { useAuth } from "../../../context/AuthContext";
-import { resolvePaymentRegion } from "../../../utils/paymentRegion";
+import { useUserRegion } from "../../../hooks/useUserRegion";
+import { formatBob, formatUsd } from "../../../utils/money";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const TABS = ["available", "mine", "history"] as const;
@@ -61,6 +62,7 @@ function Specialties({ items }: { items?: string[] }) {
 export default function UserSessionsScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { isBolivian } = useUserRegion();
   const [tabIndex, setTabIndex] = useState(0);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [myReservations, setMyReservations] = useState<MyReservation[]>([]);
@@ -69,11 +71,8 @@ export default function UserSessionsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const pagerRef = useRef<FlatList>(null);
 
-  const region = resolvePaymentRegion({
-    billingRegion: user?.billingRegion,
-    preferredCurrency: user?.preferredCurrency,
-    phoneCountryIso: user?.phoneCountryIso,
-  });
+  const canDetermineRegion = Boolean((user?.phoneDialCode ?? "").trim());
+  const currency = canDetermineRegion ? (isBolivian ? "BOB" : "USD") : null;
 
   async function load(isRefresh = false) {
     if (isRefresh) setRefreshing(true); else setLoading(true);
@@ -117,10 +116,11 @@ export default function UserSessionsScreen() {
     }
   }
 
-  const price = (session: Session) => region.currency === "USD"
-    ? `$ ${Number(session.priceInUsd).toFixed(2)}`
-    : `Bs ${Number(session.priceInBs).toFixed(2)}`;
-  const currency = region.currency === "USD" ? "USD" : "BOB";
+  const price = (session: Session) => {
+    if (!canDetermineRegion) return "Completa tu país y teléfono para continuar.";
+    return currency === "USD" ? formatUsd(session.priceInUsd) : formatBob(session.priceInBs);
+  };
+  const currencyLabel = currency ?? "N/A";
 
   const badges: Record<Tab, number> = {
     available: sessions.length,
@@ -174,7 +174,7 @@ export default function UserSessionsScreen() {
                 </View>
                 <View style={[styles.metaChip, styles.priceChip]}>
                   <Text style={styles.priceText}>{price(session)}</Text>
-                  <Text style={styles.currencyText}>{currency}</Text>
+                  <Text style={styles.currencyText}>{currencyLabel}</Text>
                 </View>
               </View>
               <View style={[styles.cta, isActive && styles.ctaActive]}>
@@ -208,7 +208,7 @@ export default function UserSessionsScreen() {
       <>
         {myReservations.map((r) => {
           const isActive = r.sessionStatus === "ACTIVE";
-          const priceLabel = r.currency === "USD" ? `$ ${r.amountPaid.toFixed(2)} USD` : `Bs ${r.amountPaid.toFixed(2)} BOB`;
+          const priceLabel = r.currency === "USD" ? formatUsd(r.amountPaid, true) : formatBob(r.amountPaid, true);
           return (
             <View key={r.sessionId} style={[styles.card, styles.reservedCard]}>
               <View style={styles.reservedTopRow}>
@@ -266,7 +266,7 @@ export default function UserSessionsScreen() {
       <>
         {history.map((r) => {
           const isCompleted = r.sessionStatus === "COMPLETED";
-          const priceLabel = r.currency === "USD" ? `$ ${r.amountPaid.toFixed(2)} USD` : `Bs ${r.amountPaid.toFixed(2)} BOB`;
+          const priceLabel = r.currency === "USD" ? formatUsd(r.amountPaid, true) : formatBob(r.amountPaid, true);
           return (
             <View key={r.sessionId} style={[styles.card, isCompleted ? styles.completedCard : styles.cancelledCard]}>
               <View style={styles.reservedTopRow}>

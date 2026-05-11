@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -6,6 +6,7 @@ import AppCard from "../../../components/ui/AppCard";
 import AppScreen from "../../../components/ui/AppScreen";
 import { appTheme } from "../../../theme/appTheme";
 import { apiGetMySessions, apiStartSession, apiEndSession, apiCancelSession, type Session } from "../../../api/sessions";
+import { formatBob } from "../../../utils/money";
 
 function statusMeta(status: Session["status"]) {
   if (status === "OPEN") return { label: "ABIERTA", bg: "#DBEAFE", text: "#1E40AF" };
@@ -47,33 +48,33 @@ export default function ProfessionalSessionsScreen() {
       await apiStartSession(id);
       await load();
     } catch (err: any) {
-      Alert.alert("Error", err?.response?.data?.message ?? "No se pudo iniciar la sesión.");
+      Alert.alert("Error", err?.response?.data?.message ?? "No se pudo iniciar la sesiÃ³n.");
     }
   }
 
   async function handleEnd(id: string) {
-    Alert.alert("Terminar sesión", "¿Confirmas que deseas terminar esta sesión?", [
+    Alert.alert("Terminar sesiÃ³n", "Â¿Confirmas que deseas terminar esta sesiÃ³n?", [
       { text: "Cancelar", style: "cancel" },
       { text: "Terminar", style: "destructive", onPress: async () => {
         try {
           await apiEndSession(id);
           await load();
         } catch (err: any) {
-          Alert.alert("Error", err?.response?.data?.message ?? "No se pudo terminar la sesión.");
+          Alert.alert("Error", err?.response?.data?.message ?? "No se pudo terminar la sesiÃ³n.");
         }
       }},
     ]);
   }
 
   async function handleCancel(id: string) {
-    Alert.alert("Cancelar sesión", "¿Confirmas que deseas cancelar esta sesión?", [
+    Alert.alert("Cancelar sesiÃ³n", "Â¿Confirmas que deseas cancelar esta sesiÃ³n?", [
       { text: "No", style: "cancel" },
-      { text: "Cancelar sesión", style: "destructive", onPress: async () => {
+      { text: "Cancelar sesiÃ³n", style: "destructive", onPress: async () => {
         try {
           await apiCancelSession(id);
           await load();
         } catch (err: any) {
-          Alert.alert("Error", err?.response?.data?.message ?? "No se pudo cancelar la sesión.");
+          Alert.alert("Error", err?.response?.data?.message ?? "No se pudo cancelar la sesiÃ³n.");
         }
       }},
     ]);
@@ -99,7 +100,7 @@ export default function ProfessionalSessionsScreen() {
           <AppCard style={styles.emptyCard}>
             <Ionicons name="calendar-outline" size={32} color={appTheme.colors.textMuted} />
             <Text style={styles.emptyTitle}>Sin sesiones</Text>
-            <Text style={styles.muted}>Crea tu primera sesión para que los clientes puedan reservar.</Text>
+            <Text style={styles.muted}>Crea tu primera sesiÃ³n para que los clientes puedan reservar.</Text>
           </AppCard>
         ) : (
           sessions.map((session) => {
@@ -110,7 +111,7 @@ export default function ProfessionalSessionsScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.cardTitle}>{session.title}</Text>
                     <Text style={styles.cardSub}>
-                      {formatDuration(session.durationMinutes)} · Bs {Number(session.priceInBs).toFixed(2)}
+                      {formatDuration(session.durationMinutes)} · {formatBob(session.priceInBs)}
                     </Text>
                   </View>
                   <View style={[styles.badge, { backgroundColor: meta.bg }]}>
@@ -196,3 +197,4 @@ const styles = StyleSheet.create({
   emptyCard: { alignItems: "center", gap: 8, paddingVertical: 24 },
   emptyTitle: { fontSize: 16, fontWeight: "700", fontFamily: appTheme.fonts.heading, color: appTheme.colors.text },
 });
+

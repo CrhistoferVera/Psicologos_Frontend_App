@@ -5,6 +5,7 @@ import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInp
 import AppCard from '../../../components/ui/AppCard';
 import AppScreen from '../../../components/ui/AppScreen';
 import { appTheme } from '../../../theme/appTheme';
+import { formatBob, formatUsd } from '../../../utils/money';
 import {
   createSessionOffering,
   getMySessionOfferings,
@@ -12,10 +13,6 @@ import {
   updateSessionOfferingStatus,
   type SessionOffering,
 } from '../../../api/sessionOfferings';
-
-function formatMoney(value?: number) {
-  return Number(value ?? 0).toFixed(2);
-}
 
 export default function ProfessionalSessionOfferingsScreen() {
   const router = useRouter();
@@ -222,8 +219,8 @@ export default function ProfessionalSessionOfferingsScreen() {
 
                   <View style={styles.metaRow}>
                     <Text style={styles.meta}>Duración: {item.durationMinutes} min</Text>
-                    <Text style={styles.meta}>Bs {formatMoney(item.priceBob)}</Text>
-                    <Text style={styles.meta}>USD {formatMoney(item.priceUsd)}</Text>
+                    <Text style={styles.meta}>{formatBob(item.priceBob, true)}</Text>
+                    <Text style={styles.meta}>{formatUsd(item.priceUsd, true)}</Text>
                   </View>
 
                   <View style={styles.itemActions}>
