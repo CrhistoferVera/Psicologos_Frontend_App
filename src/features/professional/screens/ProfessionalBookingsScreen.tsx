@@ -7,7 +7,6 @@ import AppScreen from '../../../components/ui/AppScreen';
 import { appTheme } from '../../../theme/appTheme';
 import { getProfessionalBookings, type ProfessionalBooking } from '../../../api/sessionOfferings';
 import { getMyChats } from '../../../api/messages';
-import { useCallManager } from '../../../context/CallContext';
 import { formatMoneyByCurrency } from '../../../utils/money';
 
 function formatDateTime(iso: string) {
@@ -67,11 +66,9 @@ function getCommunicationStateLabel(booking: ProfessionalBooking, now = new Date
 
 export default function ProfessionalBookingsScreen() {
   const router = useRouter();
-  const { startOutgoingCall } = useCallManager();
   const [items, setItems] = useState<ProfessionalBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [callingBookingId, setCallingBookingId] = useState<string | null>(null);
   const [openingChatBookingId, setOpeningChatBookingId] = useState<string | null>(null);
 
   async function load(isRefresh = false) {
@@ -135,27 +132,6 @@ export default function ProfessionalBookingsScreen() {
     }
   }
 
-  async function handleStartCall(booking: ProfessionalBooking, callType: 'CALL' | 'VIDEO_CALL') {
-    if (callingBookingId) return;
-    const clientId = booking.client?.id;
-    if (!clientId) {
-      Alert.alert('No disponible', 'No se encontró el cliente para esta reserva.');
-      return;
-    }
-
-    try {
-      setCallingBookingId(booking.id);
-      await startOutgoingCall({
-        receiverId: clientId,
-        receiverName: `${booking.client?.firstName ?? ''} ${booking.client?.lastName ?? ''}`.trim() || 'Cliente',
-        receiverAvatar: null,
-        callType,
-      });
-    } finally {
-      setCallingBookingId(null);
-    }
-  }
-
   return (
     <AppScreen scroll contentPadding={0}>
       <ScrollView
@@ -202,6 +178,11 @@ export default function ProfessionalBookingsScreen() {
                     <Text style={[styles.commLabel, activeNow && styles.commLabelActive]}>
                       {getCommunicationStateLabel(booking)}
                     </Text>
+                    {activeNow ? (
+                      <Text style={styles.callWaitHint}>
+                        Espera a que el cliente inicie la llamada o videollamada.
+                      </Text>
+                    ) : null}
 
                     <View style={styles.actionsRow}>
                       <Pressable
@@ -212,22 +193,6 @@ export default function ProfessionalBookingsScreen() {
                         <Text style={styles.actionBtnText}>
                           {openingChatBookingId === booking.id ? 'Abriendo...' : 'Abrir chat'}
                         </Text>
-                      </Pressable>
-
-                      <Pressable
-                        style={[styles.actionBtnSecondary, !activeNow && styles.actionBtnDisabled]}
-                        onPress={() => void handleStartCall(booking, 'CALL')}
-                        disabled={!activeNow || callingBookingId !== null}
-                      >
-                        <Text style={styles.actionBtnSecondaryText}>Llamar</Text>
-                      </Pressable>
-
-                      <Pressable
-                        style={[styles.actionBtnSecondary, !activeNow && styles.actionBtnDisabled]}
-                        onPress={() => void handleStartCall(booking, 'VIDEO_CALL')}
-                        disabled={!activeNow || callingBookingId !== null}
-                      >
-                        <Text style={styles.actionBtnSecondaryText}>Videollamar</Text>
                       </Pressable>
                     </View>
                   </View>
@@ -326,15 +291,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
   },
+  callWaitHint: {
+    marginTop: 2,
+    fontSize: 12,
+    color: '#166534',
+    fontFamily: appTheme.fonts.body,
+    fontWeight: '600',
+  },
   actionBtn: {
     borderRadius: 10,
     backgroundColor: appTheme.colors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  actionBtnSecondary: {
-    borderRadius: 10,
-    backgroundColor: '#E2E8F0',
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
@@ -343,12 +309,6 @@ const styles = StyleSheet.create({
   },
   actionBtnText: {
     color: '#FFFFFF',
-    fontFamily: appTheme.fonts.body,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  actionBtnSecondaryText: {
-    color: '#1E293B',
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
     fontWeight: '700',
