@@ -2,7 +2,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -21,7 +20,6 @@ import { appTheme } from "../../../theme/appTheme";
 import { getMessages, markConversationAsRead, sendMessageToUser, type Message } from "../../../api/messages";
 import { getCommunicationAccess, type CommunicationAccess } from "../../../api/communication";
 import { useSocket } from "../../../hooks/useSocket";
-import { useCallManager } from "../../../context/CallContext";
 import { useSessionRemaining } from "../../../hooks/useSessionRemaining";
 import { formatRemainingMinText } from "../../../utils/sessionTime";
 
@@ -63,7 +61,6 @@ export default function ProfessionalMessageDetailScreen() {
   const insets = useSafeAreaInsets();
   const listRef = useRef<FlatList<MessageUI>>(null);
   const { onNewMessage } = useSocket(user?.id);
-  const { startOutgoingCall } = useCallManager();
 
   const conversationId = Array.isArray(params.id) ? params.id[0] : params.id ?? "";
   const clientIdRaw = Array.isArray(params.clientId) ? params.clientId[0] : params.clientId;
@@ -77,7 +74,6 @@ export default function ProfessionalMessageDetailScreen() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [inputHeight, setInputHeight] = useState(44);
-  const [requestingCall, setRequestingCall] = useState(false);
   const [communicationAccess, setCommunicationAccess] = useState<CommunicationAccess | null>(null);
   const [communicationLoading, setCommunicationLoading] = useState(true);
 
@@ -235,33 +231,6 @@ export default function ProfessionalMessageDetailScreen() {
     }
   }
 
-  async function handleRequestCall(callType: "CALL" | "VIDEO_CALL") {
-    if (requestingCall) return;
-    if (!clientId) {
-      Alert.alert("No se pudo iniciar la llamada", "No se encontró el cliente para esta conversación.");
-      return;
-    }
-
-    try {
-      const access = await getCommunicationAccess(clientId);
-      setCommunicationAccess(access);
-      if (!access.allowed) {
-        Alert.alert("Llamada no disponible", access.message ?? "Las llamadas están disponibles solo durante una sesión activa.");
-        return;
-      }
-
-      setRequestingCall(true);
-      await startOutgoingCall({
-        receiverId: clientId,
-        receiverName: clientName,
-        receiverAvatar: clientAvatar || null,
-        callType,
-      });
-    } finally {
-      setRequestingCall(false);
-    }
-  }
-
   const showEmpty = useMemo(() => !loading && messages.length === 0 && !error, [loading, messages.length, error]);
   const communicationHint = communicationLoading
     ? "Validando acceso a comunicacion..."
@@ -291,27 +260,17 @@ export default function ProfessionalMessageDetailScreen() {
             <Text style={styles.sub}>• Conversación</Text>
           )}
         </View>
-        <View style={styles.headerActions}>
-          <Pressable
-            style={[styles.iconBtnMuted, requestingCall && styles.iconBtnMutedDisabled, !canSendMessages && styles.iconBtnMutedDisabled]}
-            disabled={requestingCall || !canSendMessages}
-            onPress={() => handleRequestCall("CALL")}
-          >
-            <Ionicons name="call" size={16} color="#C0267A" />
-          </Pressable>
-          <Pressable
-            style={[styles.iconBtnMuted, requestingCall && styles.iconBtnMutedDisabled, !canSendMessages && styles.iconBtnMutedDisabled]}
-            disabled={requestingCall || !canSendMessages}
-            onPress={() => handleRequestCall("VIDEO_CALL")}
-          >
-            <Ionicons name="videocam" size={16} color="#6C5BB6" />
-          </Pressable>
-        </View>
       </View>
 
       {error ? (
         <View style={styles.errorWrap}>
           <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : null}
+
+      {hasActiveSessionNow ? (
+        <View style={styles.callFlowBanner}>
+          <Text style={styles.callFlowBannerText}>Espera a que el cliente inicie la llamada o videollamada.</Text>
         </View>
       ) : null}
 
@@ -418,21 +377,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  headerActions: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  iconBtnMuted: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#F0EDF9",
-  },
-  iconBtnMutedDisabled: {
-    opacity: 0.55,
-  },
   avatar: {
     width: 42,
     height: 42,
@@ -479,6 +423,23 @@ const styles = StyleSheet.create({
   },
   blockedBannerText: {
     color: "#92400E",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    textAlign: "center",
+    fontWeight: "600",
+  },
+  callFlowBanner: {
+    marginHorizontal: 12,
+    marginTop: 8,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: "#ECFDF5",
+    borderWidth: 1,
+    borderColor: "#BBF7D0",
+  },
+  callFlowBannerText: {
+    color: "#166534",
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
     textAlign: "center",
