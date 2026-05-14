@@ -1,5 +1,5 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import {
   ActivityIndicator,
   FlatList,
@@ -22,6 +22,7 @@ import { getCommunicationAccess, type CommunicationAccess } from "../../../api/c
 import { useSocket } from "../../../hooks/useSocket";
 import { useSessionRemaining } from "../../../hooks/useSessionRemaining";
 import { formatRemainingMinText } from "../../../utils/sessionTime";
+import { activeChatRef, professionalChatScreenRef } from "../../../services/notifications";
 
 type MessageUI = {
   id: string;
@@ -76,6 +77,19 @@ export default function ProfessionalMessageDetailScreen() {
   const [inputHeight, setInputHeight] = useState(44);
   const [communicationAccess, setCommunicationAccess] = useState<CommunicationAccess | null>(null);
   const [communicationLoading, setCommunicationLoading] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      professionalChatScreenRef.current = true;
+      activeChatRef.current = conversationId || null;
+      return () => {
+        professionalChatScreenRef.current = false;
+        if (activeChatRef.current === conversationId) {
+          activeChatRef.current = null;
+        }
+      };
+    }, [conversationId]),
+  );
 
   useEffect(() => {
     if (!clientId) {
@@ -213,10 +227,7 @@ export default function ProfessionalMessageDetailScreen() {
       setText(payloadText);
       const message = err?.message ?? "No se pudo enviar el mensaje.";
       setError(message);
-      if (
-        String(message).toLowerCase().includes("sesion activa") ||
-        String(message).toLowerCase().includes("sesión activa")
-      ) {
+      if (String(message).toLowerCase().includes("sesion activa")) {
         setCommunicationAccess((prev) => ({
           allowed: false,
           bookingId: prev?.bookingId ?? null,
@@ -254,10 +265,10 @@ export default function ProfessionalMessageDetailScreen() {
           </Text>
           {hasActiveSessionNow ? (
             <Text style={styles.sub}>
-              Sesion activa · termina en {formatRemainingMinText(sessionRemainingMs)}
+              Sesion activa - termina en {formatRemainingMinText(sessionRemainingMs)}
             </Text>
           ) : (
-            <Text style={styles.sub}>• Conversación</Text>
+            <Text style={styles.sub}>Conversacion</Text>
           )}
         </View>
       </View>
@@ -295,7 +306,7 @@ export default function ProfessionalMessageDetailScreen() {
         {showEmpty ? (
           <View style={styles.emptyWrap}>
             <Ionicons name="chatbubble-ellipses-outline" size={24} color={appTheme.colors.textMuted} />
-            <Text style={styles.emptyText}>Aún no hay mensajes en esta conversación.</Text>
+            <Text style={styles.emptyText}>Aun no hay mensajes en esta conversacion.</Text>
           </View>
         ) : null}
 
@@ -576,4 +587,3 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
 });
-

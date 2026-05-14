@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import AppScreen from "../../../components/ui/AppScreen";
@@ -7,6 +7,7 @@ import { useAuth } from "../../../context/AuthContext";
 import { appTheme } from "../../../theme/appTheme";
 import { getMyChats, type Chat } from "../../../api/messages";
 import { apiGetMyActiveSessions } from "../../../api/sessions";
+import { activeChatRef, professionalChatScreenRef } from "../../../services/notifications";
 
 function isSameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
@@ -41,6 +42,16 @@ export default function ChatListScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeSessionProfIds, setActiveSessionProfIds] = useState<Set<string>>(new Set());
+
+  useFocusEffect(
+    useCallback(() => {
+      activeChatRef.current = null;
+      professionalChatScreenRef.current = false;
+      return () => {
+        activeChatRef.current = null;
+      };
+    }, []),
+  );
 
   useEffect(() => {
     if (!user?.id) {
@@ -106,7 +117,6 @@ export default function ChatListScreen() {
                   source={item.otherUserAvatar ? { uri: item.otherUserAvatar } : require("../../../../assets/no_image.jpg")}
                   style={styles.avatar}
                 />
-                <View style={styles.onlineDot} />
               </View>
 
               <View style={{ flex: 1 }}>
@@ -122,7 +132,7 @@ export default function ChatListScreen() {
                   ) : null}
                 </View>
                 <Text style={styles.message} numberOfLines={1}>
-                  {item.lastMessage ?? "Aún no hay mensajes"}
+                  {item.lastMessage ?? "Aun no hay mensajes"}
                 </Text>
               </View>
 
@@ -140,7 +150,7 @@ export default function ChatListScreen() {
             !loading ? (
               <View style={styles.emptyWrap}>
                 <Ionicons name="chatbubble-ellipses-outline" size={20} color={appTheme.colors.textMuted} />
-                <Text style={styles.helper}>Aún no tienes conversaciones activas.</Text>
+                <Text style={styles.helper}>Aun no tienes conversaciones activas.</Text>
               </View>
             ) : null
           }
@@ -214,17 +224,6 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     backgroundColor: "#E2E8F0",
   },
-  onlineDot: {
-    position: "absolute",
-    right: -2,
-    bottom: -2,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: appTheme.colors.success,
-    borderWidth: 2,
-    borderColor: "#FFFFFF",
-  },
   name: {
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.heading,
@@ -295,4 +294,3 @@ const styles = StyleSheet.create({
     gap: 4,
   },
 });
-

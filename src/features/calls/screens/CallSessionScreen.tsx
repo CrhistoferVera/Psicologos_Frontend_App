@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useCallDuration } from "../../../hooks/useCallDuration";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
+  Alert,
   Animated,
   PanResponder,
   PermissionsAndroid,
@@ -69,6 +70,9 @@ export default function CallSessionScreen() {
 
   const [controlsVisible, setControlsVisible] = useState(true);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const localEndRequestedRef = useRef(false);
+  const callEndHandledRef = useRef(false);
+  const callEndNoticeShownRef = useRef(false);
 
   const pipAnim = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const pipPan = useRef(
@@ -97,6 +101,25 @@ export default function CallSessionScreen() {
       if (hideTimer.current) clearTimeout(hideTimer.current);
     };
   }, [isVideoCall, session?.status]);
+
+  useEffect(() => {
+    localEndRequestedRef.current = false;
+    callEndHandledRef.current = false;
+    callEndNoticeShownRef.current = false;
+  }, [session?.callId]);
+
+  useEffect(() => {
+    if (!session?.callId) return;
+    if (session.status !== "ended") return;
+    if (callEndHandledRef.current) return;
+
+    callEndHandledRef.current = true;
+    if (!callEndNoticeShownRef.current) {
+      callEndNoticeShownRef.current = true;
+      Alert.alert("Llamada finalizada");
+    }
+    router.back();
+  }, [router, session?.callId, session?.status]);
 
   useEffect(() => {
     if (!session?.otherUserId) {
@@ -180,7 +203,7 @@ export default function CallSessionScreen() {
           if (isVideoCall) perms.push(PermissionsAndroid.PERMISSIONS.CAMERA);
           const result = await PermissionsAndroid.requestMultiple(perms as any);
           const denied = Object.values(result).some((v) => v !== PermissionsAndroid.RESULTS.GRANTED);
-          if (denied) throw new Error("Permisos de cámara/micrófono denegados");
+          if (denied) throw new Error("Permisos de camara y microfono denegados");
         }
 
         const tokenData = await getAgoraToken(session.callId, numericUid, session.otherUserId);
@@ -264,7 +287,18 @@ export default function CallSessionScreen() {
   };
 
   const handleEndCall = () => {
-    if (session) endCall(session.callId);
+    if (!session) return;
+
+    const shouldEmitEnd = session.status === "connected" || session.status === "ringing";
+    if (shouldEmitEnd && !localEndRequestedRef.current) {
+      localEndRequestedRef.current = true;
+      endCall(session.callId);
+    }
+
+    if (!callEndNoticeShownRef.current) {
+      callEndNoticeShownRef.current = true;
+      Alert.alert("Llamada finalizada");
+    }
     router.back();
   };
 
@@ -274,7 +308,7 @@ export default function CallSessionScreen() {
   );
   const hasActiveSessionNow = communicationAccess?.allowed === true && !sessionExpired;
   const sessionInfoLabel = hasActiveSessionNow
-    ? `Sesion activa · termina en ${formatRemainingMinText(sessionRemainingMs)}`
+    ? `Sesion activa - termina en ${formatRemainingMinText(sessionRemainingMs)}`
     : communicationAccess?.allowed
       ? "La sesion termino."
       : null;
@@ -352,7 +386,7 @@ export default function CallSessionScreen() {
             ) : null}
 
             <View style={styles.pipLabel}>
-              <Text style={styles.pipLabelText}>Tú</Text>
+              <Text style={styles.pipLabelText}>Tu</Text>
             </View>
           </Animated.View>
         )}
@@ -362,7 +396,7 @@ export default function CallSessionScreen() {
             <View style={styles.controlsRow}>
               <Pressable onPress={handleToggleMute} style={[styles.ctrlBtn, muted && styles.ctrlBtnActive]}>
                 <Ionicons name={muted ? "mic-off" : "mic"} size={22} color="#fff" />
-                <Text style={styles.ctrlLabel}>{muted ? "Silenciado" : "Micrófono"}</Text>
+                <Text style={styles.ctrlLabel}>{muted ? "Silenciado" : "Microfono"}</Text>
               </Pressable>
 
               <Pressable
@@ -370,7 +404,7 @@ export default function CallSessionScreen() {
                 style={[styles.ctrlBtn, cameraMuted && styles.ctrlBtnActive]}
               >
                 <Ionicons name={cameraMuted ? "videocam-off" : "videocam"} size={22} color="#fff" />
-                <Text style={styles.ctrlLabel}>{cameraMuted ? "Sin cámara" : "Cámara"}</Text>
+                <Text style={styles.ctrlLabel}>{cameraMuted ? "Sin camara" : "Camara"}</Text>
               </Pressable>
 
               <Pressable

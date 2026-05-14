@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { API_URL } from '../config';
 import type { Message } from '../api/messages';
+import { getAccessToken } from '../storage/authStorage';
 
 export function useSocket(userId: string | null | undefined) {
   const socketRef = useRef<Socket | null>(null);
@@ -9,21 +10,34 @@ export function useSocket(userId: string | null | undefined) {
   useEffect(() => {
     if (!userId) return;
 
-    const socket = io(API_URL, { transports: ['websocket'] });
-    socketRef.current = socket;
+    let disposed = false;
+    let localSocket: Socket | null = null;
 
-    socket.on('connect', () => {
-      socket.emit('register', userId);
-    });
+    void (async () => {
+      const token = await getAccessToken();
+      if (disposed || !token) return;
+
+      const socket = io(API_URL, {
+        transports: ['websocket'],
+        auth: { token },
+      });
+      localSocket = socket;
+      socketRef.current = socket;
+
+      socket.on('connect', () => {
+        socket.emit('register', { userId, token });
+      });
+    })();
 
     return () => {
-      socket.disconnect();
+      disposed = true;
+      localSocket?.disconnect();
       socketRef.current = null;
     };
   }, [userId]);
 
-  function sendMessage(receiverId: string, text: string, senderId: string) {
-    socketRef.current?.emit('send_message', { senderId, receiverId, text });
+  function sendMessage(receiverId: string, text: string, _senderId?: string) {
+    socketRef.current?.emit('send_message', { receiverId, text });
   }
 
   function onNewMessage(callback: (msg: Message) => void) {

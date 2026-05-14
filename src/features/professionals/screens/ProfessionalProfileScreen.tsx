@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -74,7 +74,7 @@ export default function ProfessionalProfileScreen() {
             sessionStartsAt: null,
             sessionEndsAt: null,
             reason: 'UNKNOWN',
-            message: 'No se pudo validar el acceso de comunicación.',
+            message: 'No se pudo validar el acceso de comunicacion.',
           });
         } finally {
           setCommunicationLoading(false);
@@ -184,11 +184,11 @@ export default function ProfessionalProfileScreen() {
       const access = await getCommunicationAccess(targetProfessional.id);
       setCommunicationAccess(access);
       if (!access.allowed) {
-        Alert.alert('Chat no disponible', access.message ?? 'Reserva una sesión para habilitar mensajes y llamadas.');
+        Alert.alert('Chat no disponible', access.message ?? 'Reserva una sesion para habilitar mensajes y llamadas.');
         return;
       }
     } catch {
-      Alert.alert('Chat no disponible', 'Reserva una sesión para habilitar mensajes y llamadas.');
+      Alert.alert('Chat no disponible', 'Reserva una sesion para habilitar mensajes y llamadas.');
       return;
     }
 
@@ -232,7 +232,7 @@ export default function ProfessionalProfileScreen() {
       const access = await getCommunicationAccess(professional.id);
       setCommunicationAccess(access);
       if (!access.allowed) {
-        Alert.alert('Llamada no disponible', access.message ?? 'Las llamadas están disponibles solo durante una sesión activa.');
+        Alert.alert('Llamada no disponible', access.message ?? 'Las llamadas estan disponibles solo durante una sesion activa.');
         return;
       }
 
@@ -299,7 +299,6 @@ export default function ProfessionalProfileScreen() {
                 }
                 style={styles.avatar}
               />
-              <View style={styles.onlineDot} />
             </View>
 
             <View style={{ flex: 1 }}>
@@ -313,21 +312,6 @@ export default function ProfessionalProfileScreen() {
               </View>
             </View>
 
-            <View
-              style={[
-                styles.statusBadge,
-                professional.isOnline ? styles.statusOnline : styles.statusOffline,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.statusText,
-                  professional.isOnline ? styles.statusOnlineText : styles.statusOfflineText,
-                ]}
-              >
-                {professional.isOnline ? 'En linea' : 'Offline'}
-              </Text>
-            </View>
           </View>
         </LinearGradient>
 
@@ -404,7 +388,7 @@ export default function ProfessionalProfileScreen() {
               {offeringsLoading ? (
                 <Text style={styles.bio}>Cargando sesiones...</Text>
               ) : offerings.length === 0 ? (
-                <Text style={styles.bio}>Este profesional aún no publicó sesiones reservables.</Text>
+                <Text style={styles.bio}>Este profesional aun no publicó sesiones reservables.</Text>
               ) : (
                 <View style={styles.offeringsWrap}>
                   {offerings.map((offering) => (
@@ -478,7 +462,7 @@ export default function ProfessionalProfileScreen() {
         ) : (
           <AppCard>
             <Text style={styles.blockTitle}>Reseñas</Text>
-            <Text style={styles.bio}>Aún no hay reseñas publicadas para este profesional.</Text>
+            <Text style={styles.bio}>Aun no hay reseñas publicadas para este profesional.</Text>
           </AppCard>
         )}
 
@@ -558,17 +542,6 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: '#DDE5EF',
   },
-  onlineDot: {
-    position: 'absolute',
-    right: 2,
-    bottom: 2,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: appTheme.colors.success,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
   name: {
     color: '#FFFFFF',
     fontSize: 23,
@@ -605,29 +578,6 @@ const styles = StyleSheet.create({
     color: '#D5E2F2',
     fontSize: 12,
     fontFamily: appTheme.fonts.body,
-  },
-  statusBadge: {
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    alignSelf: 'flex-start',
-  },
-  statusText: {
-    fontSize: 11,
-    fontFamily: appTheme.fonts.body,
-    fontWeight: '700',
-  },
-  statusOnline: {
-    backgroundColor: '#77C48F',
-  },
-  statusOffline: {
-    backgroundColor: '#CBD5E1',
-  },
-  statusOnlineText: {
-    color: '#F8FFF9',
-  },
-  statusOfflineText: {
-    color: '#334155',
   },
   priceCardsRow: {
     flexDirection: 'row',

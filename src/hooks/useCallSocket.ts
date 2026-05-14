@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { API_URL } from '../config';
+import { getAccessToken } from '../storage/authStorage';
 
 export type CallType = 'CALL' | 'VIDEO_CALL';
 
@@ -13,39 +14,60 @@ export interface IncomingCallData {
   callerAvatar: string | null;
 }
 
+type RequestCallPayload = {
+  callId: string;
+  receiverId: string;
+  callType: CallType;
+  callerName: string;
+  callerAvatar: string | null;
+};
+
 export function useCallSocket(userId: string | null | undefined) {
   const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
     if (!userId) return;
 
-    const socket = io(API_URL, { transports: ['websocket'] });
-    socketRef.current = socket;
+    let disposed = false;
+    let localSocket: Socket | null = null;
 
-    socket.on('connect', () => {
-      socket.emit('register', userId);
-    });
+    void (async () => {
+      const token = await getAccessToken();
+      if (disposed || !token) return;
+
+      const socket = io(API_URL, {
+        transports: ['websocket'],
+        auth: { token },
+      });
+      localSocket = socket;
+      socketRef.current = socket;
+
+      socket.on('connect', () => {
+        socket.emit('register', { userId, token });
+      });
+    })();
 
     return () => {
-      socket.disconnect();
+      disposed = true;
+      localSocket?.disconnect();
       socketRef.current = null;
     };
   }, [userId]);
 
-  function requestCall(data: IncomingCallData) {
+  function requestCall(data: RequestCallPayload) {
     socketRef.current?.emit('call_request', data);
   }
 
-  function acceptCall(callId: string, callerId: string) {
-    socketRef.current?.emit('call_accepted', { callId, callerId });
+  function acceptCall(callId: string) {
+    socketRef.current?.emit('call_accepted', { callId });
   }
 
-  function rejectCall(callId: string, callerId: string) {
-    socketRef.current?.emit('call_rejected', { callId, callerId });
+  function rejectCall(callId: string) {
+    socketRef.current?.emit('call_rejected', { callId });
   }
 
-  function endCall(callId: string, otherUserId: string) {
-    socketRef.current?.emit('call_ended', { callId, otherUserId });
+  function endCall(callId: string) {
+    socketRef.current?.emit('call_ended', { callId });
   }
 
   function onIncomingCall(cb: (data: IncomingCallData) => void) {

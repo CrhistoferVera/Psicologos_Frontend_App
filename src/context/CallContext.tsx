@@ -58,9 +58,20 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const [sessions, setSessions] = useState<Record<string, CallSession>>({});
 
   useEffect(() => {
+    const cleanupSession = (callId: string) => {
+      setTimeout(() => {
+        setSessions((prev) => {
+          if (!prev[callId]) return prev;
+          const next = { ...prev };
+          delete next[callId];
+          return next;
+        });
+      }, 10_000);
+    };
+
     const unsubIncoming = onIncomingCall((data) => {
       if (!data?.callId) return;
-      setIncomingCall(data);
+      setIncomingCall((prev) => (prev?.callId === data.callId ? prev : data));
     });
 
     const unsubAccepted = onCallAccepted(({ callId }) => {
@@ -92,7 +103,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
           [callId]: { ...current, status: "rejected" },
         };
       });
-      Alert.alert("Llamada rechazada", "El usuario no aceptó la llamada.");
+      Alert.alert("Llamada rechazada", "El usuario no acepto la llamada.");
+      cleanupSession(callId);
     });
 
     const unsubEnded = onCallEnded(({ callId }) => {
@@ -105,9 +117,17 @@ export function CallProvider({ children }: { children: ReactNode }) {
           [callId]: { ...current, status: "ended" },
         };
       });
+      setIncomingCall((prev) => (prev?.callId === callId ? null : prev));
+      cleanupSession(callId);
     });
 
     const unsubError = onCallError(({ callId, message }) => {
+      const normalizedMessage = String(message ?? "").toLowerCase();
+      const isAlreadyEndedError =
+        normalizedMessage.includes("no se encontro una llamada activa para finalizar") ||
+        normalizedMessage.includes("no se encontró una llamada activa para finalizar");
+      const isEndFlowError = normalizedMessage.includes("finalizar");
+
       if (callId) {
         setSessions((prev) => {
           const current = prev[callId];
@@ -117,9 +137,17 @@ export function CallProvider({ children }: { children: ReactNode }) {
             [callId]: { ...current, status: "ended" },
           };
         });
+        cleanupSession(callId);
       }
 
-      Alert.alert("No se pudo iniciar la llamada", message ?? "Solo puedes iniciar llamadas durante una sesión activa.");
+      if (isAlreadyEndedError) {
+        return;
+      }
+
+      Alert.alert(
+        isEndFlowError ? "No se pudo finalizar la llamada" : "No se pudo iniciar la llamada",
+        message ?? "Solo puedes iniciar llamadas durante una sesion activa.",
+      );
     });
 
     return () => {
@@ -147,14 +175,14 @@ export function CallProvider({ children }: { children: ReactNode }) {
       if (!access.allowed) {
         Alert.alert(
           "Llamada no disponible",
-          access.message ?? "Solo puedes iniciar llamadas durante una sesión activa.",
+          access.message ?? "Solo puedes iniciar llamadas durante una sesion activa.",
         );
         return;
       }
     } catch (error: any) {
       Alert.alert(
         "No se pudo validar la llamada",
-        error?.message ?? "Solo puedes iniciar llamadas durante una sesión activa.",
+        error?.message ?? "Solo puedes iniciar llamadas durante una sesion activa.",
       );
       return;
     }
@@ -178,7 +206,6 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
     requestCall({
       callId,
-      callerId: user.id,
       receiverId: input.receiverId,
       callType: input.callType,
       callerName,
@@ -191,7 +218,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   function acceptIncomingCall() {
     if (!incomingCall) return;
 
-    acceptCall(incomingCall.callId, incomingCall.callerId);
+    acceptCall(incomingCall.callId);
 
     setSessions((prev) => ({
       ...prev,
@@ -214,14 +241,14 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
   function rejectIncomingCall() {
     if (!incomingCall) return;
-    rejectCall(incomingCall.callId, incomingCall.callerId);
+    rejectCall(incomingCall.callId);
     setIncomingCall(null);
   }
 
   function endCall(callId: string) {
     const session = sessions[callId];
     if (!session) return;
-    emitEndCall(callId, session.otherUserId);
+    emitEndCall(callId);
     setSessions((prev) => ({
       ...prev,
       [callId]: { ...session, status: "ended" },

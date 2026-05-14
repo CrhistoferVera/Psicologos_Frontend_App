@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
 import { FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AppScreen from "../../../components/ui/AppScreen";
 import { appTheme } from "../../../theme/appTheme";
 import { getProfessionalChats } from "../api/professionalApi";
 import type { ProfessionalChatItem } from "../types";
+import { activeChatRef, professionalChatScreenRef } from "../../../services/notifications";
 
 type FilterMode = "active" | "history" | "archived";
 
@@ -30,7 +31,7 @@ function formatConversationDate(iso: string) {
 
   if (isYesterday(date, now)) return "Ayer";
 
-  const week = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+  const week = ["Dom", "Lun", "Mar", "Mie", "Jue", "Vie", "Sab"];
   return week[date.getDay()] ?? "";
 }
 
@@ -41,6 +42,16 @@ export default function ProfessionalMessagesScreen() {
   const [mode, setMode] = useState<FilterMode>("active");
 
   const [items, setItems] = useState<ProfessionalChatItem[]>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      professionalChatScreenRef.current = true;
+      activeChatRef.current = null;
+      return () => {
+        professionalChatScreenRef.current = false;
+      };
+    }, []),
+  );
 
   useEffect(() => {
     void (async () => {
@@ -127,7 +138,7 @@ export default function ProfessionalMessagesScreen() {
                 <Text style={styles.emptyText}>
                   {mode === "archived"
                     ? "No tienes conversaciones archivadas."
-                    : "Aún no tienes conversaciones para este filtro."}
+                    : "Aun no tienes conversaciones para este filtro."}
                 </Text>
               </View>
             ) : null

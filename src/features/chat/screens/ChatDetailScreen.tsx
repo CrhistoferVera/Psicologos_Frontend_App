@@ -1,5 +1,5 @@
-﻿import { useEffect, useRef, useState } from "react";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import {
   ActivityIndicator,
   Alert,
@@ -24,6 +24,7 @@ import { type CallType } from "../../../hooks/useCallSocket";
 import { useCallManager } from "../../../context/CallContext";
 import { useSessionRemaining } from "../../../hooks/useSessionRemaining";
 import { formatRemainingMinText } from "../../../utils/sessionTime";
+import { activeChatRef, professionalChatScreenRef } from "../../../services/notifications";
 
 type MessageUI = {
   id: string;
@@ -97,6 +98,18 @@ export default function ChatDetailScreen() {
     setConversationId(resolvedConversationId);
   }, [resolvedConversationId]);
 
+  useFocusEffect(
+    useCallback(() => {
+      activeChatRef.current = conversationId || null;
+      professionalChatScreenRef.current = false;
+      return () => {
+        if (activeChatRef.current === conversationId) {
+          activeChatRef.current = null;
+        }
+      };
+    }, [conversationId]),
+  );
+
   useEffect(() => {
     if (!professionalId) {
       setCommunicationLoading(false);
@@ -156,7 +169,7 @@ export default function ChatDetailScreen() {
         await markConversationAsRead(conversationId);
       } catch {
         setMessages([]);
-        setError("Este chat aún no tiene historial o no está disponible.");
+        setError("Este chat aun no tiene historial o no esta disponible.");
       } finally {
         setLoading(false);
       }
@@ -244,10 +257,7 @@ export default function ChatDetailScreen() {
       const message = err?.message ?? "No se pudo enviar el mensaje.";
       setError(message);
 
-      if (
-        String(message).toLowerCase().includes("sesion activa") ||
-        String(message).toLowerCase().includes("sesión activa")
-      ) {
+      if (String(message).toLowerCase().includes("sesion activa")) {
         setCommunicationAccess((prev) => ({
           allowed: false,
           bookingId: prev?.bookingId ?? null,
@@ -265,7 +275,7 @@ export default function ChatDetailScreen() {
   async function handleRequestCall(callType: CallType) {
     if (requestingCall) return;
     if (!professionalId) {
-      Alert.alert("No se pudo iniciar la llamada", "No se encontró el profesional para esta conversación.");
+      Alert.alert("No se pudo iniciar la llamada", "No se encontro el profesional para esta conversacion.");
       return;
     }
 
@@ -273,7 +283,7 @@ export default function ChatDetailScreen() {
       const access = await getCommunicationAccess(professionalId);
       setCommunicationAccess(access);
       if (!access.allowed) {
-        Alert.alert("Llamada no disponible", access.message ?? "Las llamadas están disponibles solo durante una sesión activa.");
+        Alert.alert("Llamada no disponible", access.message ?? "Las llamadas estan disponibles solo durante una sesion activa.");
         return;
       }
 
@@ -317,12 +327,12 @@ export default function ChatDetailScreen() {
               <Ionicons name="calendar" size={10} color="#166534" />
               <Text style={styles.sessionBadgeText}>
                 {hasActiveSessionNow
-                  ? `Sesion activa · termina en ${formatRemainingMinText(sessionRemainingMs)}`
+                  ? `Sesion activa - termina en ${formatRemainingMinText(sessionRemainingMs)}`
                   : "Sesion activa"}
               </Text>
             </View>
           ) : (
-            <Text style={styles.sub}>• En línea</Text>
+            <Text style={styles.sub}>Chat</Text>
           )}
         </View>
 
@@ -365,7 +375,7 @@ export default function ChatDetailScreen() {
               } as any)
             }
           >
-            <Text style={styles.blockedBannerBtnText}>Reservar sesión</Text>
+            <Text style={styles.blockedBannerBtnText}>Reservar sesion</Text>
           </Pressable>
         </View>
       ) : null}
@@ -385,7 +395,7 @@ export default function ChatDetailScreen() {
         {showEmpty ? (
           <View style={styles.emptyWrap}>
             <Ionicons name="chatbubble-ellipses-outline" size={24} color={appTheme.colors.textMuted} />
-            <Text style={styles.emptyText}>Aún no hay mensajes en esta conversación.</Text>
+            <Text style={styles.emptyText}>Aun no hay mensajes en esta conversacion.</Text>
           </View>
         ) : null}
 
@@ -413,7 +423,6 @@ export default function ChatDetailScreen() {
                   <Text style={[styles.messageText, mine && styles.messageTextMine]}>{item.text}</Text>
                   <Text style={[styles.messageMeta, mine && styles.messageMetaMine]}>
                     {formatMessageHour(item.createdAt)}
-                    {mine ? " ??" : ""}
                   </Text>
                 </View>
               </View>
@@ -748,4 +757,3 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
 });
-
