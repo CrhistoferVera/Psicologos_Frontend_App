@@ -13,10 +13,8 @@ type Item = {
 
 const items: Item[] = [
   { key: "home", label: "Inicio", icon: House, route: "/(user)/home" },
-  { key: "bookings", label: "Reservas", icon: CalendarDays, route: "/(user)/bookings" },
-  { key: "professionals", label: "Buscar", icon: Search, route: "/(user)/professionals" },
-  { key: "packages", label: "Paquetes", icon: Package, route: "/(user)/packages" },
   { key: "chats", label: "Chats", icon: MessageCircle, route: "/(user)/chats" },
+    { key: "packages", label: "Paquetes", icon: Package, route: "/(user)/packages" },
   { key: "profile", label: "Perfil", icon: User, route: "/(user)/profile" },
 ];
 
@@ -44,7 +42,7 @@ export default function UserBottomNav() {
           >
             <View style={[styles.activeLine, { opacity: active ? 1 : 0 }]} />
             <Icon
-              size={21}
+              size={26}
               color={active ? "#FFFFFF" : "#9CA3AF"}
             />
             <Text

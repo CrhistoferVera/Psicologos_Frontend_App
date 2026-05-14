@@ -15,8 +15,6 @@ const professionalAccent = "#FFFFFF";
 
 const items: NavItem[] = [
   { key: "dashboard", label: "Dashboard", route: "/(professional)/dashboard", icon: LayoutDashboard },
-  { key: "sessions", label: "Sesiones", route: "/(professional)/sessions", icon: CalendarDays },
-  { key: "availability", label: "Disponib.", route: "/(professional)/availability", icon: CalendarDays },
   { key: "bookings", label: "Agenda", route: "/(professional)/bookings", icon: WalletCards },
   { key: "messages", label: "Mensajes", route: "/(professional)/messages", icon: MessageCircle },
   { key: "profile", label: "Perfil", route: "/(professional)/profile", icon: UserRoundCog },
@@ -39,7 +37,7 @@ export default function ProfessionalBottomNav() {
         return (
           <Pressable key={item.key} style={styles.item} onPress={() => router.push(item.route as any)}>
             <View style={[styles.activeLine, { opacity: active ? 1 : 0 }]} />
-            <Icon size={20} color={active ? professionalAccent : "#9CA3AF"} />
+            <Icon size={26} color={active ? professionalAccent : "#9CA3AF"} />
             <Text style={[styles.label, { color: active ? professionalAccent : "#9CA3AF" }]}>
               {item.label}
             </Text>
