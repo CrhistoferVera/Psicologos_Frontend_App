@@ -7,7 +7,7 @@ export const API_URL = (nativeApiUrl ?? sharedApiUrl ?? fallbackApiUrl).replace(
 export const APP_DOWNLOAD_URL =
   process.env.EXPO_PUBLIC_APP_DOWNLOAD_URL ??
   process.env.EXPO_PUBLIC_WEB_APP_URL ??
-  "https://app.sanamente.app/#descargar";
+  "https://sanamente.automatizando.vip#descargar";
 export const ADMIN_WEB_URL =
   process.env.EXPO_PUBLIC_ADMIN_WEB_URL ??
   process.env.EXPO_PUBLIC_WEB_APP_URL ??
