@@ -17,7 +17,6 @@ import {
   getProfessionalSpecialtiesCatalog,
   sendProfessionalVerificationOtp,
   updateMyProfessionalSpecialties,
-  upsertProfessionalPrices,
   verifyProfessionalOtp,
 } from "../api/professionalApi";
 
@@ -73,9 +72,6 @@ export default function ProfessionalRegisterScreen() {
 
   const [specialtiesCatalog, setSpecialtiesCatalog] = useState<{ id: string; name: string }[]>([]);
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
-  const [chatPrice, setChatPrice] = useState("20");
-  const [callPrice, setCallPrice] = useState("35");
-  const [videoPrice, setVideoPrice] = useState("50");
 
   type FileAsset = { uri: string; name: string; type: string };
 
@@ -122,7 +118,7 @@ export default function ProfessionalRegisterScreen() {
   const currentStepTitle = useMemo(() => {
     if (step === 1) return "Datos personales y verificación";
     if (step === 2) return "Cuenta profesional";
-    if (step === 3) return "Especialidades y tarifas";
+    if (step === 3) return "Especialidades";
     if (step === 4) return "Verificación de identidad (KYC)";
     return "Revisar y enviar";
   }, [step]);
@@ -158,12 +154,6 @@ export default function ProfessionalRegisterScreen() {
     }
     if (currentStep === 3) {
       if (selectedSpecialties.length === 0) return "Selecciona al menos una especialidad.";
-      const chat = Number(chatPrice || 0);
-      const call = Number(callPrice || 0);
-      const video = Number(videoPrice || 0);
-      if (!Number.isFinite(chat) || chat <= 0.1) return "La tarifa de mensajes debe ser mayor a 0.1.";
-      if (!Number.isFinite(call) || call <= 0.5) return "La tarifa de llamadas debe ser mayor a 0.5.";
-      if (!Number.isFinite(video) || video <= 1) return "La tarifa de videollamadas debe ser mayor a 1.";
     }
     return null;
   }
@@ -336,16 +326,9 @@ export default function ProfessionalRegisterScreen() {
       await setSession(registration.access_token, registration.user);
 
       try {
-        await Promise.all([
-          upsertProfessionalPrices({
-            chat: Number(chatPrice || 0),
-            call: Number(callPrice || 0),
-            video: Number(videoPrice || 0),
-          }),
-          updateMyProfessionalSpecialties(selectedSpecialties),
-        ]);
+        await updateMyProfessionalSpecialties(selectedSpecialties);
       } catch {
-        // Registro base completado; precios/especialidades se pueden actualizar desde perfil.
+        // Registro base completado; especialidades se pueden actualizar desde perfil.
       }
 
       router.replace("/(public)/professional-review-status");
@@ -502,29 +485,6 @@ export default function ProfessionalRegisterScreen() {
               ))}
             </View>
 
-            <Text style={styles.sectionTitle}>Tarifas</Text>
-            <AppInput
-              label="Mensaje"
-              value={chatPrice}
-              onChangeText={setChatPrice}
-              keyboardType="number-pad"
-              placeholder="Mayor a 0.1"
-            />
-            <AppInput
-              label="Llamada"
-              value={callPrice}
-              onChangeText={setCallPrice}
-              keyboardType="number-pad"
-              placeholder="Mayor a 0.5"
-            />
-            <AppInput
-              label="VideoLlamada"
-              value={videoPrice}
-              onChangeText={setVideoPrice}
-              keyboardType="number-pad"
-              placeholder="Mayor a 1"
-            />
-            <Text style={styles.hint}>Mínimos: mensaje &gt; 0.1, llamada &gt; 0.5, videollamada &gt; 1.</Text>
           </View>
         ) : null}
 
@@ -578,7 +538,6 @@ export default function ProfessionalRegisterScreen() {
               <Text style={styles.summaryText}>Profesional: {firstName} {lastName}</Text>
               <Text style={styles.summaryText}>Username: {username}</Text>
               <Text style={styles.summaryText}>Especialidades: {selectedSpecialtyNames.join(", ") || "Sin seleccionar"}</Text>
-              <Text style={styles.summaryText}>Tarifas: Chat {chatPrice} / Llamada {callPrice} / Video {videoPrice}</Text>
               <Text style={styles.summaryText}>Video de rostro: {kycVideo ? "Grabado" : "Pendiente"}</Text>
               <Text style={styles.summaryText}>Documento de identidad: {idDoc ? "Adjunto" : "Pendiente"}</Text>
               <Text style={styles.summaryText}>Matrícula profesional: {matricula ? "Adjunta" : "Pendiente"}</Text>
@@ -738,31 +697,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
-  },
-  priceRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  priceCard: {
-    flex: 1,
-    backgroundColor: appTheme.colors.surface,
-    borderRadius: appTheme.radius.lg,
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
-    paddingVertical: 14,
-    alignItems: "center",
-    gap: 4,
-  },
-  priceAmount: {
-    color: "#000000",
-    fontFamily: appTheme.fonts.heading,
-    fontSize: 20,
-    fontWeight: "800",
-  },
-  priceLabel: {
-    color: appTheme.colors.textMuted,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 11,
   },
   uploadCard: {
     borderWidth: 1,
