@@ -16,6 +16,7 @@ import {
   type AvailableSlot,
   type ProfessionalSessionOffering,
 } from '../../../api/bookings';
+import { safeBack } from '../../../utils/navigation';
 
 type DateOption = { key: string; label: string; dayName: string };
 
@@ -168,7 +169,7 @@ export default function BookingScheduleScreen() {
     <AppScreen scroll contentPadding={0}>
       <ScrollView contentContainerStyle={styles.page}>
         <View style={styles.header}>
-          <Pressable style={styles.backBtn} onPress={() => router.back()}>
+          <Pressable style={styles.backBtn} onPress={() => safeBack(router, '/(user)')}>
             <Ionicons name="arrow-back" size={18} color={appTheme.colors.text} />
           </Pressable>
           <View style={{ flex: 1 }}>

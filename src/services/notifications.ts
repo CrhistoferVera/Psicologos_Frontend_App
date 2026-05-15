@@ -19,6 +19,45 @@ const DEFAULT_CHANNEL_ID = 'default';
 const SESSION_CHANNEL_ID = 'sessions';
 const activeSessionNotificationRef = { current: null as string | null };
 
+export type IncomingCallPushPayload = {
+  callId: string;
+  callerId: string;
+  receiverId: string;
+  callType: 'CALL' | 'VIDEO_CALL';
+  callerName: string;
+};
+
+const incomingCallListeners = new Set<(payload: IncomingCallPushPayload) => void>();
+
+function parseIncomingCallPayload(
+  data: Record<string, string | undefined> | undefined,
+): IncomingCallPushPayload | null {
+  if (!data) return null;
+  if (data.type !== 'INCOMING_CALL') return null;
+  if (!data.callId || !data.callerId || !data.receiverId) return null;
+  if (data.callType !== 'CALL' && data.callType !== 'VIDEO_CALL') return null;
+  return {
+    callId: data.callId,
+    callerId: data.callerId,
+    receiverId: data.receiverId,
+    callType: data.callType,
+    callerName: data.callerName ?? 'Cliente',
+  };
+}
+
+function notifyIncomingCall(payload: IncomingCallPushPayload) {
+  incomingCallListeners.forEach((listener) => listener(payload));
+}
+
+export function subscribeIncomingCallPush(
+  listener: (payload: IncomingCallPushPayload) => void,
+): () => void {
+  incomingCallListeners.add(listener);
+  return () => {
+    incomingCallListeners.delete(listener);
+  };
+}
+
 export const createNotificationChannel = async (): Promise<void> => {
   if (Platform.OS === 'android') {
     await notifee.createChannel({
@@ -104,7 +143,13 @@ export const setupForegroundNotificationHandler = (): (() => void) => {
       return;
     }
 
-    if (type === 'INCOMING_CALL') return;
+    if (type === 'INCOMING_CALL') {
+      const payload = parseIncomingCallPayload(remoteMessage.data as Record<string, string | undefined>);
+      if (payload) {
+        notifyIncomingCall(payload);
+      }
+      return;
+    }
     if (type === 'CALL_WARNING') return;
 
     Toast.show({
@@ -140,11 +185,19 @@ export const setupBackgroundNotificationHandler = (): void => {
     .then((remoteMessage) => {
       if (remoteMessage) {
         console.log('App abierta desde notificacion (quit):', remoteMessage.data);
+        const payload = parseIncomingCallPayload(remoteMessage.data as Record<string, string | undefined>);
+        if (payload) {
+          notifyIncomingCall(payload);
+        }
       }
     });
 
   messaging().onNotificationOpenedApp((remoteMessage) => {
     console.log('App abierta desde notificacion (background):', remoteMessage.data);
+    const payload = parseIncomingCallPayload(remoteMessage.data as Record<string, string | undefined>);
+    if (payload) {
+      notifyIncomingCall(payload);
+    }
   });
 };
 

@@ -20,6 +20,7 @@ import { getAgoraToken } from "../../../api/calls";
 import { getCommunicationAccess, type CommunicationAccess } from "../../../api/communication";
 import { useSessionRemaining } from "../../../hooks/useSessionRemaining";
 import { formatRemainingClock, formatRemainingMinText } from "../../../utils/sessionTime";
+import { getHomeRouteByRole, safeBack } from "../../../utils/navigation";
 import {
   ChannelProfileType,
   ClientRoleType,
@@ -52,6 +53,7 @@ export default function CallSessionScreen() {
   const rawCallId = Array.isArray(params.callId) ? params.callId[0] : (params.callId ?? "");
   const session = rawCallId ? getSession(rawCallId) : null;
   const isVideoCall = session?.callType === "VIDEO_CALL";
+  const fallbackRoute = getHomeRouteByRole(user?.role);
 
   const engineRef = useRef<IRtcEngine | null>(null);
   const eventsRef = useRef<IRtcEngineEventHandler | null>(null);
@@ -118,8 +120,8 @@ export default function CallSessionScreen() {
       callEndNoticeShownRef.current = true;
       Alert.alert("Llamada finalizada");
     }
-    router.back();
-  }, [router, session?.callId, session?.status]);
+    safeBack(router, fallbackRoute);
+  }, [fallbackRoute, router, session?.callId, session?.status]);
 
   useEffect(() => {
     if (!session?.otherUserId) {
@@ -299,7 +301,7 @@ export default function CallSessionScreen() {
       callEndNoticeShownRef.current = true;
       Alert.alert("Llamada finalizada");
     }
-    router.back();
+    safeBack(router, fallbackRoute);
   };
 
   const { remainingMs: sessionRemainingMs, isExpired: sessionExpired } = useSessionRemaining(
@@ -318,7 +320,7 @@ export default function CallSessionScreen() {
     return (
       <View style={styles.page}>
         <Text style={styles.missingTitle}>Llamada no disponible</Text>
-        <Pressable style={styles.backBtn} onPress={() => router.back()}>
+        <Pressable style={styles.backBtn} onPress={() => safeBack(router, fallbackRoute)}>
           <Text style={styles.backBtnText}>Volver</Text>
         </Pressable>
       </View>

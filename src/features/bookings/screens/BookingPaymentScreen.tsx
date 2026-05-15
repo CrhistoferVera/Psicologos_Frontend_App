@@ -14,6 +14,7 @@ import {
   type BookingPaymentInitResponse,
 } from '../../../api/bookings';
 import { formatBob, formatMoneyByCurrency } from '../../../utils/money';
+import { safeBack } from '../../../utils/navigation';
 
 function normalizeStatus(status: string) {
   if (status === 'PENDING_PAYMENT') return 'Pendiente de pago';
@@ -223,7 +224,7 @@ export default function BookingPaymentScreen() {
     <AppScreen scroll contentPadding={0}>
       <ScrollView contentContainerStyle={styles.page}>
         <View style={styles.header}>
-          <Pressable style={styles.backBtn} onPress={() => router.back()}>
+          <Pressable style={styles.backBtn} onPress={() => safeBack(router, '/(user)')}>
             <Ionicons name="arrow-back" size={18} color={appTheme.colors.text} />
           </Pressable>
           <View style={{ flex: 1 }}>

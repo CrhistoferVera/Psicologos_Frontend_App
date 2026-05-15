@@ -6,6 +6,7 @@ import { useAuth } from "./AuthContext";
 import { appTheme } from "../theme/appTheme";
 import { useCallSocket, type CallType, type IncomingCallData } from "../hooks/useCallSocket";
 import { getCommunicationAccess } from "../api/communication";
+import { subscribeIncomingCallPush } from "../services/notifications";
 
 type CallStatus = "ringing" | "connected" | "ended" | "rejected";
 
@@ -58,6 +59,13 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const [sessions, setSessions] = useState<Record<string, CallSession>>({});
 
   useEffect(() => {
+    console.log("[CallContext] mounted");
+    return () => {
+      console.log("[CallContext] unmounted");
+    };
+  }, []);
+
+  useEffect(() => {
     const cleanupSession = (callId: string) => {
       setTimeout(() => {
         setSessions((prev) => {
@@ -71,6 +79,11 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
     const unsubIncoming = onIncomingCall((data) => {
       if (!data?.callId) return;
+      console.log("[CallContext] incoming_call received", {
+        callId: data.callId,
+        callType: data.callType,
+        callerId: data.callerId,
+      });
       setIncomingCall((prev) => (prev?.callId === data.callId ? prev : data));
     });
 
@@ -166,6 +179,46 @@ export function CallProvider({ children }: { children: ReactNode }) {
     pathname,
     router,
   ]);
+
+  useEffect(() => {
+    const unsubscribePushIncoming = subscribeIncomingCallPush((payload) => {
+      if (!user?.id) return;
+      const isProfessional = user.role === "PROFESSIONAL" || user.role === "ANFITRIONA";
+      if (!isProfessional) return;
+      if (payload.receiverId !== user.id) {
+        console.log("[CallContext] incoming push ignored by receiver mismatch", {
+          callId: payload.callId,
+          receiverId: payload.receiverId,
+          userId: user.id,
+        });
+        return;
+      }
+
+      console.log("[CallContext] incoming_call restored from push", {
+        callId: payload.callId,
+        callType: payload.callType,
+        callerId: payload.callerId,
+      });
+
+      setIncomingCall((prev) => {
+        if (prev?.callId === payload.callId) return prev;
+        return {
+          callId: payload.callId,
+          callerId: payload.callerId,
+          receiverId: payload.receiverId,
+          callType: payload.callType,
+          callerName: payload.callerName,
+          callerAvatar: null,
+        };
+      });
+    });
+
+    return unsubscribePushIncoming;
+  }, [user?.id, user?.role]);
+
+  useEffect(() => {
+    console.log("[CallContext] modal visible", Boolean(incomingCall));
+  }, [incomingCall]);
 
   async function startOutgoingCall(input: StartOutgoingCallInput) {
     if (!user?.id) return;

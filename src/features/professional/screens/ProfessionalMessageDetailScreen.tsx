@@ -23,6 +23,7 @@ import { useSocket } from "../../../hooks/useSocket";
 import { useSessionRemaining } from "../../../hooks/useSessionRemaining";
 import { formatRemainingMinText } from "../../../utils/sessionTime";
 import { activeChatRef, professionalChatScreenRef } from "../../../services/notifications";
+import { getHomeRouteByRole, safeBack } from "../../../utils/navigation";
 
 type MessageUI = {
   id: string;
@@ -59,6 +60,7 @@ export default function ProfessionalMessageDetailScreen() {
 
   const router = useRouter();
   const { user } = useAuth();
+  const fallbackRoute = getHomeRouteByRole(user?.role);
   const insets = useSafeAreaInsets();
   const listRef = useRef<FlatList<MessageUI>>(null);
   const { onNewMessage } = useSocket(user?.id);
@@ -252,7 +254,7 @@ export default function ProfessionalMessageDetailScreen() {
   return (
     <View style={styles.page}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}> 
-        <Pressable onPress={() => router.back()} style={styles.back}>
+        <Pressable onPress={() => safeBack(router, fallbackRoute)} style={styles.back}>
           <ArrowLeft size={18} color={appTheme.colors.text} />
         </Pressable>
         <Image

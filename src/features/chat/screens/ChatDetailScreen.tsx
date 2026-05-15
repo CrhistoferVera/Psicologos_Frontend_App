@@ -25,6 +25,7 @@ import { useCallManager } from "../../../context/CallContext";
 import { useSessionRemaining } from "../../../hooks/useSessionRemaining";
 import { formatRemainingMinText } from "../../../utils/sessionTime";
 import { activeChatRef, professionalChatScreenRef } from "../../../services/notifications";
+import { getHomeRouteByRole, safeBack } from "../../../utils/navigation";
 
 type MessageUI = {
   id: string;
@@ -62,6 +63,7 @@ export default function ChatDetailScreen() {
   }>();
   const router = useRouter();
   const { user } = useAuth();
+  const fallbackRoute = getHomeRouteByRole(user?.role);
   const insets = useSafeAreaInsets();
   const listRef = useRef<FlatList<MessageUI>>(null);
   const { onNewMessage } = useSocket(user?.id);
@@ -309,7 +311,7 @@ export default function ChatDetailScreen() {
   return (
     <View style={styles.page}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}> 
-        <Pressable onPress={() => router.back()} style={styles.iconBtn}>
+        <Pressable onPress={() => safeBack(router, fallbackRoute)} style={styles.iconBtn}>
           <Ionicons name="arrow-back" size={18} color={appTheme.colors.text} />
         </Pressable>
 
