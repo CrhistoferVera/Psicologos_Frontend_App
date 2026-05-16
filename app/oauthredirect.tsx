@@ -93,7 +93,12 @@ export default function OAuthRedirectScreen() {
         }
       } catch (err: any) {
         console.log("[OAuthRedirect] error:", err?.message ?? err);
-        Alert.alert("Google Login fallo", err?.message ?? "No se pudo completar el login con Google.");
+        const message = err?.message ?? "No se pudo completar el login con Google.";
+        const isNotRegistered = message.includes("Regístrate primero");
+        Alert.alert(
+          isNotRegistered ? "Cuenta no encontrada" : "Google Login falló",
+          message,
+        );
         router.replace("/(public)" as any);
       } finally {
         await AsyncStorage.removeItem(GOOGLE_AUTH_STORAGE_KEY);

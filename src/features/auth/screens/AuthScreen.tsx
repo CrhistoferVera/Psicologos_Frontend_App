@@ -173,6 +173,7 @@ export default function AuthScreen() {
       const message = error?.message ?? "No se pudo iniciar sesión con Google.";
       setErrorMessage(message);
       Alert.alert("Google Login falló", message);
+    } finally {
       setLoading(false);
     }
   }
