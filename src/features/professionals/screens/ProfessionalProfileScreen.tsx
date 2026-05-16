@@ -134,6 +134,7 @@ export default function ProfessionalProfileScreen() {
     if (professional.specialties.length === 0) return 'Psicología clínica';
     return professional.specialties.slice(0, 2).join(' · ');
   }, [professional]);
+  const availabilityLabel = professional?.isOnline ? 'Disponible' : 'No disponible';
 
   const { remainingMs: sessionRemainingMs, isExpired: sessionExpired } = useSessionRemaining(
     communicationAccess?.sessionEndsAt,
@@ -303,7 +304,13 @@ export default function ProfessionalProfileScreen() {
 
             <View style={{ flex: 1 }}>
               <Text style={styles.name}>{professional.name}</Text>
+              {professional.username ? <Text style={styles.username}>@{professional.username}</Text> : null}
               <Text style={styles.subtitle}>{subtitle}</Text>
+              <View style={[styles.statusBadge, professional.isOnline ? styles.statusBadgeOnline : styles.statusBadgeOffline]}>
+                <Text style={[styles.statusBadgeText, professional.isOnline ? styles.statusBadgeTextOnline : styles.statusBadgeTextOffline]}>
+                  {availabilityLabel}
+                </Text>
+              </View>
 
               <View style={styles.ratingRow}>
                 <Text style={styles.star}>★</Text>
@@ -556,6 +563,40 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     fontFamily: appTheme.fonts.body,
     fontWeight: '600',
+  },
+  username: {
+    marginTop: 2,
+    color: '#D4E3F5',
+    fontSize: 13,
+    fontFamily: appTheme.fonts.body,
+    fontWeight: '600',
+  },
+  statusBadge: {
+    marginTop: 8,
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+  },
+  statusBadgeOnline: {
+    backgroundColor: 'rgba(34,197,94,0.20)',
+    borderColor: 'rgba(134,239,172,0.45)',
+  },
+  statusBadgeOffline: {
+    backgroundColor: 'rgba(15,23,42,0.30)',
+    borderColor: 'rgba(203,213,225,0.30)',
+  },
+  statusBadgeText: {
+    fontSize: 12,
+    fontFamily: appTheme.fonts.body,
+    fontWeight: '700',
+  },
+  statusBadgeTextOnline: {
+    color: '#DCFCE7',
+  },
+  statusBadgeTextOffline: {
+    color: '#E2E8F0',
   },
   ratingRow: {
     marginTop: 6,

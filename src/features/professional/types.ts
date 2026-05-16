@@ -54,6 +54,7 @@ export type ProfessionalRegisterPayload = {
   password: string;
   confirmPassword: string;
   username: string;
+  bio?: string;
   dateOfBirth: string;
   cedula: string;
   referralCode?: string;
