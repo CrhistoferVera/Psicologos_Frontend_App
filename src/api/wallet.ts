@@ -42,6 +42,7 @@ export interface BankAccount {
 
 export interface WithdrawalRequest {
   id: string;
+  method?: 'BANK_TRANSFER' | 'CRYPTO';
   credits: number;
   amountBs: number;
   soles?: number;
@@ -50,9 +51,13 @@ export interface WithdrawalRequest {
   notes?: string | null;
   rejectionReason?: string | null;
   receiptUrl?: string | null;
-  bankName: string;
-  accountNumber: string;
+  txId?: string | null;
+  bankName?: string | null;
+  accountNumber?: string | null;
   accountHolderName?: string | null;
+  cryptoAddress?: string | null;
+  cryptoCurrency?: string | null;
+  cryptoNetwork?: string | null;
   createdAt: string;
   updatedAt?: string;
 }
@@ -97,8 +102,12 @@ export const apiDeleteBankAccount = async (id: string): Promise<void> => {
 
 export const apiCreateWithdrawalRequest = async (data: {
   credits: number;
-  bankAccountId: string;
   currency?: 'BOB' | 'USD';
+  method?: 'BANK_TRANSFER' | 'CRYPTO';
+  bankAccountId?: string;
+  cryptoAddress?: string;
+  cryptoCurrency?: string;
+  cryptoNetwork?: string;
 }): Promise<WithdrawalRequest> => {
   const response = await apiClient.post('/wallet/me/withdrawal-request', data);
   return response.data;

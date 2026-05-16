@@ -307,7 +307,15 @@ export async function removeProfessionalBankAccount(id: string) {
   return apiDeleteBankAccount(id);
 }
 
-export async function requestProfessionalWithdrawal(payload: { credits: number; bankAccountId: string; currency?: 'BOB' | 'USD' }) {
+export async function requestProfessionalWithdrawal(payload: {
+  credits: number;
+  currency?: 'BOB' | 'USD';
+  method?: 'BANK_TRANSFER' | 'CRYPTO';
+  bankAccountId?: string;
+  cryptoAddress?: string;
+  cryptoCurrency?: string;
+  cryptoNetwork?: string;
+}) {
   return apiCreateWithdrawalRequest(payload);
 }
 

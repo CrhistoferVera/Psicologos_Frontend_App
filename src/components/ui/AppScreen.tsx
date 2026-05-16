@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { appTheme } from "../../theme/appTheme";
 
@@ -15,34 +15,31 @@ export default function AppScreen({ children, scroll = false, contentPadding = 1
   if (scroll) {
     return (
       <SafeAreaView edges={["top", "left", "right"]} style={styles.safe}>
-        <ScrollView
-          contentContainerStyle={[
-            styles.scrollContent,
-            {
-              padding: contentPadding,
-              paddingBottom: Math.max(24, insets.bottom + 12),
-            },
-          ]}
-        >
-          {children}
-        </ScrollView>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+          <ScrollView
+            contentContainerStyle={[
+              styles.scrollContent,
+              {
+                padding: contentPadding,
+                paddingBottom: Math.max(24, insets.bottom + 12),
+              },
+            ]}
+            keyboardShouldPersistTaps="handled"
+          >
+            {children}
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView edges={["top", "left", "right", "bottom"]} style={styles.safe}>
-      <View
-        style={[
-          styles.content,
-          {
-            padding: contentPadding,
-            paddingBottom: Math.max(contentPadding, insets.bottom + 8),
-          },
-        ]}
-      >
-        {children}
-      </View>
+    <SafeAreaView edges={["top", "left", "right"]} style={styles.safe}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+        <View style={[styles.content, { padding: contentPadding }]}>
+          {children}
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
