@@ -92,6 +92,7 @@ export async function completeProfessionalRegistration(payload: ProfessionalRegi
   form.append("password", payload.password);
   form.append("confirmPassword", payload.confirmPassword);
   form.append("username", payload.username);
+  if (payload.bio !== undefined) form.append("bio", payload.bio);
   form.append("dateOfBirth", payload.dateOfBirth);
   form.append("cedula", payload.cedula);
   if (payload.referralCode?.trim()) form.append("referralCode", payload.referralCode.trim().toUpperCase());

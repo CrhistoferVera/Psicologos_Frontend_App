@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Switch, Text, View } from "react-native";
 import AppCard from "../../../components/ui/AppCard";
@@ -41,9 +42,11 @@ export default function ProfessionalDashboardScreen() {
   const [bookings, setBookings] = useState<ProfessionalBooking[]>([]);
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
-  useEffect(() => {
-    void loadDashboard();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      void loadDashboard();
+    }, []),
+  );
 
   async function loadDashboard() {
     try {
@@ -158,7 +161,7 @@ export default function ProfessionalDashboardScreen() {
           </View>
 
           <View style={styles.statusWrap}>
-            <Text style={styles.statusLabel}>{profile?.isOnline ? "En linea" : "Offline"}</Text>
+            <Text style={styles.statusLabel}>{profile?.isOnline ? "Disponible" : "No disponible"}</Text>
             <Switch
               value={Boolean(profile?.isOnline)}
               onValueChange={handleToggleOnline}
@@ -168,6 +171,8 @@ export default function ProfessionalDashboardScreen() {
             />
           </View>
         </View>
+
+        <Text style={styles.availabilityHint}>Mostrarme como disponible para clientes</Text>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {loading ? <Text style={styles.loading}>Cargando dashboard...</Text> : null}
@@ -327,6 +332,13 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.body,
     fontSize: 13,
     textAlign: "center",
+  },
+  availabilityHint: {
+    color: "#6B819C",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: -2,
   },
   earningsCard: {
     borderRadius: 22,

@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { Alert, Image, Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
@@ -19,7 +20,7 @@ import {
 
 export default function ProfessionalProfileScreen() {
   const router = useRouter();
-  const { logout } = useAuth();
+  const { hydrate, logout } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -40,35 +41,39 @@ export default function ProfessionalProfileScreen() {
   const [editingBio, setEditingBio] = useState(false);
   const [editingSpecialties, setEditingSpecialties] = useState(false);
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        setLoading(true);
-        setError(null);
+  const loadProfile = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        const [profile, specialtiesCatalog, mySpecialtyIds] = await Promise.all([
-          getMyProfessionalProfile(),
-          getProfessionalSpecialtiesCatalog(),
-          getMyProfessionalSpecialtyIds(),
-        ]);
+      const [profile, specialtiesCatalog, mySpecialtyIds] = await Promise.all([
+        getMyProfessionalProfile(),
+        getProfessionalSpecialtiesCatalog(),
+        getMyProfessionalSpecialtyIds(),
+      ]);
 
-        setFirstName(profile.firstName || "");
-        setLastName(profile.lastName || "");
-        setUsername(profile.username || "");
-        setBio(profile.bio || "");
-        setIsOnline(Boolean(profile.isOnline));
-        setAvatarUrl(profile.avatarUrl ?? null);
+      setFirstName(profile.firstName || "");
+      setLastName(profile.lastName || "");
+      setUsername(profile.username || "");
+      setBio(profile.bio || "");
+      setIsOnline(Boolean(profile.isOnline));
+      setAvatarUrl(profile.avatarUrl ?? null);
 
-        const trimmed = specialtiesCatalog.slice(0, 48).map((item) => ({ id: item.id, name: item.name }));
-        setCatalog(trimmed);
-        setSelectedSpecialties(Array.from(new Set(mySpecialtyIds)));
-      } catch {
-        setError("No se pudo cargar el perfil profesional.");
-      } finally {
-        setLoading(false);
-      }
-    })();
+      const trimmed = specialtiesCatalog.slice(0, 48).map((item) => ({ id: item.id, name: item.name }));
+      setCatalog(trimmed);
+      setSelectedSpecialties(Array.from(new Set(mySpecialtyIds)));
+    } catch {
+      setError("No se pudo cargar el perfil profesional.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadProfile();
+    }, [loadProfile]),
+  );
 
   const selectedSpecialtyNames = useMemo(
     () =>
@@ -125,7 +130,7 @@ export default function ProfessionalProfileScreen() {
       setSaving(true);
       setError(null);
 
-      await updateMyProfessionalProfile(
+      const updatedProfile = await updateMyProfessionalProfile(
         {
           firstName: firstName.trim(),
           lastName: lastName.trim(),
@@ -136,7 +141,17 @@ export default function ProfessionalProfileScreen() {
         avatarFile,
       );
 
-      await updateMyProfessionalSpecialties(selectedSpecialties);
+      const updatedSpecialtyIds = await updateMyProfessionalSpecialties(selectedSpecialties);
+
+      setFirstName(updatedProfile.firstName || "");
+      setLastName(updatedProfile.lastName || "");
+      setUsername(updatedProfile.username || "");
+      setBio(updatedProfile.bio || "");
+      setIsOnline(Boolean(updatedProfile.isOnline));
+      setAvatarUrl(updatedProfile.avatarUrl ?? null);
+      setAvatarFile(undefined);
+      setSelectedSpecialties(Array.from(new Set(updatedSpecialtyIds)));
+      await hydrate();
 
       Alert.alert("Perfil actualizado", "Tus cambios se guardaron correctamente.");
       setEditingBio(false);
@@ -192,7 +207,7 @@ export default function ProfessionalProfileScreen() {
 
         <AppCard style={styles.sectionCard}>
           <View style={styles.cardHead}>
-            <Text style={styles.cardTitle}>Bio profesional</Text>
+            <Text style={styles.cardTitle}>Datos del perfil</Text>
             <Pressable onPress={() => setEditingBio((prev) => !prev)}>
               <Text style={styles.editLink}>{editingBio ? "Listo" : "Editar"}</Text>
             </Pressable>
@@ -201,12 +216,18 @@ export default function ProfessionalProfileScreen() {
           {editingBio ? (
             <View style={{ gap: 8 }}>
               <TextInput
-                value={bio}
-                onChangeText={setBio}
-                multiline
-                placeholder="Describe tu enfoque terapeutico"
+                value={firstName}
+                onChangeText={setFirstName}
+                placeholder="Nombre"
                 placeholderTextColor="#7A8EA8"
-                style={styles.textArea}
+                style={styles.inlineInput}
+              />
+              <TextInput
+                value={lastName}
+                onChangeText={setLastName}
+                placeholder="Apellido"
+                placeholderTextColor="#7A8EA8"
+                style={styles.inlineInput}
               />
               <TextInput
                 value={username}
@@ -215,11 +236,27 @@ export default function ProfessionalProfileScreen() {
                 placeholderTextColor="#7A8EA8"
                 style={styles.inlineInput}
               />
+              <TextInput
+                value={bio}
+                onChangeText={setBio}
+                multiline
+                placeholder="Describe tu enfoque terapeutico"
+                placeholderTextColor="#7A8EA8"
+                style={styles.textArea}
+              />
             </View>
           ) : (
-            <Text style={styles.cardBodyText} numberOfLines={4}>
-              {bio || "Agrega una descripcion profesional para que los clientes conozcan tu enfoque terapeutico."}
-            </Text>
+            <View style={{ gap: 8 }}>
+              <Text style={styles.cardBodyText}>
+                Nombre: {`${firstName} ${lastName}`.trim() || "Sin definir"}
+              </Text>
+              <Text style={styles.cardBodyText}>
+                Username: {username ? `@${username}` : "Sin definir"}
+              </Text>
+              <Text style={styles.cardBodyText} numberOfLines={4}>
+                {bio || "Agrega una descripcion profesional para que los clientes conozcan tu enfoque terapeutico."}
+              </Text>
+            </View>
           )}
         </AppCard>
 
@@ -249,7 +286,7 @@ export default function ProfessionalProfileScreen() {
           </View>
 
           <View style={styles.onlineRow}>
-            <Text style={styles.onlineLabel}>Estado en linea</Text>
+            <Text style={styles.onlineLabel}>Mostrarme como disponible para clientes</Text>
             <Switch
               value={isOnline}
               onValueChange={setIsOnline}
@@ -257,6 +294,7 @@ export default function ProfessionalProfileScreen() {
               thumbColor="#FFFFFF"
             />
           </View>
+          <Text style={styles.cardBodyText}>{isOnline ? "Disponible" : "No disponible"}</Text>
 
           <View style={styles.divider} />
 

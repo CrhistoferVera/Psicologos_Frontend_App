@@ -313,6 +313,7 @@ export default function ProfessionalRegisterScreen() {
         password,
         confirmPassword,
         username: username.trim(),
+        bio: bio.trim() || undefined,
         dateOfBirth: dateOfBirth.trim(),
         cedula: cedula.trim(),
         referralCode: referralCode.trim() || undefined,

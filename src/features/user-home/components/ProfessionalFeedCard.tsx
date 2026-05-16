@@ -105,12 +105,12 @@ export default function ProfessionalFeedCard({
         pointerEvents="none"
       />
 
-      {professional.isOnline && (
-        <View style={styles.onlineBadge}>
-          <View style={styles.onlineDot} />
-          <Text style={styles.onlineText}>En línea</Text>
-        </View>
-      )}
+      <View style={[styles.onlineBadge, !professional.isOnline && styles.offlineBadge]}>
+        {professional.isOnline ? <View style={styles.onlineDot} /> : null}
+        <Text style={[styles.onlineText, !professional.isOnline && styles.offlineText]}>
+          {professional.isOnline ? "Disponible" : "No disponible"}
+        </Text>
+      </View>
 
       <View style={styles.infoPanel}>
         <View style={styles.nameRow}>
@@ -266,6 +266,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
+  offlineBadge: {
+    borderColor: "rgba(203,213,225,0.45)",
+    backgroundColor: "rgba(15,23,42,0.58)",
+  },
   onlineDot: {
     width: 7,
     height: 7,
@@ -277,6 +281,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: appTheme.fonts.body,
     fontWeight: "700",
+  },
+  offlineText: {
+    color: "#CBD5E1",
   },
   infoPanel: {
     position: "absolute",
@@ -457,3 +464,4 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
 });
+
