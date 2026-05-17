@@ -1,56 +1,12 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import * as Google from "expo-auth-session/providers/google";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import AppScreen from "../../../components/ui/AppScreen";
 import { useAuth } from "../../../context/AuthContext";
 import { COUNTRIES_LATAM, CountryLatam } from "../../../constants/countriesLatam";
-import { GOOGLE_ANDROID_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from "../../../config";
 import { loginWithEmail, sendOtp } from "../../../services/auth";
 import { appTheme } from "../../../theme/appTheme";
-import { GOOGLE_AUTH_STORAGE_KEY } from "../../../../app/oauthredirect";
-
-type GooglePkce = { redirectUri: string; codeVerifier?: string | null };
-
-// Isolated so the hook is never called when androidClientId is missing,
-// which would cause an invariant crash before any user interaction.
-function GoogleButton({ loading, onAuthReady }: {
-  loading: boolean;
-  onAuthReady: (prompt: () => Promise<void>, pkce: GooglePkce | null) => void;
-}) {
-  const [googleRequest, , promptGoogleAuth] = Google.useAuthRequest({
-    androidClientId: GOOGLE_ANDROID_CLIENT_ID || undefined,
-    webClientId: GOOGLE_WEB_CLIENT_ID || undefined,
-    scopes: ["openid", "profile", "email"],
-    selectAccount: true,
-  });
-
-  const disabled = loading || !googleRequest;
-
-  async function handlePress() {
-    if (!googleRequest) {
-      Alert.alert("Google no disponible", "La configuración de Google aún no está lista.");
-      return;
-    }
-    await onAuthReady(
-      async () => { await promptGoogleAuth(); },
-      { redirectUri: googleRequest.redirectUri, codeVerifier: googleRequest.codeVerifier },
-    );
-  }
-
-  return (
-    <Pressable
-      style={[styles.googleBtn, disabled && styles.primaryBtnDisabled]}
-      onPress={handlePress}
-      disabled={disabled}
-    >
-      <View style={styles.googleDot} />
-      <Text style={styles.googleText}>{loading ? "Conectando..." : "Continuar con Google"}</Text>
-    </Pressable>
-  );
-}
 
 type Mode = "login" | "register";
 
@@ -141,43 +97,6 @@ export default function AuthScreen() {
     }
   }
 
-  async function handleGoogleAuth(
-    prompt: () => Promise<void>,
-    pkce: GooglePkce | null,
-  ) {
-    if (!GOOGLE_ANDROID_CLIENT_ID) {
-      Alert.alert(
-        "Falta configuración",
-        "Configura EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID en variables de entorno.",
-      );
-      return;
-    }
-    try {
-      setLoading(true);
-      setErrorMessage(null);
-
-      if (pkce) {
-        await AsyncStorage.setItem(
-          GOOGLE_AUTH_STORAGE_KEY,
-          JSON.stringify({
-            clientId: GOOGLE_ANDROID_CLIENT_ID,
-            redirectUri: pkce.redirectUri,
-            codeVerifier: pkce.codeVerifier ?? null,
-          }),
-        );
-      }
-
-      await prompt();
-    } catch (error: any) {
-      console.log("[GoogleAuth] promptAsync error:", error?.message ?? error);
-      const message = error?.message ?? "No se pudo iniciar sesión con Google.";
-      setErrorMessage(message);
-      Alert.alert("Google Login falló", message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
   const loginDisabled = !email.trim() || !password || loading;
   const registerDisabled = phone.trim().length < 7 || loading || !acceptedTerms;
 
@@ -262,14 +181,6 @@ export default function AuthScreen() {
                 <Text style={styles.primaryBtnText}>{loading ? "Ingresando..." : "Iniciar sesión"}</Text>
               </Pressable>
 
-              {/* TODO: habilitar en el próximo sprint cuando se configure OAuth
-              <View style={styles.dividerRow}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>o</Text>
-                <View style={styles.dividerLine} />
-              </View>
-              <GoogleButton loading={loading} onAuthReady={handleGoogleAuth} />
-              */}
             </>
           ) : (
             <>
