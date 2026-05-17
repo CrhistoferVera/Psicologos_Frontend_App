@@ -262,15 +262,14 @@ export default function AuthScreen() {
                 <Text style={styles.primaryBtnText}>{loading ? "Ingresando..." : "Iniciar sesión"}</Text>
               </Pressable>
 
+              {/* TODO: habilitar en el próximo sprint cuando se configure OAuth
               <View style={styles.dividerRow}>
                 <View style={styles.dividerLine} />
                 <Text style={styles.dividerText}>o</Text>
                 <View style={styles.dividerLine} />
               </View>
-
-              {GOOGLE_ANDROID_CLIENT_ID ? (
-                <GoogleButton loading={loading} onAuthReady={handleGoogleAuth} />
-              ) : null}
+              <GoogleButton loading={loading} onAuthReady={handleGoogleAuth} />
+              */}
             </>
           ) : (
             <>
