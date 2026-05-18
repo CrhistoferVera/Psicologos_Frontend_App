@@ -141,6 +141,18 @@ export async function createBooking(payload: {
   return res.data;
 }
 
+export async function createBatchBookings(payload: {
+  bookings: Array<{
+    professionalId: string;
+    sessionOfferingId: string;
+    scheduledStartAt: string;
+    timezone?: string;
+  }>;
+}) {
+  const res = await apiClient.post<{ bookings: Booking[] }>('/bookings/batch', payload);
+  return res.data;
+}
+
 export async function initBookingPayment(bookingId: string) {
   const res = await apiClient.post<BookingPaymentInitResponse>(`/bookings/${bookingId}/payment`);
   return res.data;

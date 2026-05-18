@@ -35,7 +35,7 @@ export default function ProfessionalProfileScreen() {
   const [offerings, setOfferings] = useState<ProfessionalSessionOffering[]>([]);
   const [offeringsError, setOfferingsError] = useState<string | null>(null);
   const [offeringsLoading, setOfferingsLoading] = useState(true);
-  const [openingBookingOfferingId, setOpeningBookingOfferingId] = useState<string | null>(null);
+  const [openingBooking, setOpeningBooking] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>('info');
   const [openingChat, setOpeningChat] = useState(false);
   const [requestingCall, setRequestingCall] = useState<'CALL' | 'VIDEO_CALL' | null>(null);
@@ -249,21 +249,17 @@ export default function ProfessionalProfileScreen() {
     }
   }
 
-  function handleOpenBooking(offering: ProfessionalSessionOffering) {
-    if (!professional) return;
-    if (openingBookingOfferingId) return;
-    if (!canDetermineRegion) return;
-
-    setOpeningBookingOfferingId(offering.id);
+  function handleOpenBooking() {
+    if (!professional || openingBooking || !canDetermineRegion) return;
+    setOpeningBooking(true);
     router.push({
       pathname: '/(user)/bookings/new',
       params: {
         professionalId: professional.id,
         professionalName: professional.name,
-        offeringId: offering.id,
       },
     } as any);
-    setOpeningBookingOfferingId(null);
+    setOpeningBooking(false);
   }
 
   return (
@@ -390,7 +386,18 @@ export default function ProfessionalProfileScreen() {
         {activeTab === 'info' ? (
           <>
             <AppCard>
-              <Text style={styles.blockTitle}>Sesiones disponibles</Text>
+              <View style={styles.sessionsTitleRow}>
+                <Text style={styles.blockTitle}>Sesiones disponibles</Text>
+                {offerings.length > 0 && (
+                  <Pressable
+                    style={[styles.reserveBtn, (!canDetermineRegion || openingBooking) && styles.reserveBtnDisabled]}
+                    onPress={handleOpenBooking}
+                    disabled={!canDetermineRegion || openingBooking}
+                  >
+                    <Text style={styles.reserveBtnText}>Reservar</Text>
+                  </Pressable>
+                )}
+              </View>
 
               {offeringsLoading ? (
                 <Text style={styles.bio}>Cargando sesiones...</Text>
@@ -409,30 +416,13 @@ export default function ProfessionalProfileScreen() {
                       </View>
 
                       <View style={styles.offeringRight}>
-                        {!canDetermineRegion ? (
-                          <Text style={styles.offeringPriceUsd}>
-                            Completa tu país y teléfono para continuar.
-                          </Text>
-                        ) : preferredCurrency === 'USD' ? (
+                        {canDetermineRegion && (
                           <Text style={styles.offeringPriceBob}>
-                            {formatUsd(offering.priceUsd, true)}
-                          </Text>
-                        ) : (
-                          <Text style={styles.offeringPriceBob}>
-                            {formatBob(offering.priceBob)}
+                            {preferredCurrency === 'USD'
+                              ? formatUsd(offering.priceUsd, true)
+                              : formatBob(offering.priceBob)}
                           </Text>
                         )}
-                        <Pressable
-                          style={[
-                            styles.reserveBtn,
-                            !canDetermineRegion && styles.reserveBtnDisabled,
-                            openingBookingOfferingId === offering.id && styles.reserveBtnDisabled,
-                          ]}
-                          onPress={() => handleOpenBooking(offering)}
-                          disabled={openingBookingOfferingId !== null || !canDetermineRegion}
-                        >
-                          <Text style={styles.reserveBtnText}>Reservar</Text>
-                        </Pressable>
                       </View>
                     </View>
                   ))}
@@ -695,6 +685,12 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.heading,
     fontSize: 20,
     fontWeight: '700',
+  },
+  sessionsTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
   },
   bio: {
     color: appTheme.colors.text,

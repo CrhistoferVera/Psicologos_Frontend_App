@@ -10,7 +10,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useUserRegion } from '../../../hooks/useUserRegion';
 import { formatBob, formatUsd } from '../../../utils/money';
 import {
-  createBooking,
+  createBatchBookings,
   getAvailableSlots,
   getProfessionalSessionOfferings,
   type AvailableSlot,
@@ -19,6 +19,17 @@ import {
 import { safeBack } from '../../../utils/navigation';
 
 type DateOption = { key: string; label: string; dayName: string };
+
+type CartSession = {
+  offeringId: string;
+  slotStartAt: string;
+  slotTimezone: string;
+  dateLabel: string;
+  timeLabel: string;
+  offeringTitle: string;
+  priceBob: number;
+  priceUsd: number;
+};
 
 function toDateKey(date: Date) {
   const year = date.getFullYear();
@@ -69,8 +80,22 @@ export default function BookingScheduleScreen() {
     : params.professionalName ?? 'Profesional';
   const initialOfferingId = Array.isArray(params.offeringId) ? params.offeringId[0] : params.offeringId;
 
-  const dates = useMemo(() => makeDateOptions(7), []);
-  const [selectedDate, setSelectedDate] = useState(dates[0]?.key ?? toDateKey(new Date()));
+  const dates = useMemo(() => makeDateOptions(21), []);
+  const todayKey = useMemo(() => toDateKey(new Date()), []);
+  const [selectedDate, setSelectedDate] = useState(dates[0]?.key ?? todayKey);
+
+  const weeks = useMemo(() => {
+    const todayWeekday = new Date().getDay();
+    const offset = todayWeekday === 0 ? 6 : todayWeekday - 1;
+    const padded: (DateOption | null)[] = [...new Array<null>(offset).fill(null), ...dates];
+    const result: (DateOption | null)[][] = [];
+    for (let i = 0; i < padded.length; i += 7) {
+      const w = padded.slice(i, i + 7);
+      while (w.length < 7) w.push(null);
+      result.push(w);
+    }
+    return result;
+  }, [dates]);
 
   const [offerings, setOfferings] = useState<ProfessionalSessionOffering[]>([]);
   const [loadingOfferings, setLoadingOfferings] = useState(true);
@@ -79,6 +104,7 @@ export default function BookingScheduleScreen() {
   const [slots, setSlots] = useState<AvailableSlot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [selectedSlotStartAt, setSelectedSlotStartAt] = useState<string>('');
+  const [cart, setCart] = useState<CartSession[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const selectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/La_Paz';
   const canDetermineRegion = useMemo(
@@ -139,31 +165,69 @@ export default function BookingScheduleScreen() {
   const selectedSlot = slots.find((slot) => slot.startAt === selectedSlotStartAt) ?? null;
   const selectedDateOption = dates.find((item) => item.key === selectedDate) ?? null;
 
-  async function handleCreateBooking() {
-    if (!professionalId || !selectedOffering || !selectedSlot) return;
+  function handleAddToCart() {
+    if (!selectedSlot || !selectedDateOption || !selectedOffering) return;
+    if (cart.some((s) => s.slotStartAt === selectedSlot.startAt)) return;
+    setCart((prev) => [
+      ...prev,
+      {
+        offeringId: selectedOffering.id,
+        slotStartAt: selectedSlot.startAt,
+        slotTimezone: selectedSlot.timezone,
+        dateLabel: selectedDateOption.label,
+        timeLabel: formatTime(selectedSlot.startAt),
+        offeringTitle: selectedOffering.title,
+        priceBob: selectedOffering.priceBob,
+        priceUsd: selectedOffering.priceUsd,
+      },
+    ]);
+    setSelectedSlotStartAt('');
+  }
+
+  function handleConfirmSessions() {
+    if (!professionalId || !selectedOffering || cart.length === 0) return;
+
+    const plural = cart.length === 1 ? 'sesión' : `${cart.length} sesiones`;
+    Alert.alert(
+      'Confirmar reserva',
+      `¿Está seguro que desea reservar ${plural}?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Confirmar', onPress: () => void doCreateBookings() },
+      ],
+    );
+  }
+
+  async function doCreateBookings() {
+    if (!professionalId || !selectedOffering || cart.length === 0) return;
 
     try {
       setSubmitting(true);
-      const booking = await createBooking({
-        professionalId,
-        sessionOfferingId: selectedOffering.id,
-        scheduledStartAt: selectedSlot.startAt,
-        timezone: selectedSlot.timezone,
+      const result = await createBatchBookings({
+        bookings: cart.map((s) => ({
+          professionalId,
+          sessionOfferingId: s.offeringId,
+          scheduledStartAt: s.slotStartAt,
+          timezone: s.slotTimezone,
+        })),
       });
-
       router.replace({
         pathname: '/(user)/bookings/payment/[bookingId]',
         params: {
-          bookingId: booking.id,
+          bookingId: result.bookings[0].id,
+          bookingIds: result.bookings.map((b) => b.id).join(','),
           professionalName,
         },
       } as any);
     } catch (err: any) {
-      Alert.alert('No se pudo crear la reserva', err?.response?.data?.message ?? 'Intenta nuevamente.');
+      Alert.alert('Error', err?.response?.data?.message ?? 'No se pudieron crear las reservas.');
     } finally {
       setSubmitting(false);
     }
   }
+
+  const plural = cart.length === 1 ? '' : 'es';
+  const ctaTitle = submitting ? 'Confirmando...' : `Confirmar ${cart.length} sesión${plural}`;
 
   return (
     <AppScreen scroll contentPadding={0}>
@@ -230,25 +294,49 @@ export default function BookingScheduleScreen() {
 
         <AppCard>
           <Text style={styles.blockTitle}>2. Selecciona fecha</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dateRow}>
-            {dates.map((date) => {
-              const active = selectedDate === date.key;
-              return (
-                <Pressable
-                  key={date.key}
-                  style={[styles.dateChip, active && styles.dateChipActive]}
-                  onPress={() => setSelectedDate(date.key)}
-                >
-                  <Text style={[styles.dateDay, active && styles.dateTextActive]}>{date.dayName}</Text>
-                  <Text style={[styles.dateLabel, active && styles.dateTextActive]}>{date.label}</Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
+          <View style={styles.calendarHeader}>
+            {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d) => (
+              <View key={d} style={styles.calendarHeaderCell}>
+                <Text style={styles.calendarHeaderText}>{d}</Text>
+              </View>
+            ))}
+          </View>
+          {weeks.map((week) => {
+            const weekKey = week.find((d) => d !== null)?.key ?? 'empty';
+            return (
+            <View key={weekKey} style={styles.calendarRow}>
+              {week.map((date, di) =>
+                date === null ? (
+                  <View key={`empty-${weekKey}-${di}`} style={styles.calendarCell} />
+                ) : (
+                  <Pressable
+                    key={date.key}
+                    style={[styles.calendarCell, selectedDate === date.key && styles.calendarCellActive]}
+                    onPress={() => setSelectedDate(date.key)}
+                  >
+                    <Text style={[styles.calendarDayNum, selectedDate === date.key && styles.calendarDayNumActive]}>
+                      {Number.parseInt(date.key.slice(8))}
+                    </Text>
+                    {todayKey === date.key && selectedDate !== date.key && (
+                      <View style={styles.calendarCellToday} />
+                    )}
+                  </Pressable>
+                )
+              )}
+            </View>
+            );
+          })}
         </AppCard>
 
         <AppCard>
-          <Text style={styles.blockTitle}>3. Selecciona horario</Text>
+          <View style={styles.slotHeader}>
+            <Text style={[styles.blockTitle, { marginBottom: 0 }]}>3. Selecciona horario</Text>
+            {cart.length > 0 && (
+              <View style={styles.cartBadge}>
+                <Text style={styles.cartBadgeText}>{cart.length}/3</Text>
+              </View>
+            )}
+          </View>
           {loadingSlots ? (
             <Text style={styles.muted}>Buscando horarios disponibles...</Text>
           ) : slots.length === 0 ? (
@@ -260,13 +348,18 @@ export default function BookingScheduleScreen() {
             <View style={styles.slotsGrid}>
               {slots.map((slot) => {
                 const active = selectedSlotStartAt === slot.startAt;
+                const inCart = cart.some((s) => s.slotStartAt === slot.startAt);
                 return (
                   <Pressable
                     key={slot.startAt}
-                    style={[styles.slotBtn, active && styles.slotBtnActive]}
+                    style={[styles.slotBtn, active && styles.slotBtnActive, inCart && styles.slotBtnInCart]}
                     onPress={() => setSelectedSlotStartAt(slot.startAt)}
+                    disabled={inCart}
                   >
-                    <Text style={[styles.slotText, active && styles.slotTextActive]}>
+                    {inCart && (
+                      <Ionicons name="checkmark" size={11} color="#16A34A" style={{ marginRight: 2 }} />
+                    )}
+                    <Text style={[styles.slotText, active && styles.slotTextActive, inCart && styles.slotTextInCart]}>
                       {formatTime(slot.startAt)}
                     </Text>
                   </Pressable>
@@ -274,18 +367,74 @@ export default function BookingScheduleScreen() {
               })}
             </View>
           )}
+          {selectedSlot && cart.length < 3 && (
+            <Pressable style={styles.addSessionBtn} onPress={handleAddToCart}>
+              <Ionicons name="add-circle" size={18} color="#FFFFFF" />
+              <Text style={styles.addSessionBtnText}>Agregar </Text>
+            </Pressable>
+          )}
+          {cart.length === 3 && (
+            <Text style={styles.cartFullHint}>Máximo de 3 sesiones alcanzado</Text>
+          )}
         </AppCard>
 
+        {cart.length > 0 && (
+          <AppCard>
+            <Text style={styles.blockTitle}>Resumen del pedido</Text>
+            <View style={styles.cartList}>
+              {cart.map((session, idx) => (
+                <View key={session.slotStartAt} style={styles.cartItem}>
+                  <View style={styles.cartItemLeft}>
+                    <View style={styles.cartItemBadge}>
+                      <Text style={styles.cartItemBadgeText}>{idx + 1}</Text>
+                    </View>
+                    <View style={styles.cartItemInfo}>
+                      <Text style={styles.cartItemTitle}>{session.offeringTitle}</Text>
+                      <Text style={styles.cartItemMeta}>
+                        {session.dateLabel} · {session.timeLabel}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.cartItemRight}>
+                    <Text style={styles.cartItemPrice}>
+                      {currency === 'USD' ? formatUsd(session.priceUsd, true) : formatBob(session.priceBob)}
+                    </Text>
+                    <Pressable
+                      onPress={() => setCart((prev) => prev.filter((s) => s.slotStartAt !== session.slotStartAt))}
+                      style={styles.cartRemoveBtn}
+                      hitSlop={8}
+                    >
+                      <Ionicons name="trash-outline" size={14} color={appTheme.colors.textMuted} />
+                    </Pressable>
+                  </View>
+                </View>
+              ))}
+            </View>
+            <View style={styles.cartDivider} />
+            <View style={styles.cartTotalRow}>
+              <Text style={styles.cartTotalLabel}>
+                Subtotal ({cart.length} sesión{plural})
+              </Text>
+              <Text style={styles.cartTotalAmount}>
+                {currency === 'USD'
+                  ? formatUsd(cart.reduce((s, item) => s + item.priceUsd, 0), true)
+                  : formatBob(cart.reduce((s, item) => s + item.priceBob, 0))}
+              </Text>
+            </View>
+          </AppCard>
+        )}
+
         <AppButton
-          title={submitting ? 'Creando reserva...' : 'Continuar '}
-          onPress={() => void handleCreateBooking()}
+          title={ctaTitle}
+          onPress={handleConfirmSessions}
           loading={submitting}
           disabled={
+            cart.length === 0 ||
             !selectedOffering ||
-            !selectedSlot ||
             loadingOfferings ||
             loadingSlots ||
-            !canDetermineRegion
+            !canDetermineRegion ||
+            submitting
           }
         />
       </ScrollView>
@@ -386,54 +535,81 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontFamily: appTheme.fonts.body,
   },
-  dateRow: {
-    gap: 8,
-    paddingRight: 4,
+  calendarHeader: {
+    flexDirection: 'row',
+    marginBottom: 4,
   },
-  dateChip: {
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
-    borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#FFFFFF',
+  calendarHeaderCell: {
+    flex: 1,
     alignItems: 'center',
+    paddingVertical: 4,
   },
-  dateChipActive: {
-    backgroundColor: appTheme.colors.primary,
-    borderColor: appTheme.colors.primary,
-  },
-  dateDay: {
+  calendarHeaderText: {
     fontSize: 11,
-    color: '#475569',
+    fontWeight: '600',
+    color: appTheme.colors.textMuted,
     fontFamily: appTheme.fonts.body,
-    textTransform: 'capitalize',
   },
-  dateLabel: {
-    fontSize: 13,
-    fontWeight: '700',
+  calendarRow: {
+    flexDirection: 'row',
+    marginBottom: 4,
+  },
+  calendarCell: {
+    flex: 1,
+    aspectRatio: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    margin: 2,
+  },
+  calendarCellActive: {
+    backgroundColor: appTheme.colors.primary,
+  },
+  calendarDayNum: {
+    fontSize: 14,
+    fontWeight: '600',
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.body,
   },
-  dateTextActive: {
+  calendarDayNumActive: {
     color: '#FFFFFF',
+  },
+  calendarCellToday: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: appTheme.colors.primary,
+    marginTop: 2,
   },
   slotsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
+  slotHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
   slotBtn: {
     borderWidth: 1,
     borderColor: appTheme.colors.border,
     borderRadius: 10,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 9,
     backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   slotBtnActive: {
     backgroundColor: '#E8F4EC',
     borderColor: '#16A34A',
+  },
+  slotBtnInCart: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#16A34A',
+    opacity: 0.7,
   },
   slotText: {
     fontSize: 13,
@@ -443,6 +619,127 @@ const styles = StyleSheet.create({
   },
   slotTextActive: {
     color: '#166534',
+  },
+  slotTextInCart: {
+    color: '#16A34A',
+  },
+  addSessionBtn: {
+    marginTop: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: appTheme.colors.primary,
+    borderRadius: 10,
+    paddingVertical: 11,
+  },
+  addSessionBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    fontFamily: appTheme.fonts.heading,
+  },
+  cartBadge: {
+    backgroundColor: appTheme.colors.primary,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  cartBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    fontFamily: appTheme.fonts.heading,
+  },
+  cartFullHint: {
+    marginTop: 12,
+    fontSize: 12,
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    textAlign: 'center',
+  },
+  cartList: {
+    gap: 10,
+  },
+  cartItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+  },
+  cartItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  cartItemBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: appTheme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cartItemBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    fontFamily: appTheme.fonts.heading,
+  },
+  cartItemInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  cartItemTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.body,
+  },
+  cartItemMeta: {
+    fontSize: 12,
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+  },
+  cartItemRight: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  cartItemPrice: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: appTheme.colors.primary,
+    fontFamily: appTheme.fonts.heading,
+  },
+  cartRemoveBtn: {
+    padding: 2,
+  },
+  cartDivider: {
+    height: 1,
+    backgroundColor: appTheme.colors.border,
+    marginVertical: 10,
+  },
+  cartTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cartTotalLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.heading,
+  },
+  cartTotalAmount: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: appTheme.colors.primary,
+    fontFamily: appTheme.fonts.heading,
   },
 });
 

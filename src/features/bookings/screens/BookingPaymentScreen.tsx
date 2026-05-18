@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -51,15 +51,34 @@ function formatRemainingMs(ms: number) {
 
 export default function BookingPaymentScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ bookingId?: string | string[]; professionalName?: string | string[] }>();
-  const bookingId = Array.isArray(params.bookingId) ? params.bookingId[0] : params.bookingId ?? '';
+  const params = useLocalSearchParams<{
+    bookingId?: string | string[];
+    bookingIds?: string | string[];
+    professionalName?: string | string[];
+  }>();
+
+  const rawBookingId = Array.isArray(params.bookingId) ? params.bookingId[0] : params.bookingId ?? '';
+  const rawBookingIds = Array.isArray(params.bookingIds) ? params.bookingIds[0] : params.bookingIds ?? '';
   const professionalName = Array.isArray(params.professionalName)
     ? params.professionalName[0]
     : params.professionalName ?? '';
 
+  // Prefer the bookingIds list, fall back to single bookingId
+  let bookingIdList: string[];
+  if (rawBookingIds) {
+    bookingIdList = rawBookingIds.split(',').filter(Boolean);
+  } else if (rawBookingId) {
+    bookingIdList = [rawBookingId];
+  } else {
+    bookingIdList = [];
+  }
+
+  const primaryBookingId = bookingIdList[0] ?? '';
+  const isBatch = bookingIdList.length > 1;
+
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
-  const [booking, setBooking] = useState<Booking | null>(null);
+  const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
   const [paymentData, setPaymentData] = useState<BookingPaymentInitResponse | null>(null);
@@ -67,41 +86,45 @@ export default function BookingPaymentScreen() {
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const expiryNoticeShownRef = useRef(false);
 
-  async function loadBooking(options?: { silent?: boolean }) {
-    if (!bookingId) return;
+  // The primary booking drives the payment flow (used for single-booking PENDING case)
+  const booking = bookings[0] ?? null;
+
+  async function loadBookings(options?: { silent?: boolean }) {
+    if (bookingIdList.length === 0) return;
     try {
-      const found = await getMyBooking(bookingId);
-      setBooking(found ?? null);
+      const results = await Promise.all(bookingIdList.map((id) => getMyBooking(id)));
+      setBookings(results.filter(Boolean) as Booking[]);
     } catch (error) {
       if (!options?.silent) throw error;
     }
   }
 
   useEffect(() => {
-    if (!bookingId) return;
+    if (bookingIdList.length === 0) return;
 
     void (async () => {
       try {
         setLoading(true);
-        await loadBooking();
+        await loadBookings();
       } catch {
         Alert.alert('Error', 'No se pudo cargar la reserva.');
       } finally {
         setLoading(false);
       }
     })();
-  }, [bookingId]);
+  }, [primaryBookingId]);
 
   useEffect(() => {
     const timer = setInterval(() => setNowMs(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
 
+  const allConfirmed = bookings.length > 0 && bookings.every((b) => b.status === 'CONFIRMED');
   const isPending = booking?.status === 'PENDING_PAYMENT';
   const isConfirmed = booking?.status === 'CONFIRMED';
   const bookingExpiresAtMs = booking?.expiresAt ? new Date(booking.expiresAt).getTime() : null;
   const hasValidExpiry = bookingExpiresAtMs !== null && Number.isFinite(bookingExpiresAtMs);
-  const remainingMs = hasValidExpiry ? Math.max(0, bookingExpiresAtMs - nowMs) : null;
+  const remainingMs = hasValidExpiry ? Math.max(0, bookingExpiresAtMs! - nowMs) : null;
   const isExpiredLocally = Boolean(isPending && hasValidExpiry && remainingMs === 0);
 
   useEffect(() => {
@@ -109,11 +132,10 @@ export default function BookingPaymentScreen() {
       expiryNoticeShownRef.current = false;
       return;
     }
-
     if (expiryNoticeShownRef.current) return;
     expiryNoticeShownRef.current = true;
     Alert.alert('Reserva expirada', 'La reserva expiró. Vuelve a seleccionar un horario.');
-    void loadBooking({ silent: true });
+    void loadBookings({ silent: true });
   }, [booking?.status, isExpiredLocally]);
 
   useEffect(() => {
@@ -123,11 +145,9 @@ export default function BookingPaymentScreen() {
       pollingRef.current = null;
       return;
     }
-
     pollingRef.current = setInterval(() => {
-      void loadBooking({ silent: true });
+      void loadBookings({ silent: true });
     }, 4000);
-
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
       pollingRef.current = null;
@@ -144,7 +164,7 @@ export default function BookingPaymentScreen() {
     if (!booking) return;
     if (isExpiredLocally) {
       Alert.alert('Reserva expirada', 'La reserva expiró. Vuelve a seleccionar un horario.');
-      await loadBooking();
+      await loadBookings();
       return;
     }
     if (booking.status !== 'PENDING_PAYMENT') return;
@@ -155,7 +175,7 @@ export default function BookingPaymentScreen() {
       setPaymentData(data);
 
       if (data.paymentMethod === 'BANECO_QR') {
-        await loadBooking();
+        await loadBookings();
         return;
       }
 
@@ -177,7 +197,6 @@ export default function BookingPaymentScreen() {
         }
 
         const { error: initError } = await initPaymentSheet(sheetConfig);
-
         if (initError) {
           Alert.alert('Error al inicializar pago', initError.message);
           return;
@@ -192,11 +211,11 @@ export default function BookingPaymentScreen() {
         }
 
         Alert.alert('Pago procesado', 'Estamos confirmando tu pago.');
-        await loadBooking();
+        await loadBookings();
       }
     } catch (err: any) {
       Alert.alert('Error', err?.response?.data?.message ?? 'No se pudo iniciar el pago.');
-      await loadBooking();
+      await loadBookings();
     } finally {
       setPaying(false);
     }
@@ -205,124 +224,179 @@ export default function BookingPaymentScreen() {
   if (loading) {
     return (
       <AppScreen>
-        <View style={styles.center}><Text style={styles.muted}>Cargando reserva...</Text></View>
+        <View style={styles.center}>
+          <Text style={styles.muted}>Cargando reserva...</Text>
+        </View>
       </AppScreen>
     );
   }
 
-  if (!booking) {
+  if (bookings.length === 0) {
     return (
       <AppScreen>
-        <View style={styles.center}><Text style={styles.muted}>No se encontro la reserva.</Text></View>
+        <View style={styles.center}>
+          <Text style={styles.muted}>No se encontro la reserva.</Text>
+        </View>
       </AppScreen>
     );
   }
 
   const qrImage = paymentData?.paymentMethod === 'BANECO_QR' ? paymentData.qrImage : null;
+  const headerTitle = allConfirmed
+    ? isBatch
+      ? 'Reservas confirmadas'
+      : 'Reserva confirmada'
+    : 'Pago de reserva';
 
   return (
     <AppScreen scroll contentPadding={0}>
       <ScrollView contentContainerStyle={styles.page}>
+        {/* Header */}
         <View style={styles.header}>
           <Pressable style={styles.backBtn} onPress={() => safeBack(router, '/(user)')}>
             <Ionicons name="arrow-back" size={18} color={appTheme.colors.text} />
           </Pressable>
           <View style={{ flex: 1 }}>
-            <Text style={styles.title}>{isConfirmed ? 'Reserva confirmada' : 'Pago de reserva'}</Text>
+            <Text style={styles.title}>{headerTitle}</Text>
             <Text style={styles.subtitle}>{professionalName || 'SanaMente'}</Text>
           </View>
         </View>
 
-        <AppCard>
-          <Text style={styles.blockTitle}>{booking.sessionOffering?.title ?? 'Sesión'}</Text>
-          <Text style={styles.meta}>{formatDateTime(booking.scheduledStartAt)}</Text>
-          <Text style={styles.meta}>Monto: {amountLabel}</Text>
-          <View style={styles.statusWrap}>
-            <Text style={[styles.statusText, { color: statusColor(booking.status) }]}>
-              {normalizeStatus(booking.status)}
-            </Text>
-          </View>
-        </AppCard>
-
-        {isPending && (
-          <AppCard>
-            {hasValidExpiry && remainingMs !== null ? (
-              isExpiredLocally ? (
-                <>
-                  <Text style={[styles.meta, { color: appTheme.colors.danger, marginTop: 0 }]}>
-                    La reserva expiró. Vuelve a seleccionar un horario.
-                  </Text>
-                </>
-              ) : (
-                <>
-                  <Text style={[styles.meta, { marginTop: 0 }]}>
-                    Tu reserva expira en {formatRemainingMs(remainingMs)} minutos.
-                  </Text>
-                  <Text style={styles.meta}>Tienes 15 minutos para completar el pago.</Text>
-                </>
-              )
-            ) : (
-              <Text style={[styles.meta, { marginTop: 0 }]}>
-                Esta reserva está pendiente de pago. El tiempo de expiración no está disponible.
+        {/* Batch confirmed: success banner + all booking cards */}
+        {allConfirmed && (
+          <>
+            <AppCard style={styles.confirmedCard}>
+              <Ionicons name="checkmark-circle" size={34} color={appTheme.colors.success} />
+              <Text style={styles.confirmedTitle}>
+                {bookings.length > 1
+                  ? `${bookings.length} sesiones reservadas`
+                  : 'Reserva confirmada'}
               </Text>
-            )}
-          </AppCard>
+              <Text style={styles.muted}>
+                El saldo fue descontado de tu billetera correctamente.
+              </Text>
+            </AppCard>
+
+            {bookings.map((b, idx) => (
+              <AppCard key={b.id}>
+                {bookings.length > 1 && (
+                  <View style={styles.sessionBadgeRow}>
+                    <View style={styles.sessionBadge}>
+                      <Text style={styles.sessionBadgeText}>{idx + 1}</Text>
+                    </View>
+                    <Text style={styles.sessionBadgeLabel}>Sesión {idx + 1}</Text>
+                  </View>
+                )}
+                <Text style={styles.blockTitle}>{b.sessionOffering?.title ?? 'Sesión'}</Text>
+                <Text style={styles.meta}>{formatDateTime(b.scheduledStartAt)}</Text>
+                <Text style={styles.meta}>
+                  Monto:{' '}
+                  {formatMoneyByCurrency(
+                    b.currency === 'USD' ? b.priceUsd : b.priceBob,
+                    b.currency,
+                    true,
+                  )}
+                </Text>
+                <View style={styles.statusWrap}>
+                  <Text style={[styles.statusText, { color: statusColor(b.status) }]}>
+                    {normalizeStatus(b.status)}
+                  </Text>
+                </View>
+              </AppCard>
+            ))}
+
+            <AppButton
+              title="Ver mis reservas"
+              onPress={() => router.replace('/(user)/bookings' as any)}
+            />
+          </>
         )}
 
-        {isConfirmed && (
-          <AppCard style={styles.confirmedCard}>
-            <Ionicons name="checkmark-circle" size={30} color={appTheme.colors.success} />
-            <Text style={styles.confirmedTitle}>Reserva confirmada</Text>
-            <Text style={styles.muted}>El saldo fue descontado de tu billetera correctamente.</Text>
-          </AppCard>
-        )}
-
-        {isConfirmed && (
-          <AppButton
-            title="Ver mis reservas"
-            onPress={() => router.replace('/(user)/bookings' as any)}
-          />
-        )}
-
-        {isPending && paymentData?.paymentMethod === 'BANECO_QR' && (
-          <AppCard style={styles.qrCard}>
-            <Text style={styles.blockTitle}>Escanea el QR para pagar</Text>
-            <Text style={styles.meta}>Monto: {formatBob(paymentData.amount, true)}</Text>
-            {qrImage ? (
-              <Image source={{ uri: `data:image/png;base64,${qrImage}` }} style={styles.qrImage} resizeMode="contain" />
-            ) : (
-              <View style={styles.qrPlaceholder}>
-                <Ionicons name="qr-code-outline" size={48} color={appTheme.colors.textMuted} />
+        {/* Single booking pending payment flow */}
+        {!allConfirmed && booking && (
+          <>
+            <AppCard>
+              <Text style={styles.blockTitle}>{booking.sessionOffering?.title ?? 'Sesión'}</Text>
+              <Text style={styles.meta}>{formatDateTime(booking.scheduledStartAt)}</Text>
+              <Text style={styles.meta}>Monto: {amountLabel}</Text>
+              <View style={styles.statusWrap}>
+                <Text style={[styles.statusText, { color: statusColor(booking.status) }]}>
+                  {normalizeStatus(booking.status)}
+                </Text>
               </View>
+            </AppCard>
+
+            {isPending && (
+              <AppCard>
+                {hasValidExpiry && remainingMs !== null ? (
+                  isExpiredLocally ? (
+                    <Text style={[styles.meta, { color: appTheme.colors.danger, marginTop: 0 }]}>
+                      La reserva expiró. Vuelve a seleccionar un horario.
+                    </Text>
+                  ) : (
+                    <>
+                      <Text style={[styles.meta, { marginTop: 0 }]}>
+                        Tu reserva expira en {formatRemainingMs(remainingMs)} minutos.
+                      </Text>
+                      <Text style={styles.meta}>Tienes 15 minutos para completar el pago.</Text>
+                    </>
+                  )
+                ) : (
+                  <Text style={[styles.meta, { marginTop: 0 }]}>
+                    Esta reserva está pendiente de pago.
+                  </Text>
+                )}
+              </AppCard>
             )}
-            <Text style={styles.meta}>Referencia: {paymentData.providerReference ?? '-'}</Text>
-            <Text style={styles.muted}>La reserva se confirmará cuando Baneco confirme el pago.</Text>
-          </AppCard>
-        )}
 
-        {isPending && (
-          <AppButton
-            title={
-              isExpiredLocally
-                ? 'Reserva expirada'
-                : paying
-                ? 'Procesando...'
-                : paymentData
-                ? 'Reintentar pago'
-                : 'Iniciar pago'
-            }
-            onPress={() => void handleInitPayment()}
-            loading={paying}
-            disabled={paying || isExpiredLocally}
-          />
-        )}
+            {isPending && paymentData?.paymentMethod === 'BANECO_QR' && (
+              <AppCard style={styles.qrCard}>
+                <Text style={styles.blockTitle}>Escanea el QR para pagar</Text>
+                <Text style={styles.meta}>Monto: {formatBob(paymentData.amount, true)}</Text>
+                {qrImage ? (
+                  <Image
+                    source={{ uri: `data:image/png;base64,${qrImage}` }}
+                    style={styles.qrImage}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <View style={styles.qrPlaceholder}>
+                    <Ionicons name="qr-code-outline" size={48} color={appTheme.colors.textMuted} />
+                  </View>
+                )}
+                <Text style={styles.meta}>Referencia: {paymentData.providerReference ?? '-'}</Text>
+                <Text style={styles.muted}>
+                  La reserva se confirmará cuando Baneco confirme el pago.
+                </Text>
+              </AppCard>
+            )}
 
-        {!isPending && !isConfirmed && (
-          <AppCard>
-            <Text style={styles.muted}>
-              Esta reserva no puede pagarse en su estado actual ({normalizeStatus(booking.status)}).
-            </Text>
-          </AppCard>
+            {isPending && (
+              <AppButton
+                title={
+                  isExpiredLocally
+                    ? 'Reserva expirada'
+                    : paying
+                    ? 'Procesando...'
+                    : paymentData
+                    ? 'Reintentar pago'
+                    : 'Iniciar pago'
+                }
+                onPress={() => void handleInitPayment()}
+                loading={paying}
+                disabled={paying || isExpiredLocally}
+              />
+            )}
+
+            {!isPending && !isConfirmed && (
+              <AppCard>
+                <Text style={styles.muted}>
+                  Esta reserva no puede pagarse en su estado actual (
+                  {normalizeStatus(booking.status)}).
+                </Text>
+              </AppCard>
+            )}
+          </>
         )}
       </ScrollView>
     </AppScreen>
@@ -410,7 +484,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   confirmedTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
     color: appTheme.colors.success,
     fontFamily: appTheme.fonts.heading,
@@ -421,5 +495,30 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.body,
     textAlign: 'center',
   },
+  sessionBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  sessionBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: appTheme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sessionBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    fontFamily: appTheme.fonts.body,
+  },
+  sessionBadgeLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+  },
 });
-
