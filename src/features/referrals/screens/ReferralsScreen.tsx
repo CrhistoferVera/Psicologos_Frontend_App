@@ -1,90 +1,47 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Alert, Share, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import AppButton from "../../../components/ui/AppButton";
 import AppCard from "../../../components/ui/AppCard";
 import AppScreen from "../../../components/ui/AppScreen";
+import { useAuth } from "../../../context/AuthContext";
 import { appTheme } from "../../../theme/appTheme";
 import { getMyReferrals, type MyReferralsData, type ReferralHistoryItem } from "../api/referralsApi";
 
 const STATUS_LABEL: Record<string, string> = {
   PENDING: "Pendiente",
   ACTIVE: "Activo",
-  QUALIFIED: "Calificado",
+  QUALIFIED: "Valido",
   REWARDED: "Recompensado",
 };
 
-const STATUS_COLOR: Record<string, string> = {
-  PENDING: "#B45309",
-  ACTIVE: "#2563EB",
-  QUALIFIED: "#7C3AED",
-  REWARDED: appTheme.colors.success,
-};
-
-function ReferralCard({ item }: { item: ReferralHistoryItem }) {
-  const [expanded, setExpanded] = useState(false);
-  const statusColor = STATUS_COLOR[item.status] ?? appTheme.colors.textMuted;
+function ReferralRow({ item }: { item: ReferralHistoryItem }) {
+  const fullName = item.referred.fullName || item.referred.email || "Usuario";
+  const status = STATUS_LABEL[item.status] ?? item.status;
 
   return (
-    <TouchableOpacity
-      style={styles.referralCard}
-      onPress={() => setExpanded((v) => !v)}
-      activeOpacity={0.8}
-    >
-      <View style={styles.referralHeader}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.referralName}>
-            {item.referred.fullName || item.referred.email || "Profesional"}
-          </Text>
-          <Text style={styles.referralMeta}>
-            {item.referred.role === "PROFESSIONAL" || item.referred.role === "ANFITRIONA"
-              ? "Psicólogo/Profesional"
-              : "Usuario"}{" "}
-            · {new Date(item.referred.createdAt).toLocaleDateString()}
-          </Text>
-        </View>
-
-        <View style={styles.statusBadge}>
-          <Text style={[styles.statusText, { color: statusColor }]}>
-            {STATUS_LABEL[item.status] ?? item.status}
-          </Text>
-        </View>
-      </View>
-
-      <View style={styles.referralRewardRow}>
-        <Text style={styles.rewardLabel}>Recompensas acumuladas</Text>
-        <Text style={[styles.rewardValue, { color: appTheme.colors.success }]}>
-          {item.totalRewardCredits.toFixed(2)}
+    <View style={styles.referralRow}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.referralName}>{fullName}</Text>
+        <Text style={styles.referralMeta}>
+          {item.referred.role} · {new Date(item.referred.createdAt).toLocaleDateString()}
         </Text>
       </View>
-
-      {expanded && item.rewardEvents.length > 0 ? (
-        <View style={styles.eventsContainer}>
-          <Text style={styles.eventsTitle}>Historial de recompensas</Text>
-
-          {item.rewardEvents.map((ev) => (
-            <View key={ev.id} style={styles.eventRow}>
-              <Text style={styles.eventDate}>
-                {new Date(ev.createdAt).toLocaleDateString()}
-              </Text>
-              <Text style={styles.eventPercent}>{ev.percentageApplied}%</Text>
-              <Text style={styles.eventAmount}>+{ev.rewardAmount.toFixed(2)}</Text>
-            </View>
-          ))}
-        </View>
-      ) : expanded && item.rewardEvents.length === 0 ? (
-        <Text style={styles.eventsEmpty}>
-          Sin recompensas aún. Se generan cuando el profesional cobra servicios.
-        </Text>
-      ) : null}
-    </TouchableOpacity>
+      <View style={styles.badge}>
+        <Text style={styles.badgeText}>{status}</Text>
+      </View>
+    </View>
   );
 }
 
 export default function ReferralsScreen() {
+  const { user } = useAuth();
   const [data, setData] = useState<MyReferralsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const role = data?.role ?? user?.role ?? null;
+  const isProfessional = role === "PROFESSIONAL" || role === "ANFITRIONA";
 
   useEffect(() => {
     void load();
@@ -96,7 +53,7 @@ export default function ReferralsScreen() {
       setError(null);
       setData(await getMyReferrals());
     } catch {
-      setError("No se pudo cargar la información de referidos.");
+      setError("No se pudo cargar la informacion de referidos.");
     } finally {
       setLoading(false);
     }
@@ -105,106 +62,127 @@ export default function ReferralsScreen() {
   async function handleCopy() {
     if (!data?.code) return;
     await Clipboard.setStringAsync(data.code);
-    Alert.alert("Copiado", "Tu código de referido fue copiado.");
+    Alert.alert("Copiado", "Tu codigo de referido fue copiado.");
   }
 
   async function handleShare() {
     if (!data?.code) return;
     await Share.share({
-      message: `Únete como profesional en SanaMente con mi código ${data.code} y empieza a atender pacientes verificados.`,
+      message: `Usa mi codigo de referido ${data.code} para registrarte en SanaMente.`,
     });
   }
 
-  const code = data?.code ?? "";
-  const total = data?.invitedCount ?? 0;
-  const bonus = data?.bonusCredits ?? 0;
+  const rules = data?.rules ?? {
+    validPurchasesRequired: 1,
+    threshold: 10,
+    clientDiscountPercent: 5,
+    clientDiscountSessions: 10,
+    professionalRewardPercent: 5,
+  };
+  const progress = data?.progress ?? {
+    valid: 0,
+    threshold: rules.threshold,
+    pending: 0,
+    cyclesUnlocked: 0,
+  };
+
+  const headerText = useMemo(() => {
+    if (isProfessional) {
+      return `Cuando ${rules.threshold} personas invitadas cumplan las compras validas requeridas, recibes ${rules.professionalRewardPercent}% permanente de las sesiones que generen esas personas.`;
+    }
+    return `Cuando ${rules.threshold} personas invitadas cumplan las compras validas requeridas, recibes ${rules.clientDiscountPercent}% de descuento en ${rules.clientDiscountSessions} sesiones.`;
+  }, [isProfessional, rules]);
+
+  const remainingDiscountSessions = data?.clientBenefit?.remainingDiscountSessions ?? 0;
+  const beneficiaries = data?.professionalBenefit?.beneficiaries ?? [];
+  const rewardsHistory = data?.professionalBenefit?.rewardsHistory ?? [];
   const history = data?.history ?? [];
-  const stats = data?.stats ?? { pending: 0, active: 0, qualified: 0, rewarded: 0 };
 
   return (
     <AppScreen scroll>
       <View style={styles.container}>
         <Text style={styles.title}>Programa de referidos</Text>
-        <Text style={styles.subtitle}>
-          Invita profesionales con tu código y gana el {"\u00b7"} del porcentaje configurado
-          sobre sus ganancias reales.
-        </Text>
+        <Text style={styles.subtitle}>{headerText}</Text>
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         <AppCard>
-          <Text style={styles.cardLabel}>Tu código de referido</Text>
-          <Text style={styles.code}>{loading ? "Cargando..." : code || "—"}</Text>
-
+          <Text style={styles.label}>Tu codigo de referido</Text>
+          <Text style={styles.code}>{loading ? "Cargando..." : data?.code || "-"}</Text>
           <View style={styles.actions}>
-            <AppButton
-              title="Copiar"
-              variant="secondary"
-              onPress={handleCopy}
-              style={{ flex: 1 }}
-              disabled={loading || !code}
-            />
-            <AppButton
-              title="Compartir"
-              onPress={handleShare}
-              style={{ flex: 1 }}
-              disabled={loading || !code}
-            />
+            <AppButton title="Copiar" variant="secondary" onPress={handleCopy} style={{ flex: 1 }} disabled={loading || !data?.code} />
+            <AppButton title="Compartir" onPress={handleShare} style={{ flex: 1 }} disabled={loading || !data?.code} />
           </View>
-
-          <Text style={styles.hint}>
-            Comparte este código con psicólogos que quieran unirse a la plataforma.
-          </Text>
         </AppCard>
 
         <AppCard>
-          <Text style={styles.sectionTitle}>Resumen</Text>
-
-          <View style={styles.statsGrid}>
-            <View style={styles.statCell}>
-              <Text style={styles.statValue}>{total}</Text>
-              <Text style={styles.statLabel}>Profesionales referidos</Text>
-            </View>
-
-            <View style={styles.statCell}>
-              <Text style={[styles.statValue, { color: appTheme.colors.success }]}>
-                {bonus.toFixed(2)}
-              </Text>
-              <Text style={styles.statLabel}>Recompensas ganadas</Text>
-            </View>
-
-            <View style={styles.statCell}>
-              <Text style={styles.statValue}>{stats.active}</Text>
-              <Text style={styles.statLabel}>Activos</Text>
-            </View>
-
-            <View style={styles.statCell}>
-              <Text style={styles.statValue}>{stats.pending}</Text>
-              <Text style={styles.statLabel}>Pendientes</Text>
-            </View>
-          </View>
+          <Text style={styles.sectionTitle}>Progreso</Text>
+          <Text style={styles.progressValue}>
+            {progress.valid} / {progress.threshold} referidos validos
+          </Text>
+          <Text style={styles.meta}>
+            Compras validas requeridas por referido: {rules.validPurchasesRequired}
+          </Text>
+          <Text style={styles.meta}>Cuenta recargas de saldo y sesiones pagadas.</Text>
+          <Text style={styles.meta}>Referidos pendientes: {progress.pending}</Text>
         </AppCard>
 
-        <View style={styles.listHeader}>
-          <Text style={styles.sectionTitle}>Profesionales referidos</Text>
+        {!isProfessional ? (
+          <AppCard>
+            <Text style={styles.sectionTitle}>Beneficio activo</Text>
+            <Text style={styles.progressValue}>
+              Te quedan {remainingDiscountSessions} sesiones con {rules.clientDiscountPercent}% de descuento.
+            </Text>
+            <Text style={styles.meta}>El descuento se consume solo en sesiones pagadas.</Text>
+          </AppCard>
+        ) : (
+          <AppCard>
+            <Text style={styles.sectionTitle}>Beneficiarios permanentes</Text>
+            <Text style={styles.progressValue}>{beneficiaries.length} activos</Text>
+            {beneficiaries.slice(0, 10).map((item) => (
+              <Text key={item.id} style={styles.meta}>
+                • {item.referredUser.fullName || item.referredUser.email || item.referredUserId}
+              </Text>
+            ))}
+            {beneficiaries.length === 0 ? <Text style={styles.meta}>Sin beneficiarios todavia.</Text> : null}
+          </AppCard>
+        )}
 
+        {isProfessional ? (
+          <AppCard>
+            <Text style={styles.sectionTitle}>Historial de recompensas</Text>
+            {rewardsHistory.length === 0 ? (
+              <Text style={styles.meta}>Sin recompensas registradas aun.</Text>
+            ) : (
+              rewardsHistory.slice(0, 10).map((reward) => (
+                <View key={reward.id} style={styles.rewardRow}>
+                  <Text style={styles.meta}>
+                    {new Date(reward.createdAt).toLocaleDateString()} · {reward.referred.fullName || reward.referred.email || "Referido"}
+                  </Text>
+                  <Text style={styles.rewardAmount}>
+                    +{reward.rewardAmount.toFixed(2)} {reward.currency}
+                  </Text>
+                </View>
+              ))
+            )}
+          </AppCard>
+        ) : null}
+
+        <View style={styles.historyHeader}>
+          <Text style={styles.sectionTitle}>Referidos</Text>
           <TouchableOpacity onPress={load}>
-            <Text style={styles.refreshBtn}>Actualizar</Text>
+            <Text style={styles.refresh}>Actualizar</Text>
           </TouchableOpacity>
         </View>
 
         {loading ? (
-          <Text style={styles.loadingText}>Cargando...</Text>
+          <Text style={styles.meta}>Cargando...</Text>
         ) : history.length === 0 ? (
           <AppCard>
-            <Text style={styles.emptyTitle}>Sin referidos aún</Text>
-            <Text style={styles.emptyText}>
-              Comparte tu código con profesionales. Cuando se registren y generen ganancias,
-              recibirás un porcentaje aquí.
-            </Text>
+            <Text style={styles.meta}>Todavia no tienes referidos.</Text>
           </AppCard>
         ) : (
-          history.map((item) => <ReferralCard key={item.id} item={item} />)
+          history.map((item) => <ReferralRow key={item.id} item={item} />)
         )}
       </View>
     </AppScreen>
@@ -215,236 +193,115 @@ const styles = StyleSheet.create({
   container: {
     gap: 12,
   },
-
   title: {
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.heading,
     fontWeight: "700",
-    fontSize: 26,
+    fontSize: 24,
   },
-
   subtitle: {
     color: "#475569",
     fontFamily: appTheme.fonts.body,
     fontSize: 13,
-    lineHeight: 20,
+    lineHeight: 19,
   },
-
-  cardLabel: {
+  label: {
     color: appTheme.colors.textMuted,
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
-    fontWeight: "600",
   },
-
   code: {
     color: appTheme.colors.primary,
     fontFamily: appTheme.fonts.heading,
     fontWeight: "800",
     fontSize: 26,
-    letterSpacing: 1,
     marginVertical: 4,
   },
-
   actions: {
     flexDirection: "row",
     gap: 10,
     marginTop: 8,
   },
-
-  hint: {
-    color: "#475569",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 11,
-    marginTop: 8,
-    lineHeight: 16,
-  },
-
   sectionTitle: {
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.heading,
     fontWeight: "700",
     fontSize: 16,
-    marginBottom: 8,
+    marginBottom: 6,
   },
-
-  statsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-
-  statCell: {
-    minWidth: 100,
-    flex: 1,
-    alignItems: "center",
-    gap: 2,
-  },
-
-  statValue: {
+  progressValue: {
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.heading,
     fontWeight: "700",
-    fontSize: 22,
+    fontSize: 18,
   },
-
-  statLabel: {
+  meta: {
     color: "#475569",
     fontFamily: appTheme.fonts.body,
-    fontSize: 11,
-    textAlign: "center",
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 2,
   },
-
-  listHeader: {
+  rewardRow: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: appTheme.colors.border,
+  },
+  rewardAmount: {
+    color: appTheme.colors.success,
+    fontFamily: appTheme.fonts.heading,
+    fontWeight: "700",
+    fontSize: 13,
+    marginTop: 2,
+  },
+  historyHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-
-  refreshBtn: {
+  refresh: {
     color: appTheme.colors.primary,
     fontFamily: appTheme.fonts.body,
-    fontSize: 13,
     fontWeight: "700",
-  },
-
-  loadingText: {
-    color: "#475569",
-    fontFamily: appTheme.fonts.body,
     fontSize: 13,
-    textAlign: "center",
   },
-
-  emptyTitle: {
-    color: appTheme.colors.text,
-    fontFamily: appTheme.fonts.heading,
-    fontWeight: "700",
-    fontSize: 15,
-  },
-
-  emptyText: {
-    color: "#475569",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 13,
-    lineHeight: 20,
-    marginTop: 6,
-  },
-
-  referralCard: {
+  referralRow: {
     backgroundColor: "#FFFFFF",
     borderRadius: appTheme.radius.lg,
     borderWidth: 1,
     borderColor: appTheme.colors.border,
-    padding: 14,
-    gap: 8,
-  },
-
-  referralHeader: {
+    padding: 12,
+    gap: 4,
     flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 10,
+    alignItems: "center",
   },
-
   referralName: {
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.heading,
     fontWeight: "700",
     fontSize: 14,
   },
-
   referralMeta: {
     color: "#475569",
     fontFamily: appTheme.fonts.body,
     fontSize: 11,
-    marginTop: 2,
   },
-
-  statusBadge: {
+  badge: {
+    backgroundColor: "#EEF2FF",
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    backgroundColor: "#F1F5F9",
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
   },
-
-  statusText: {
+  badgeText: {
+    color: "#312E81",
     fontFamily: appTheme.fonts.body,
+    fontWeight: "700",
     fontSize: 11,
-    fontWeight: "700",
   },
-
-  referralRewardRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-
-  rewardLabel: {
-    color: "#475569",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 12,
-  },
-
-  rewardValue: {
-    fontFamily: appTheme.fonts.heading,
-    fontWeight: "700",
-    fontSize: 14,
-  },
-
-  eventsContainer: {
-    borderTopWidth: 1,
-    borderTopColor: appTheme.colors.border,
-    paddingTop: 8,
-    gap: 6,
-    marginTop: 4,
-  },
-
-  eventsTitle: {
-    color: "#475569",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 11,
-    fontWeight: "600",
-    marginBottom: 4,
-  },
-
-  eventRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-
-  eventDate: {
-    color: "#475569",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 12,
-    flex: 1,
-  },
-
-  eventPercent: {
-    color: "#475569",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 12,
-    marginHorizontal: 8,
-  },
-
-  eventAmount: {
-    color: appTheme.colors.success,
-    fontFamily: appTheme.fonts.heading,
-    fontWeight: "700",
-    fontSize: 12,
-  },
-
-  eventsEmpty: {
-    color: "#475569",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 12,
-    lineHeight: 18,
-  },
-
   errorText: {
     color: appTheme.colors.danger,
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
   },
 });
-
