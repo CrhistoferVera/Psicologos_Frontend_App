@@ -235,6 +235,17 @@ export default function ProfessionalDashboardScreen() {
           </Pressable>
         </View>
 
+        <Pressable style={styles.referralsCard} onPress={() => router.push("/(professional)/referrals" as any)}>
+          <View style={styles.referralsIconWrap}>
+            <Ionicons name="gift-outline" size={20} color="#2563EB" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.referralsTitle}>Mis referidos</Text>
+            <Text style={styles.referralsSubtitle}>Comparte tu código y gana recompensas</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#64748B" />
+        </Pressable>
+
         <Text style={styles.sectionTitle}>Proximas reservas</Text>
 
         {nextBookings.length === 0 ? (
@@ -467,6 +478,38 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 22,
     fontWeight: "700",
+  },
+  referralsCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#DBEAFE",
+    backgroundColor: "#F8FAFF",
+    minHeight: 76,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  referralsIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#E0ECFF",
+  },
+  referralsTitle: {
+    color: "#1E3A8A",
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  referralsSubtitle: {
+    color: "#475569",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    marginTop: 2,
   },
   sectionTitle: {
     color: "#5F7896",

@@ -17,6 +17,8 @@ function formatDateTime(iso?: string) {
 
 function getServiceConfig(service: string) {
   const s = (service ?? "").toLowerCase();
+  if (s.includes("referido"))
+    return { icon: "gift" as const, label: "Referido", colors: ["#7C2D12", "#FB923C"] as [string, string] };
   if (s.includes("video") || s.includes("videollamada"))
     return { icon: "videocam" as const, label: "Videollamada", colors: ["#7C3AED", "#A78BFA"] as [string, string] };
   if (s.includes("call") || s.includes("llamada"))

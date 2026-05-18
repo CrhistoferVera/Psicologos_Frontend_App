@@ -90,7 +90,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 28,
     overflow: "hidden",
     paddingBottom: 16,
-    overflow: "hidden",
   },
   headerCircle1: {
     position: "absolute",
