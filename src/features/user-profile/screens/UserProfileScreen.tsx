@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
@@ -29,17 +29,21 @@ export default function UserProfileScreen() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        setLoading(true);
-        const data = await apiGetMyProfileUser();
-        setProfile(data);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      void (async () => {
+        try {
+          setLoading(true);
+          const data = await apiGetMyProfileUser();
+          setProfile(data);
+        } catch {
+          // silently keep AuthContext fallback data visible
+        } finally {
+          setLoading(false);
+        }
+      })();
+    }, []),
+  );
 
   const displayName = useMemo(() => {
     const firstName = profile?.firstName ?? user?.firstName ?? "";

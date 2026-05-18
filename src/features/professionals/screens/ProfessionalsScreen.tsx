@@ -25,41 +25,39 @@ export default function ProfessionalsScreen() {
 
   useEffect(() => {
     void (async () => {
+      try {
+        const catalog = await getSpecialtiesCatalog();
+        setSpecialties(["Todos", ...catalog]);
+      } catch {
+        // catalog failure is non-blocking
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    void (async () => {
       setLoading(true);
       setError(null);
-
       try {
-        const [list, catalog] = await Promise.all([
-          getProfessionals({ search: initialSearch, specialty: initialSpecialty }),
-          getSpecialtiesCatalog(),
-        ]);
-
+        const list = await getProfessionals({ specialty: selectedSpecialty });
         setItems(list);
-        setSpecialties(["Todos", ...catalog]);
       } catch {
         setError("No se pudo cargar el listado de profesionales.");
       } finally {
         setLoading(false);
       }
     })();
-  }, [initialSearch, initialSpecialty]);
+  }, [selectedSpecialty]);
 
   const filtered = useMemo(() => {
-    return items.filter((item) => {
-      const normalizedSearch = search.trim().toLowerCase();
-
-      const textMatch =
-        normalizedSearch.length === 0 ||
-        item.name.toLowerCase().includes(normalizedSearch) ||
-        item.specialties.some((tag) => tag.toLowerCase().includes(normalizedSearch));
-
-      const specialtyMatch =
-        selectedSpecialty === "Todos" ||
-        item.specialties.some((tag) => tag.toLowerCase() === selectedSpecialty.toLowerCase());
-
-      return textMatch && specialtyMatch;
-    });
-  }, [items, search, selectedSpecialty]);
+    const term = search.trim().toLowerCase();
+    if (term.length === 0) return items;
+    return items.filter(
+      (item) =>
+        item.name.toLowerCase().includes(term) ||
+        item.specialties.some((tag) => tag.toLowerCase().includes(term)),
+    );
+  }, [items, search]);
 
   return (
     <AppScreen scroll contentPadding={16}>

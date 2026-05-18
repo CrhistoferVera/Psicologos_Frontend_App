@@ -115,7 +115,15 @@ export default function UserSettingsScreen() {
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <Pressable style={styles.avatarWrap} onPress={() => void pickAvatar()}>
-          {avatarUrl ? <Image source={{ uri: avatarUrl }} style={styles.avatar} /> : <View style={styles.avatarFallback}><Text style={styles.avatarInitial}>U</Text></View>}
+          {avatarUrl ? (
+            <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatarFallback}>
+              <Text style={styles.avatarInitial}>
+                {`${firstName.trim()[0] ?? ""}${lastName.trim()[0] ?? ""}`.toUpperCase() || "U"}
+              </Text>
+            </View>
+          )}
           <View style={styles.cameraBadge}>
             <Ionicons name="camera" size={14} color="#FFFFFF" />
           </View>

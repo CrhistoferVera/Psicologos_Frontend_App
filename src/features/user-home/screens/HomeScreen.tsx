@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useRef, useState, useEffect } from "react";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,12 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { appTheme } from "../../../theme/appTheme";
 import { useAuth } from "../../../context/AuthContext";
 import { getMyChats } from "../../../api/messages";
-import {
-  getProfessionalSessionOfferings,
-  type ProfessionalSessionOffering,
-} from "../../../api/bookings";
 import { getCommunicationAccess, type CommunicationAccess } from "../../../api/communication";
-import { useUserRegion } from "../../../hooks/useUserRegion";
 import { getProfessionals } from "../../professionals/api/professionalsApi";
 import type { Professional } from "../../professionals/types";
 import ProfessionalFeedCard from "../components/ProfessionalFeedCard";
@@ -30,8 +25,6 @@ import ProfessionalFeedCard from "../components/ProfessionalFeedCard";
 const PAGE_SIZE = 10;
 const FEED_REFRESH_TTL_MS = 60 * 1000;
 
-type OfferingsByProfessional = Record<string, ProfessionalSessionOffering[]>;
-type OfferingsLoadingByProfessional = Record<string, boolean>;
 type CommunicationAccessByProfessional = Record<string, CommunicationAccess>;
 type CommunicationAccessLoadingByProfessional = Record<string, boolean>;
 
@@ -39,7 +32,6 @@ export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { isBolivian } = useUserRegion();
 
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [page, setPage] = useState(1);
@@ -47,11 +39,7 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [chatLoadingId, setChatLoadingId] = useState<string | null>(null);
-  const [reserveLoadingKey, setReserveLoadingKey] = useState<string | null>(null);
   const [feedHeight, setFeedHeight] = useState(0);
-  const [offeringsByProfessional, setOfferingsByProfessional] = useState<OfferingsByProfessional>({});
-  const [offeringsLoadingByProfessional, setOfferingsLoadingByProfessional] =
-    useState<OfferingsLoadingByProfessional>({});
   const [communicationAccessByProfessional, setCommunicationAccessByProfessional] =
     useState<CommunicationAccessByProfessional>({});
   const [communicationAccessLoadingByProfessional, setCommunicationAccessLoadingByProfessional] =
@@ -61,13 +49,6 @@ export default function HomeScreen() {
   const feedRef = useRef<FlatList<Professional> | null>(null);
   const wrapPendingRef = useRef(false);
   const lastLoadedAtRef = useRef(0);
-
-  const canDetermineRegion = useMemo(
-    () => Boolean((user?.phoneDialCode ?? "").trim()),
-    [user?.phoneDialCode],
-  );
-
-  const preferredCurrency = canDetermineRegion ? (isBolivian ? "BOB" : "USD") : null;
 
   async function loadFeed(targetPage: number, reset: boolean) {
     if (loadingRef.current) return;
@@ -115,83 +96,32 @@ export default function HomeScreen() {
   );
 
   useEffect(() => {
-    if (professionals.length === 0) return;
-
-    const idsToFetch = professionals
-      .map((professional) => professional.id)
-      .filter(
-        (professionalId) =>
-          !(professionalId in offeringsByProfessional) &&
-          offeringsLoadingByProfessional[professionalId] !== true,
-      );
-
-    if (idsToFetch.length === 0) return;
-
-    setOfferingsLoadingByProfessional((prev) => {
-      const next = { ...prev };
-      idsToFetch.forEach((id) => {
-        next[id] = true;
-      });
-      return next;
-    });
-
-    void Promise.all(
-      idsToFetch.map(async (professionalId) => {
-        try {
-          const offerings = await getProfessionalSessionOfferings(professionalId);
-          return { professionalId, offerings };
-        } catch {
-          return { professionalId, offerings: [] as ProfessionalSessionOffering[] };
-        }
-      }),
-    ).then((results) => {
-      setOfferingsByProfessional((prev) => {
-        const next = { ...prev };
-        results.forEach(({ professionalId, offerings }) => {
-          next[professionalId] = offerings;
-        });
-        return next;
-      });
-
-      setOfferingsLoadingByProfessional((prev) => {
-        const next = { ...prev };
-        results.forEach(({ professionalId }) => {
-          next[professionalId] = false;
-        });
-        return next;
-      });
-    });
-  }, [professionals, offeringsByProfessional, offeringsLoadingByProfessional]);
-
-  useEffect(() => {
     if (!user?.id || professionals.length === 0) return;
 
     const idsToFetch = professionals
-      .map((professional) => professional.id)
+      .map((p) => p.id)
       .filter(
-        (professionalId) =>
-          !(professionalId in communicationAccessByProfessional) &&
-          communicationAccessLoadingByProfessional[professionalId] !== true,
+        (id) =>
+          !(id in communicationAccessByProfessional) &&
+          communicationAccessLoadingByProfessional[id] !== true,
       );
 
     if (idsToFetch.length === 0) return;
 
     setCommunicationAccessLoadingByProfessional((prev) => {
       const next = { ...prev };
-      idsToFetch.forEach((id) => {
-        next[id] = true;
-      });
+      idsToFetch.forEach((id) => { next[id] = true; });
       return next;
     });
 
     void Promise.all(
-      idsToFetch.map(async (professionalId) => {
+      idsToFetch.map(async (id) => {
         try {
-          const access = await getCommunicationAccess(professionalId);
-          return { professionalId, access };
+          const access = await getCommunicationAccess(id);
+          return { id, access };
         } catch {
           return {
-            professionalId,
+            id,
             access: {
               allowed: false,
               bookingId: null,
@@ -206,26 +136,16 @@ export default function HomeScreen() {
     ).then((results) => {
       setCommunicationAccessByProfessional((prev) => {
         const next = { ...prev };
-        results.forEach(({ professionalId, access }) => {
-          next[professionalId] = access;
-        });
+        results.forEach(({ id, access }) => { next[id] = access; });
         return next;
       });
-
       setCommunicationAccessLoadingByProfessional((prev) => {
         const next = { ...prev };
-        results.forEach(({ professionalId }) => {
-          next[professionalId] = false;
-        });
+        results.forEach(({ id }) => { next[id] = false; });
         return next;
       });
     });
-  }, [
-    communicationAccessByProfessional,
-    communicationAccessLoadingByProfessional,
-    professionals,
-    user?.id,
-  ]);
+  }, [communicationAccessByProfessional, communicationAccessLoadingByProfessional, professionals, user?.id]);
 
   function handleLoadMore() {
     if (!hasMore || loadingMore || loadingRef.current) return;
@@ -266,23 +186,6 @@ export default function HomeScreen() {
       pathname: "/(user)/professionals/[id]",
       params: { id: pro.id },
     } as any);
-  }
-
-  function handleReserve(pro: Professional, offeringId: string) {
-    if (!canDetermineRegion) return;
-    const reserveKey = `${pro.id}:${offeringId}`;
-    if (reserveLoadingKey) return;
-
-    setReserveLoadingKey(reserveKey);
-    router.push({
-      pathname: "/(user)/bookings/new",
-      params: {
-        professionalId: pro.id,
-        professionalName: pro.name,
-        offeringId,
-      },
-    } as any);
-    setReserveLoadingKey(null);
   }
 
   async function handleChat(pro: Professional) {
@@ -345,9 +248,6 @@ export default function HomeScreen() {
             <Ionicons name="search" size={20} color={appTheme.colors.primary} />
           </Pressable>
         </View>
-        {!canDetermineRegion ? (
-          <Text style={styles.regionWarning}>Completa tu país y teléfono para continuar.</Text>
-        ) : null}
       </View>
 
       <View
@@ -383,16 +283,6 @@ export default function HomeScreen() {
                 cardHeight={CARD_HEIGHT}
                 onProfilePress={() => handleProfile(item)}
                 onChatPress={() => handleChat(item)}
-                onReservePress={(offeringId) => handleReserve(item, offeringId)}
-                offerings={offeringsByProfessional[item.id] ?? null}
-                offeringsLoading={offeringsLoadingByProfessional[item.id] === true}
-                reserveLoadingOfferingId={
-                  reserveLoadingKey?.startsWith(`${item.id}:`)
-                    ? reserveLoadingKey.split(":")[1]
-                    : null
-                }
-                preferredCurrency={preferredCurrency}
-                canReserve={canDetermineRegion}
                 chatLoading={chatLoadingId === item.id}
                 communicationAccess={communicationAccessByProfessional[item.id] ?? null}
                 communicationAccessLoading={
@@ -463,15 +353,6 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.heading,
     fontSize: 20,
     fontWeight: "700",
-  },
-  regionWarning: {
-    marginTop: 2,
-    paddingHorizontal: 18,
-    paddingBottom: 10,
-    color: appTheme.colors.danger,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 12,
-    fontWeight: "600",
   },
   headerIconBtn: {
     width: 40,

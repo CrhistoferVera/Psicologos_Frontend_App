@@ -111,16 +111,7 @@ export async function getProfessionals(options: GetProfessionalsOptions = {}): P
   }
 
   const list = Array.isArray(response?.data) ? response.data : Array.isArray(response as any) ? (response as any) : [];
-  let normalized = list.map(mapRawProfessional).filter((item: Professional) => item.id);
-  if (search && search.trim().length > 0) {
-    const term = search.toLowerCase();
-    normalized = normalized.filter(
-      (item: Professional) =>
-        item.name.toLowerCase().includes(term) ||
-        item.specialties.some((tag: string) => tag.toLowerCase().includes(term)),
-    );
-  }
-  return normalized;
+  return list.map(mapRawProfessional).filter((item: Professional) => item.id);
 }
 
 export async function getProfessionalById(id: string): Promise<Professional> {

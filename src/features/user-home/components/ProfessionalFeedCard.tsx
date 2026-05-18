@@ -10,22 +10,14 @@ import {
   View,
 } from "react-native";
 import { appTheme } from "../../../theme/appTheme";
-import type { ProfessionalSessionOffering } from "../../../api/bookings";
 import type { CommunicationAccess } from "../../../api/communication";
 import type { Professional } from "../../professionals/types";
-import { formatBob, formatUsd } from "../../../utils/money";
 
 type Props = {
   professional: Professional;
   cardHeight: number;
   onProfilePress: () => void;
   onChatPress: () => void;
-  onReservePress: (offeringId: string) => void;
-  offerings: ProfessionalSessionOffering[] | null;
-  offeringsLoading?: boolean;
-  reserveLoadingOfferingId?: string | null;
-  preferredCurrency: "BOB" | "USD" | null;
-  canReserve: boolean;
   chatLoading?: boolean;
   communicationAccess?: CommunicationAccess | null;
   communicationAccessLoading?: boolean;
@@ -38,12 +30,6 @@ export default function ProfessionalFeedCard({
   cardHeight,
   onProfilePress,
   onChatPress,
-  onReservePress,
-  offerings,
-  offeringsLoading = false,
-  reserveLoadingOfferingId = null,
-  preferredCurrency,
-  canReserve,
   chatLoading = false,
   communicationAccess = null,
   communicationAccessLoading = false,
@@ -57,26 +43,13 @@ export default function ProfessionalFeedCard({
 
   const username = professional.username ? `@${professional.username}` : null;
   const bio = professional.bio?.trim() || null;
-  const highlightedOffering = offerings?.[0] ?? null;
-  const highlightedOfferingPrice = highlightedOffering
-    ? formatOfferingPrice(highlightedOffering)
-    : null;
-  const hasMoreOfferings = (offerings?.length ?? 0) > 1;
   const canCommunicate = communicationAccess?.allowed === true;
 
   const communicationHint = communicationAccessLoading
-    ? "Validando acceso a comunicación..."
+    ? "Validando acceso..."
     : canCommunicate
     ? `Sesión activa hasta ${formatSessionTime(communicationAccess?.sessionEndsAt)}`
-    : "Reserva una sesión para habilitar mensajes y llamadas.";
-
-  function formatOfferingPrice(offering: ProfessionalSessionOffering) {
-    if (!canReserve) return null;
-    if (preferredCurrency === "USD") {
-      return formatUsd(offering.priceUsd, true);
-    }
-    return formatBob(offering.priceBob);
-  }
+    : "Reserva una sesión para habilitar el chat.";
 
   function formatSessionTime(iso: string | null | undefined) {
     if (!iso) return "--:--";
@@ -150,93 +123,38 @@ export default function ProfessionalFeedCard({
           </Text>
         ) : null}
 
-        <View style={styles.offeringsBlock}>
-          <Text style={styles.offeringsTitle}>Sesiones disponibles</Text>
+        <Pressable
+          style={styles.scheduleBtn}
+          onPress={(e) => {
+            e.stopPropagation?.();
+            onProfilePress();
+          }}
+        >
+          <Ionicons name="calendar-outline" size={16} color="#FFFFFF" />
+          <Text style={styles.scheduleBtnText}>Agendar sesión</Text>
+        </Pressable>
 
-          {offeringsLoading ? (
-            <Text style={styles.noOfferingsText}>Cargando sesiones...</Text>
-          ) : !offerings || offerings.length === 0 ? (
-            <Text style={styles.noOfferingsText}>
-              Este psicólogo aún no tiene sesiones disponibles.
-            </Text>
+        <Pressable
+          style={[styles.chatBtn, (!canCommunicate || chatLoading) && styles.chatBtnDisabled]}
+          onPress={(e) => {
+            e.stopPropagation?.();
+            onChatPress();
+          }}
+          disabled={chatLoading || !canCommunicate}
+        >
+          {chatLoading ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
           ) : (
-            <View style={styles.offeringsList}>
-              {highlightedOffering ? (
-                <View key={highlightedOffering.id} style={styles.offeringRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.offeringName} numberOfLines={1}>
-                      {highlightedOffering.title}
-                    </Text>
-                    <Text style={styles.offeringMeta}>
-                      {highlightedOffering.durationMinutes} min
-                      {highlightedOfferingPrice ? ` | ${highlightedOfferingPrice}` : ""}
-                    </Text>
-                  </View>
-                  <Pressable
-                    style={[
-                      styles.reserveBtn,
-                      (!canReserve || reserveLoadingOfferingId === highlightedOffering.id) && styles.reserveBtnDisabled,
-                    ]}
-                    onPress={(e) => {
-                      e.stopPropagation?.();
-                      onReservePress(highlightedOffering.id);
-                    }}
-                    disabled={!canReserve || reserveLoadingOfferingId !== null}
-                  >
-                    <Text style={styles.reserveBtnText}>
-                      {reserveLoadingOfferingId === highlightedOffering.id ? "Abriendo..." : "Reservar"}
-                    </Text>
-                  </Pressable>
-                </View>
-              ) : null}
-
-              {hasMoreOfferings ? (
-                <Pressable
-                  style={styles.viewMoreBtn}
-                  onPress={(e) => {
-                    e.stopPropagation?.();
-                    onProfilePress();
-                  }}
-                >
-                  <Text style={styles.viewMoreText}>Ver más sesiones</Text>
-                  <Ionicons name="chevron-forward" size={14} color="#BFDBFE" />
-                </Pressable>
-              ) : null}
-            </View>
+            <>
+              <Ionicons name="chatbubble-outline" size={16} color="#FFFFFF" />
+              <Text style={styles.chatBtnText}>Chatear</Text>
+            </>
           )}
-        </View>
-
-        <View style={styles.actionsRow}>
-          <Pressable
-            style={[styles.actionBtn, styles.chatBtn, (!canCommunicate || chatLoading) && styles.chatBtnDisabled]}
-            onPress={(e) => {
-              e.stopPropagation?.();
-              onChatPress();
-            }}
-            disabled={chatLoading || !canCommunicate}
-          >
-            {chatLoading ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <>
-                <Ionicons name="chatbubble" size={16} color="#FFFFFF" />
-                <Text style={styles.actionBtnText}>Chatear</Text>
-              </>
-            )}
-          </Pressable>
-        </View>
+        </Pressable>
 
         <Text style={[styles.communicationHint, canCommunicate && styles.communicationHintAllowed]}>
           {communicationHint}
         </Text>
-
-        {!canReserve && (
-          <Text style={styles.regionWarning}>
-            Completa tu país y teléfono para continuar.
-          </Text>
-        )}
-
-        <Text style={styles.tapHint}>Toca para ver el perfil completo</Text>
       </View>
     </Pressable>
   );
@@ -291,7 +209,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     paddingHorizontal: 18,
-    paddingBottom: 22,
+    paddingBottom: 28,
     gap: 10,
   },
   nameRow: {
@@ -346,106 +264,40 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
   },
-  offeringsBlock: {
-    gap: 6,
-  },
-  offeringsTitle: {
-    color: "#DBEAFE",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  offeringsList: {
-    gap: 7,
-  },
-  offeringRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    borderWidth: 1,
-    borderColor: "rgba(191,219,254,0.22)",
-    borderRadius: 10,
-    paddingHorizontal: 9,
-    paddingVertical: 8,
-    backgroundColor: "rgba(10,20,38,0.58)",
-  },
-  offeringName: {
-    color: "#FFFFFF",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  offeringMeta: {
-    marginTop: 1,
-    color: "rgba(226,232,240,0.78)",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 11,
-  },
-  reserveBtn: {
-    backgroundColor: "#5B9BD5",
-    borderRadius: 999,
-    paddingHorizontal: 11,
-    paddingVertical: 7,
-  },
-  reserveBtnDisabled: {
-    opacity: 0.58,
-  },
-  reserveBtnText: {
-    color: "#FFFFFF",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  noOfferingsText: {
-    color: "rgba(226,232,240,0.76)",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 12,
-  },
-  viewMoreBtn: {
-    marginTop: 2,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    gap: 2,
-  },
-  viewMoreText: {
-    color: "#BFDBFE",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  actionsRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  actionBtn: {
+  scheduleBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    paddingHorizontal: 18,
-    paddingVertical: 11,
+    gap: 7,
+    backgroundColor: appTheme.colors.primary,
     borderRadius: 99,
-    minHeight: 42,
+    paddingVertical: 13,
+  },
+  scheduleBtnText: {
+    color: "#FFFFFF",
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 15,
+    fontWeight: "700",
   },
   chatBtn: {
-    backgroundColor: "rgba(91,155,213,0.72)",
-    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    backgroundColor: "rgba(91,155,213,0.30)",
+    borderWidth: 1,
+    borderColor: "rgba(91,155,213,0.55)",
+    borderRadius: 99,
+    paddingVertical: 11,
   },
   chatBtnDisabled: {
     opacity: 0.45,
   },
-  actionBtnText: {
+  chatBtnText: {
     color: "#FFFFFF",
     fontFamily: appTheme.fonts.heading,
     fontSize: 14,
     fontWeight: "700",
-  },
-  regionWarning: {
-    color: "#FECACA",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 11,
-    textAlign: "center",
   },
   communicationHint: {
     color: "#FDE68A",
@@ -456,12 +308,4 @@ const styles = StyleSheet.create({
   communicationHintAllowed: {
     color: "#BBF7D0",
   },
-  tapHint: {
-    color: "rgba(255,255,255,0.28)",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 11,
-    textAlign: "center",
-    letterSpacing: 0.2,
-  },
 });
-

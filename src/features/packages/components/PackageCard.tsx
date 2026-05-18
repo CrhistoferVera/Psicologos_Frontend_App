@@ -5,7 +5,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { appTheme } from "../../../theme/appTheme";
 import type { PackageData } from "../../../types/package";
 
-const CARD_ACCENTS = ["#3B82F6", "#8B5CF6", "#10B981"];
+const CARD_ACCENTS = ["#F59E0B", "#22C55E", "#2563EB"];
 
 type Props = {
   item: PackageData;
