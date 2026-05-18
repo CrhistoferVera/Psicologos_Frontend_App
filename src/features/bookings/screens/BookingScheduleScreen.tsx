@@ -301,31 +301,49 @@ export default function BookingScheduleScreen() {
               </View>
             ))}
           </View>
-          {weeks.map((week) => {
-            const weekKey = week.find((d) => d !== null)?.key ?? 'empty';
-            return (
-            <View key={weekKey} style={styles.calendarRow}>
-              {week.map((date, di) =>
-                date === null ? (
-                  <View key={`empty-${weekKey}-${di}`} style={styles.calendarCell} />
-                ) : (
-                  <Pressable
-                    key={date.key}
-                    style={[styles.calendarCell, selectedDate === date.key && styles.calendarCellActive]}
-                    onPress={() => setSelectedDate(date.key)}
-                  >
-                    <Text style={[styles.calendarDayNum, selectedDate === date.key && styles.calendarDayNumActive]}>
-                      {Number.parseInt(date.key.slice(8))}
+          {(() => {
+            let lastMonth = '';
+            return weeks.map((week) => {
+              const firstDate = week.find((d) => d !== null);
+              const weekKey = firstDate?.key ?? 'empty';
+              const weekMonth = firstDate ? firstDate.key.slice(0, 7) : '';
+              const showMonthLabel = weekMonth && weekMonth !== lastMonth;
+              if (showMonthLabel) lastMonth = weekMonth;
+              const monthLabel = showMonthLabel
+                ? new Date(`${weekMonth}-15`).toLocaleDateString('es-BO', { month: 'long', year: 'numeric' })
+                : null;
+
+              return (
+                <View key={weekKey}>
+                  {monthLabel && (
+                    <Text style={styles.calendarMonthLabel}>
+                      {monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)}
                     </Text>
-                    {todayKey === date.key && selectedDate !== date.key && (
-                      <View style={styles.calendarCellToday} />
+                  )}
+                  <View style={styles.calendarRow}>
+                    {week.map((date, di) =>
+                      date === null ? (
+                        <View key={`empty-${weekKey}-${di}`} style={styles.calendarCell} />
+                      ) : (
+                        <Pressable
+                          key={date.key}
+                          style={[styles.calendarCell, selectedDate === date.key && styles.calendarCellActive]}
+                          onPress={() => setSelectedDate(date.key)}
+                        >
+                          <Text style={[styles.calendarDayNum, selectedDate === date.key && styles.calendarDayNumActive]}>
+                            {Number.parseInt(date.key.slice(8))}
+                          </Text>
+                          {todayKey === date.key && selectedDate !== date.key && (
+                            <View style={styles.calendarCellToday} />
+                          )}
+                        </Pressable>
+                      )
                     )}
-                  </Pressable>
-                )
-              )}
-            </View>
-            );
-          })}
+                  </View>
+                </View>
+              );
+            });
+          })()}
         </AppCard>
 
         <AppCard>
@@ -549,6 +567,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: appTheme.colors.textMuted,
     fontFamily: appTheme.fonts.body,
+  },
+  calendarMonthLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: appTheme.colors.primary,
+    fontFamily: appTheme.fonts.body,
+    marginTop: 8,
+    marginBottom: 2,
+    paddingLeft: 2,
   },
   calendarRow: {
     flexDirection: 'row',
