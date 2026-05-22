@@ -14,6 +14,7 @@ export type Professional = {
   specialties: string[];
   isOnline: boolean;
   rating?: number;
+  reviewCount?: number;
   prices: ProfessionalPriceMap;
 };
 

@@ -14,6 +14,7 @@ export type CommunicationAccess = {
   sessionEndsAt: string | null;
   reason: CommunicationAccessReason | null;
   message: string | null;
+  hasReview?: boolean;
 };
 
 export function getCommunicationAccess(otherUserId: string) {

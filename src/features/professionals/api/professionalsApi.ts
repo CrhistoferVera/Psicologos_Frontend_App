@@ -72,6 +72,7 @@ function mapRawProfessional(item: any): Professional {
     specialties: parseSpecialties(item?.specialties ?? item?.tags ?? item?.specialty),
     isOnline: Boolean(item?.isOnline ?? false),
     rating: typeof item?.rating === "number" ? item.rating : undefined,
+    reviewCount: typeof item?.reviewCount === "number" ? item.reviewCount : undefined,
     prices: {
       chat: basePrice > 0 ? basePrice : (servicePrices.chat ?? null),
       call: servicePrices.call ?? null,
