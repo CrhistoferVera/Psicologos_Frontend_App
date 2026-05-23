@@ -1,55 +1,24 @@
 import { useEffect, useState } from "react";
-import { Alert, Share, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Share, StyleSheet, Text, TouchableOpacity, View, Pressable, ScrollView } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import * as Clipboard from "expo-clipboard";
-import AppButton from "../../../components/ui/AppButton";
-import AppCard from "../../../components/ui/AppCard";
-import AppScreen from "../../../components/ui/AppScreen";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../../context/AuthContext";
 import { appTheme } from "../../../theme/appTheme";
-import { getMyReferrals, type MyReferralsData, type ReferralHistoryItem } from "../api/referralsApi";
+import { getMyReferrals, type MyReferralsData } from "../api/referralsApi";
+import ReferralStatsRow from "../components/ReferralStatsRow";
 
-const STATUS_LABEL: Record<string, string> = {
-  PENDING: "Pendiente",
-  QUALIFIED: "Valido",
-};
-
-const CASE_LABEL: Record<string, string> = {
-  PRO_TO_PRO: "Pro → Pro",
-  PRO_TO_USER: "Pro → Cliente",
-  USER_TO_USER: "Cliente → Cliente",
-};
-
-const TYPE_LABEL: Record<string, string> = {
-  SESSION: "Sesion",
-  PACKAGE: "Paquete",
-};
-
-function ReferralRow({ item }: { item: ReferralHistoryItem }) {
-  const fullName = item.referred.fullName || item.referred.email || "Usuario";
-  const status = STATUS_LABEL[item.status] ?? item.status;
-  const caseLabel = item.case ? CASE_LABEL[item.case] : null;
-
+function BenefitItem({ icon, title, desc }: { icon: string; title: string; desc: string }) {
   return (
-    <View style={styles.referralRow}>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.referralName}>{fullName}</Text>
-        <Text style={styles.referralMeta}>
-          {item.referred.role} · {new Date(item.referred.createdAt).toLocaleDateString()}
-        </Text>
-        {caseLabel ? <Text style={styles.referralMeta}>Caso: {caseLabel}</Text> : null}
-        {item.rewardPaidAt ? (
-          <Text style={[styles.referralMeta, { color: appTheme.colors.success }]}>
-            Recompensa pagada el {new Date(item.rewardPaidAt).toLocaleDateString()}
-          </Text>
-        ) : null}
-        {item.rewards.length > 0 ? (
-          <Text style={[styles.referralMeta, { color: appTheme.colors.success }]}>
-            +{item.totalRewardsEarned.toFixed(2)} ganado
-          </Text>
-        ) : null}
+    <View style={styles.benefitRow}>
+      <View style={styles.benefitIconWrap}>
+        <Text style={styles.benefitIcon}>{icon}</Text>
       </View>
-      <View style={styles.badge}>
-        <Text style={styles.badgeText}>{status}</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.benefitTitle}>{title}</Text>
+        <Text style={styles.benefitDesc}>{desc}</Text>
       </View>
     </View>
   );
@@ -57,6 +26,7 @@ function ReferralRow({ item }: { item: ReferralHistoryItem }) {
 
 export default function ReferralsScreen() {
   const { user } = useAuth();
+  const router = useRouter();
   const [data, setData] = useState<MyReferralsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,9 +35,7 @@ export default function ReferralsScreen() {
   const isProfessional = role === "PROFESSIONAL" || role === "ANFITRIONA";
   const rewardPercent = data?.rules.referralRewardPercent ?? 5;
 
-  useEffect(() => {
-    void load();
-  }, []);
+  useEffect(() => { void load(); }, []);
 
   async function load() {
     try {
@@ -75,7 +43,7 @@ export default function ReferralsScreen() {
       setError(null);
       setData(await getMyReferrals());
     } catch {
-      setError("No se pudo cargar la informacion de referidos.");
+      setError("No se pudo cargar la información de referidos.");
     } finally {
       setLoading(false);
     }
@@ -84,205 +52,301 @@ export default function ReferralsScreen() {
   async function handleCopy() {
     if (!data?.code) return;
     await Clipboard.setStringAsync(data.code);
-    Alert.alert("Copiado", "Tu codigo de referido fue copiado.");
+    Alert.alert("Copiado", "Tu código de referido fue copiado.");
   }
 
   async function handleShare() {
     if (!data?.code) return;
-    await Share.share({
-      message: `Usa mi codigo de referido ${data.code} para registrarte en SanaMente.`,
-    });
+    await Share.share({ message: `Usa mi código de referido ${data.code} para registrarte en SanaMente.` });
   }
 
-  const history = data?.history ?? [];
-  const allRewards = history.flatMap((h) => h.rewards);
-
-  const headerText = isProfessional
-    ? `Comparte tu codigo y gana el ${rewardPercent}% de cada sesion que generen los profesionales que invites. Para clientes, ganas el ${rewardPercent}% en su primera compra.`
-    : `Comparte tu codigo y gana el ${rewardPercent}% en la primera compra de cada persona que invites.`;
-
   return (
-    <AppScreen scroll>
-      <View style={styles.container}>
+    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+      <View style={styles.pageHeader}>
+        <Pressable style={styles.backBtn} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={18} color={appTheme.colors.text} />
+        </Pressable>
         <Text style={styles.title}>Programa de referidos</Text>
-        <Text style={styles.subtitle}>{headerText}</Text>
+      </View>
 
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-        {/* Código de referido */}
-        <AppCard>
-          <Text style={styles.label}>Tu codigo de referido</Text>
-          <Text style={styles.code}>{loading ? "Cargando..." : data?.code || "-"}</Text>
-          <View style={styles.actions}>
-            <AppButton title="Copiar" variant="secondary" onPress={handleCopy} style={{ flex: 1 }} disabled={loading || !data?.code} />
-            <AppButton title="Compartir" onPress={handleShare} style={{ flex: 1 }} disabled={loading || !data?.code} />
+      <ScrollView contentContainerStyle={styles.container}>
+        {error ? (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorText}>⚠ {error}</Text>
           </View>
-        </AppCard>
-
-        {/* Resumen */}
-        <AppCard>
-          <Text style={styles.sectionTitle}>Resumen</Text>
-          <Text style={styles.progressValue}>
-            {data?.invitedCount ?? 0} personas invitadas
-          </Text>
-          <Text style={styles.progressValue}>
-            +{(data?.totalRewardsEarned ?? 0).toFixed(2)} ganado en total
-          </Text>
-        </AppCard>
-
-        {/* Historial de recompensas (si tiene) */}
-        {allRewards.length > 0 ? (
-          <AppCard>
-            <Text style={styles.sectionTitle}>Recompensas recibidas</Text>
-            {allRewards.slice(0, 20).map((reward) => (
-              <View key={reward.id} style={styles.rewardRow}>
-                <Text style={styles.meta}>
-                  {new Date(reward.createdAt).toLocaleDateString()} · {TYPE_LABEL[reward.type] ?? reward.type}
-                  {reward.case ? ` · ${CASE_LABEL[reward.case] ?? reward.case}` : ""}
-                </Text>
-                <Text style={styles.rewardAmount}>
-                  +{reward.rewardAmount.toFixed(2)} {reward.currency}
-                </Text>
-              </View>
-            ))}
-          </AppCard>
         ) : null}
 
-        {/* Lista de referidos */}
-        <View style={styles.historyHeader}>
-          <Text style={styles.sectionTitle}>Referidos</Text>
-          <TouchableOpacity onPress={load}>
-            <Text style={styles.refresh}>Actualizar</Text>
-          </TouchableOpacity>
+        {/* Stats */}
+        <ReferralStatsRow data={data} />
+
+        {/* Código */}
+        <View style={styles.codeCard}>
+          <Text style={styles.codeLabel}>Tu código de referido</Text>
+          <View style={styles.codeBox}>
+            <Text style={styles.codeText}>{loading ? "•••••" : data?.code || "-"}</Text>
+          </View>
+          <View style={styles.codeActions}>
+            <TouchableOpacity style={styles.codeBtn} onPress={handleCopy} disabled={loading || !data?.code}>
+              <Text style={styles.codeBtnText}>📋  Copiar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.codeBtn, styles.codeBtnPrimary]} onPress={handleShare} disabled={loading || !data?.code}>
+              <Text style={[styles.codeBtnText, { color: "#FFFFFF" }]}>↗  Compartir</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {loading ? (
-          <Text style={styles.meta}>Cargando...</Text>
-        ) : history.length === 0 ? (
-          <AppCard>
-            <Text style={styles.meta}>Todavia no tienes referidos.</Text>
-          </AppCard>
-        ) : (
-          history.map((item) => <ReferralRow key={item.id} item={item} />)
-        )}
-      </View>
-    </AppScreen>
+        {/* Cómo funciona */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Cómo funciona</Text>
+          {isProfessional ? (
+            <>
+              <BenefitItem icon="🤝" title={`Psicólogos · ${rewardPercent}% recurrente`} desc="Cada vez que un cliente pague una sesión al psicólogo que invitaste, recibes el porcentaje automáticamente." />
+              <View style={styles.divider} />
+              <BenefitItem icon="👤" title={`Clientes · ${rewardPercent}% una vez`} desc="Cuando el cliente referido realice su primera compra, recibes tu recompensa." />
+            </>
+          ) : (
+            <BenefitItem icon="🎁" title={`${rewardPercent}% en la primera compra`} desc="Cuando tu amigo realice su primera compra en SanaMente, recibes tu recompensa de inmediato." />
+          )}
+        </View>
+
+        {/* Navegación a otras pantallas */}
+        <View style={styles.navRow}>
+          <TouchableOpacity style={styles.navCard} onPress={() => router.push("./referral-rewards" as any)}>
+            <LinearGradient colors={["#064E3B", "#065F46"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.navIconWrap}>
+              <Ionicons name="gift" size={22} color="#FFFFFF" />
+            </LinearGradient>
+            <Text style={styles.navCardTitle}>Recompensas</Text>
+            <Text style={styles.navCardSub}>Ver historial</Text>
+            <Ionicons name="arrow-forward" size={14} color={appTheme.colors.textMuted} style={styles.navArrow} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.navCard} onPress={() => router.push("./my-referrals" as any)}>
+            <LinearGradient colors={["#1E3A8A", "#1D4ED8"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.navIconWrap}>
+              <Ionicons name="people" size={22} color="#FFFFFF" />
+            </LinearGradient>
+            <Text style={styles.navCardTitle}>Mis referidos</Text>
+            <Text style={styles.navCardSub}>Ver personas</Text>
+            <Ionicons name="arrow-forward" size={14} color={appTheme.colors.textMuted} style={styles.navArrow} />
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    gap: 12,
+  safe: {
+    flex: 1,
+    backgroundColor: appTheme.colors.background,
+  },
+  pageHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingTop: 8,
+    paddingBottom: 12,
+  },
+  backBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#F1F5F9",
+    alignItems: "center",
+    justifyContent: "center",
   },
   title: {
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.heading,
     fontWeight: "700",
-    fontSize: 24,
+    fontSize: 22,
   },
-  subtitle: {
-    color: "#475569",
+  container: {
+    padding: 14,
+    paddingTop: 6,
+    gap: 14,
+  },
+  errorBanner: {
+    backgroundColor: "#FEE2E2",
+    borderRadius: appTheme.radius.md,
+    padding: 12,
+  },
+  errorText: {
+    color: appTheme.colors.danger,
     fontFamily: appTheme.fonts.body,
     fontSize: 13,
-    lineHeight: 19,
   },
-  label: {
-    color: appTheme.colors.textMuted,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 12,
-  },
-  code: {
-    color: appTheme.colors.primary,
-    fontFamily: appTheme.fonts.heading,
-    fontWeight: "800",
-    fontSize: 26,
-    marginVertical: 4,
-  },
-  actions: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 8,
-  },
-  sectionTitle: {
-    color: appTheme.colors.text,
-    fontFamily: appTheme.fonts.heading,
-    fontWeight: "700",
-    fontSize: 16,
-    marginBottom: 6,
-  },
-  progressValue: {
-    color: appTheme.colors.text,
-    fontFamily: appTheme.fonts.heading,
-    fontWeight: "700",
-    fontSize: 18,
-  },
-  meta: {
-    color: "#475569",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 2,
-  },
-  rewardRow: {
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: appTheme.colors.border,
-  },
-  rewardAmount: {
-    color: appTheme.colors.success,
-    fontFamily: appTheme.fonts.heading,
-    fontWeight: "700",
-    fontSize: 13,
-    marginTop: 2,
-  },
-  historyHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  refresh: {
-    color: appTheme.colors.primary,
-    fontFamily: appTheme.fonts.body,
-    fontWeight: "700",
-    fontSize: 13,
-  },
-  referralRow: {
+  codeCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: appTheme.radius.lg,
     borderWidth: 1,
     borderColor: appTheme.colors.border,
-    padding: 12,
-    gap: 4,
+    padding: 20,
+    alignItems: "center",
+    gap: 12,
+  },
+  codeLabel: {
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  codeBox: {
+    backgroundColor: "#F0F7FF",
+    borderRadius: appTheme.radius.md,
+    borderWidth: 2,
+    borderColor: "#BFDBFE",
+    borderStyle: "dashed",
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+  },
+  codeText: {
+    color: appTheme.colors.primary,
+    fontFamily: appTheme.fonts.heading,
+    fontWeight: "800",
+    fontSize: 28,
+    letterSpacing: 4,
+  },
+  codeActions: {
     flexDirection: "row",
+    gap: 10,
+    width: "100%",
+  },
+  codeBtn: {
+    flex: 1,
+    borderRadius: appTheme.radius.md,
+    borderWidth: 1.5,
+    borderColor: appTheme.colors.border,
+    paddingVertical: 10,
     alignItems: "center",
   },
-  referralName: {
+  codeBtnPrimary: {
+    backgroundColor: appTheme.colors.primary,
+    borderColor: appTheme.colors.primary,
+  },
+  codeBtnText: {
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.heading,
+    fontWeight: "700",
+    fontSize: 13,
+  },
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: appTheme.radius.lg,
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+    padding: 16,
+  },
+  cardTitle: {
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.heading,
+    fontWeight: "700",
+    fontSize: 15,
+    marginBottom: 12,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: appTheme.colors.border,
+    marginVertical: 10,
+  },
+  benefitRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  benefitIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "#F0F7FF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  benefitIcon: {
+    fontSize: 20,
+  },
+  benefitTitle: {
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.heading,
+    fontWeight: "700",
+    fontSize: 13,
+    marginBottom: 3,
+  },
+  benefitDesc: {
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  navBtn: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: appTheme.radius.lg,
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  navRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  navCard: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    borderRadius: appTheme.radius.lg,
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+    padding: 16,
+    alignItems: "flex-start",
+    gap: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  navIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+  navCardTitle: {
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.heading,
     fontWeight: "700",
     fontSize: 14,
   },
-  referralMeta: {
-    color: "#475569",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 11,
-  },
-  badge: {
-    backgroundColor: "#EEF2FF",
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  badgeText: {
-    color: "#312E81",
-    fontFamily: appTheme.fonts.body,
-    fontWeight: "700",
-    fontSize: 11,
-  },
-  errorText: {
-    color: appTheme.colors.danger,
+  navCardSub: {
+    color: appTheme.colors.textMuted,
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
+  },
+  navArrow: {
+    marginTop: 4,
+  },
+  navBtnLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  navBtnIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: "#F0F7FF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  navBtnText: {
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.heading,
+    fontWeight: "700",
+    fontSize: 14,
   },
 });
