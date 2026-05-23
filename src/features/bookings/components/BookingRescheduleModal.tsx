@@ -150,6 +150,7 @@ export default function BookingRescheduleModal({
   }, [dates]);
 
   const selectedSlot = slots.find((slot) => slot.startAt === selectedSlotStartAt) ?? null;
+  const selectedDateOption = dates.find((item) => item.key === selectedDate) ?? null;
 
   function handleSubmit() {
     if (!selectedSlot) {
@@ -188,34 +189,58 @@ export default function BookingRescheduleModal({
                 </View>
               ))}
             </View>
-            {weeks.map((week, wi) => (
-              <View key={`week-${wi}`} style={styles.calendarRow}>
-                {week.map((date, di) =>
-                  date === null ? (
-                    <View key={`empty-${wi}-${di}`} style={styles.calendarCell} />
-                  ) : (
-                    <Pressable
-                      key={date.key}
-                      style={[styles.calendarCell, selectedDate === date.key && styles.calendarCellActive]}
-                      onPress={() => setSelectedDate(date.key)}
-                    >
-                      <Text style={[styles.calendarDayNum, selectedDate === date.key && styles.calendarDayNumActive]}>
-                        {Number.parseInt(date.key.slice(8), 10)}
+            {(() => {
+              let lastMonth = '';
+              return weeks.map((week) => {
+                const firstDate = week.find((d) => d !== null);
+                const weekKey = firstDate?.key ?? 'empty';
+                const weekMonth = firstDate ? firstDate.key.slice(0, 7) : '';
+                const showMonthLabel = weekMonth && weekMonth !== lastMonth;
+                if (showMonthLabel) lastMonth = weekMonth;
+                const monthLabel = showMonthLabel
+                  ? new Date(`${weekMonth}-15`).toLocaleDateString('es-BO', { month: 'long', year: 'numeric' })
+                  : null;
+
+                return (
+                  <View key={weekKey}>
+                    {monthLabel && (
+                      <Text style={styles.calendarMonthLabel}>
+                        {monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)}
                       </Text>
-                      {todayKey === date.key && selectedDate !== date.key && (
-                        <View style={styles.calendarCellToday} />
+                    )}
+                    <View style={styles.calendarRow}>
+                      {week.map((date, di) =>
+                        date === null ? (
+                          <View key={`empty-${weekKey}-${di}`} style={styles.calendarCell} />
+                        ) : (
+                          <Pressable
+                            key={date.key}
+                            style={[styles.calendarCell, selectedDate === date.key && styles.calendarCellActive]}
+                            onPress={() => setSelectedDate(date.key)}
+                          >
+                            <Text style={[styles.calendarDayNum, selectedDate === date.key && styles.calendarDayNumActive]}>
+                              {Number.parseInt(date.key.slice(8), 10)}
+                            </Text>
+                            {todayKey === date.key && selectedDate !== date.key && (
+                              <View style={styles.calendarCellToday} />
+                            )}
+                          </Pressable>
+                        ),
                       )}
-                    </Pressable>
-                  ),
-                )}
-              </View>
-            ))}
+                    </View>
+                  </View>
+                );
+              });
+            })()}
 
             <Text style={styles.label}>Horarios disponibles</Text>
             {loadingSlots ? (
               <Text style={styles.muted}>Buscando horarios disponibles...</Text>
             ) : slots.length === 0 ? (
-              <Text style={styles.muted}>No hay horarios disponibles para este día.</Text>
+              <Text style={styles.muted}>
+                No hay horarios disponibles para este día
+                {selectedDateOption ? ` (${selectedDateOption.label})` : ''}.
+              </Text>
             ) : (
               <View style={styles.slotsGrid}>
                 {slots.map((slot) => {
@@ -337,6 +362,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: appTheme.colors.textMuted,
     fontFamily: appTheme.fonts.body,
+  },
+  calendarMonthLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: appTheme.colors.primary,
+    fontFamily: appTheme.fonts.body,
+    marginTop: 8,
+    marginBottom: 2,
+    paddingLeft: 2,
   },
   calendarRow: {
     flexDirection: 'row',

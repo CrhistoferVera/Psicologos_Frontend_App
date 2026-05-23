@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -7,6 +7,8 @@ import AppButton from '../../../components/ui/AppButton';
 import AppScreen from '../../../components/ui/AppScreen';
 import {
   acceptBookingRescheduleRequest,
+  cancelBookingRescheduleRequest,
+  createBookingRescheduleRequest,
   getMyBookingRescheduleRequests,
   rejectBookingRescheduleRequest,
   type BookingRescheduleRequest,
@@ -14,6 +16,10 @@ import {
 } from '../../../api/bookings';
 import { getMyChats } from '../../../api/messages';
 import { getProfessionalBookings, type ProfessionalBooking } from '../../../api/sessionOfferings';
+import BookingRescheduleModal, {
+  type BookingRescheduleModalBooking,
+} from '../../bookings/components/BookingRescheduleModal';
+import { useAuth } from '../../../context/AuthContext';
 import { appTheme } from '../../../theme/appTheme';
 import { formatMoneyByCurrency } from '../../../utils/money';
 
@@ -54,11 +60,11 @@ function getCommunicationStateLabel(booking: ProfessionalBooking, now = new Date
   const end = new Date(booking.scheduledEndAt);
 
   if (booking.paymentStatus !== 'PAID') {
-    return 'Comunicación bloqueada: pago pendiente.';
+    return 'Comunicacion bloqueada: pago pendiente.';
   }
 
   if (booking.status !== 'CONFIRMED') {
-    return 'Comunicación bloqueada: reserva no confirmada.';
+    return 'Comunicacion bloqueada: reserva no confirmada.';
   }
 
   if (now < start) {
@@ -66,10 +72,10 @@ function getCommunicationStateLabel(booking: ProfessionalBooking, now = new Date
   }
 
   if (now > end) {
-    return `Sesión finalizada a las ${formatHour(booking.scheduledEndAt)}.`;
+    return `Sesion finalizada a las ${formatHour(booking.scheduledEndAt)}.`;
   }
 
-  return `Sesión activa hasta ${formatHour(booking.scheduledEndAt)}.`;
+  return `Sesion activa hasta ${formatHour(booking.scheduledEndAt)}.`;
 }
 
 function getRequestStatusLabel(status: BookingRescheduleRequestStatus) {
@@ -90,6 +96,37 @@ function getRequestStatusColor(status: BookingRescheduleRequestStatus) {
   return '#475569';
 }
 
+function sortRequestsByNewest(requests: BookingRescheduleRequest[]) {
+  return [...requests].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+}
+
+function isAtLeast24HoursAhead(isoDate: string, now = new Date()) {
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) return false;
+  return date.getTime() > now.getTime() + 24 * 60 * 60 * 1000;
+}
+
+function canCreateRescheduleRequest(
+  booking: ProfessionalBooking,
+  pendingRequest: BookingRescheduleRequest | null,
+) {
+  if (booking.status !== 'CONFIRMED' || booking.paymentStatus !== 'PAID') return false;
+  if (pendingRequest) return false;
+  return isAtLeast24HoursAhead(booking.scheduledStartAt);
+}
+
+function getRescheduleBlockedMessage(booking: ProfessionalBooking) {
+  if (booking.status !== 'CONFIRMED' || booking.paymentStatus !== 'PAID') {
+    return 'Disponible solo para citas confirmadas y pagadas.';
+  }
+  if (!isAtLeast24HoursAhead(booking.scheduledStartAt)) {
+    return 'Solo puedes reprogramar con al menos 24 horas de anticipacion.';
+  }
+  return 'No se puede solicitar reprogramacion para esta cita.';
+}
+
 function getApiErrorMessage(err: any, fallback: string) {
   const raw = err?.response?.data?.message;
   if (Array.isArray(raw)) return raw.join('\n');
@@ -99,6 +136,7 @@ function getApiErrorMessage(err: any, fallback: string) {
 }
 
 export default function ProfessionalBookingsScreen() {
+  const { user } = useAuth();
   const router = useRouter();
   const [items, setItems] = useState<ProfessionalBooking[]>([]);
   const [rescheduleRequests, setRescheduleRequests] = useState<BookingRescheduleRequest[]>([]);
@@ -106,6 +144,9 @@ export default function ProfessionalBookingsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [openingChatBookingId, setOpeningChatBookingId] = useState<string | null>(null);
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
+  const [modalBooking, setModalBooking] = useState<ProfessionalBooking | null>(null);
+  const [modalReason, setModalReason] = useState('');
+  const [creatingRequest, setCreatingRequest] = useState(false);
 
   async function load(isRefresh = false) {
     if (isRefresh) setRefreshing(true);
@@ -145,17 +186,59 @@ export default function ProfessionalBookingsScreen() {
       existing.push(row);
       grouped.set(row.bookingId, existing);
     }
+    for (const [bookingId, rows] of grouped.entries()) {
+      grouped.set(bookingId, sortRequestsByNewest(rows));
+    }
     return grouped;
   }, [rescheduleRequests]);
+
+  function openRescheduleModal(booking: ProfessionalBooking) {
+    if (!booking.professionalId || !booking.sessionOfferingId) {
+      Alert.alert('No disponible', 'No se pudo identificar la sesion para reprogramar.');
+      return;
+    }
+    setModalBooking(booking);
+    setModalReason('');
+  }
+
+  function closeRescheduleModal() {
+    if (creatingRequest) return;
+    setModalBooking(null);
+    setModalReason('');
+  }
+
+  async function handleSubmitRescheduleRequest(selection: {
+    proposedStartAt: string;
+    proposedTimezone: string;
+    reason?: string;
+  }) {
+    if (!modalBooking) return;
+
+    try {
+      setCreatingRequest(true);
+      await createBookingRescheduleRequest(modalBooking.id, {
+        proposedStartAt: selection.proposedStartAt,
+        proposedTimezone: selection.proposedTimezone,
+        reason: selection.reason,
+      });
+      Alert.alert('Solicitud enviada', 'La solicitud de reprogramacion quedo pendiente.');
+      closeRescheduleModal();
+      await load(true);
+    } catch (err: any) {
+      Alert.alert('Error', getApiErrorMessage(err, 'No se pudo crear la solicitud de reprogramacion.'));
+    } finally {
+      setCreatingRequest(false);
+    }
+  }
 
   async function handleAcceptRequest(requestId: string) {
     try {
       setProcessingRequestId(requestId);
       await acceptBookingRescheduleRequest(requestId);
-      Alert.alert('Reprogramación aceptada', 'La cita fue reprogramada correctamente.');
+      Alert.alert('Reprogramacion aceptada', 'La cita fue reprogramada correctamente.');
       await load(true);
     } catch (err: any) {
-      Alert.alert('Error', getApiErrorMessage(err, 'No se pudo aceptar la reprogramación.'));
+      Alert.alert('Error', getApiErrorMessage(err, 'No se pudo aceptar la reprogramacion.'));
     } finally {
       setProcessingRequestId(null);
     }
@@ -165,10 +248,23 @@ export default function ProfessionalBookingsScreen() {
     try {
       setProcessingRequestId(requestId);
       await rejectBookingRescheduleRequest(requestId);
-      Alert.alert('Solicitud rechazada', 'La solicitud de reprogramación fue rechazada.');
+      Alert.alert('Solicitud rechazada', 'La solicitud de reprogramacion fue rechazada.');
       await load(true);
     } catch (err: any) {
-      Alert.alert('Error', getApiErrorMessage(err, 'No se pudo rechazar la reprogramación.'));
+      Alert.alert('Error', getApiErrorMessage(err, 'No se pudo rechazar la reprogramacion.'));
+    } finally {
+      setProcessingRequestId(null);
+    }
+  }
+
+  async function handleCancelRequest(requestId: string) {
+    try {
+      setProcessingRequestId(requestId);
+      await cancelBookingRescheduleRequest(requestId);
+      Alert.alert('Solicitud cancelada', 'La solicitud de reprogramacion fue cancelada.');
+      await load(true);
+    } catch (err: any) {
+      Alert.alert('Error', getApiErrorMessage(err, 'No se pudo cancelar la reprogramacion.'));
     } finally {
       setProcessingRequestId(null);
     }
@@ -178,7 +274,7 @@ export default function ProfessionalBookingsScreen() {
     if (openingChatBookingId) return;
     const clientId = booking.client?.id;
     if (!clientId) {
-      Alert.alert('No disponible', 'No se encontró el cliente para esta reserva.');
+      Alert.alert('No disponible', 'No se encontro el cliente para esta reserva.');
       return;
     }
 
@@ -211,6 +307,17 @@ export default function ProfessionalBookingsScreen() {
     }
   }
 
+  const modalBookingSelection: BookingRescheduleModalBooking | null = modalBooking
+    ? {
+        professionalId: modalBooking.professionalId ?? '',
+        sessionOfferingId: modalBooking.sessionOfferingId ?? '',
+        scheduledStartAt: modalBooking.scheduledStartAt,
+        scheduledEndAt: modalBooking.scheduledEndAt,
+        timezone: modalBooking.timezone,
+        sessionDurationMinutes: modalBooking.sessionOffering?.durationMinutes,
+      }
+    : null;
+
   return (
     <AppScreen scroll contentPadding={0}>
       <ScrollView
@@ -225,18 +332,21 @@ export default function ProfessionalBookingsScreen() {
         </View>
 
         <AppCard>
-          <Text style={styles.blockTitle}>Próximas y recientes</Text>
+          <Text style={styles.blockTitle}>Proximas y recientes</Text>
           {loading ? (
             <Text style={styles.muted}>Cargando reservas...</Text>
           ) : sortedItems.length === 0 ? (
-            <Text style={styles.muted}>Aún no tienes reservas registradas.</Text>
+            <Text style={styles.muted}>Aun no tienes reservas registradas.</Text>
           ) : (
             <View style={styles.list}>
               {sortedItems.map((booking) => {
                 const requests = requestsByBookingId.get(booking.id) ?? [];
                 const pendingRequest = requests.find((item) => item.status === 'PENDING') ?? null;
                 const latestRequest = requests[0] ?? null;
-                const isPendingByClient = pendingRequest?.requestedByRole === 'USER';
+                const canCreate = canCreateRescheduleRequest(booking, pendingRequest);
+                const isPendingByMe = pendingRequest ? pendingRequest.requestedByUserId === user?.id : false;
+                const isPendingByOther = pendingRequest ? pendingRequest.requestedByUserId !== user?.id : false;
+                const requestHistory = requests.slice(1, 4);
 
                 const fullName =
                   `${booking.client?.firstName ?? ''} ${booking.client?.lastName ?? ''}`.trim() || 'Cliente';
@@ -251,13 +361,13 @@ export default function ProfessionalBookingsScreen() {
                 return (
                   <View key={booking.id} style={styles.itemCard}>
                     <View style={styles.itemTop}>
-                      <Text style={styles.itemTitle}>{booking.sessionOffering?.title ?? 'Sesión'}</Text>
+                      <Text style={styles.itemTitle}>{booking.sessionOffering?.title ?? 'Sesion'}</Text>
                       <Text style={styles.status}>{statusLabel(booking.status)}</Text>
                     </View>
                     <Text style={styles.meta}>Cliente: {fullName}</Text>
                     <Text style={styles.meta}>Fecha/Hora: {formatDateTime(booking.scheduledStartAt)}</Text>
                     <Text style={styles.meta}>Monto: {amount}</Text>
-                    <Text style={styles.meta}>Método: {booking.paymentMethod ?? '-'}</Text>
+                    <Text style={styles.meta}>Metodo: {booking.paymentMethod ?? '-'}</Text>
                     <Text style={styles.meta}>Moneda: {booking.currency}</Text>
 
                     <Text style={[styles.commLabel, activeNow && styles.commLabelActive]}>
@@ -298,26 +408,50 @@ export default function ProfessionalBookingsScreen() {
                         </View>
                       ) : null}
 
-                      {pendingRequest && isPendingByClient ? (
-                        <View style={styles.rowActions}>
+                      {requestHistory.length > 0 ? (
+                        <View style={styles.requestHistoryWrap}>
+                          {requestHistory.map((item) => (
+                            <Text key={item.id} style={styles.requestHistoryItem}>
+                              {getRequestStatusLabel(item.status)} · {formatDateTime(item.proposedStartAt)}
+                            </Text>
+                          ))}
+                        </View>
+                      ) : null}
+
+                      {pendingRequest ? (
+                        isPendingByOther ? (
+                          <View style={styles.rowActions}>
+                            <AppButton
+                              title={processingRequestId === pendingRequest.id ? 'Procesando...' : 'Aceptar reprogramacion'}
+                              onPress={() => void handleAcceptRequest(pendingRequest.id)}
+                              loading={processingRequestId === pendingRequest.id}
+                              disabled={processingRequestId !== null}
+                            />
+                            <AppButton
+                              title="Rechazar reprogramacion"
+                              variant="secondary"
+                              onPress={() => void handleRejectRequest(pendingRequest.id)}
+                              disabled={processingRequestId !== null}
+                            />
+                          </View>
+                        ) : isPendingByMe ? (
                           <AppButton
-                            title={processingRequestId === pendingRequest.id ? 'Procesando...' : 'Aceptar reprogramación'}
-                            onPress={() => void handleAcceptRequest(pendingRequest.id)}
+                            title={processingRequestId === pendingRequest.id ? 'Procesando...' : 'Cancelar solicitud'}
+                            variant="secondary"
+                            onPress={() => void handleCancelRequest(pendingRequest.id)}
                             loading={processingRequestId === pendingRequest.id}
                             disabled={processingRequestId !== null}
                           />
-                          <AppButton
-                            title="Rechazar reprogramación"
-                            variant="secondary"
-                            onPress={() => void handleRejectRequest(pendingRequest.id)}
-                            disabled={processingRequestId !== null}
-                          />
-                        </View>
+                        ) : null
+                      ) : canCreate ? (
+                        <AppButton
+                          title="Solicitar reprogramacion"
+                          variant="secondary"
+                          onPress={() => openRescheduleModal(booking)}
+                        />
                       ) : (
-                        <Text style={styles.requestMeta}>Sin solicitudes pendientes del cliente para esta cita.</Text>
+                        <Text style={styles.requestMeta}>{getRescheduleBlockedMessage(booking)}</Text>
                       )}
-
-                      {/* Flujo profesional -> cliente preparado en backend, oculto temporalmente en UI hasta requerimiento. */}
                     </View>
                   </View>
                 );
@@ -326,6 +460,16 @@ export default function ProfessionalBookingsScreen() {
           )}
         </AppCard>
       </ScrollView>
+
+      <BookingRescheduleModal
+        visible={!!modalBooking}
+        booking={modalBookingSelection}
+        reasonValue={modalReason}
+        onChangeReason={setModalReason}
+        onCancel={closeRescheduleModal}
+        onSubmit={(selection) => void handleSubmitRescheduleRequest(selection)}
+        submitting={creatingRequest}
+      />
     </AppScreen>
   );
 }
@@ -466,6 +610,15 @@ const styles = StyleSheet.create({
   requestMeta: {
     fontSize: 12,
     color: '#334155',
+    fontFamily: appTheme.fonts.body,
+  },
+  requestHistoryWrap: {
+    marginTop: 2,
+    gap: 2,
+  },
+  requestHistoryItem: {
+    fontSize: 11,
+    color: '#64748B',
     fontFamily: appTheme.fonts.body,
   },
   rowActions: {
