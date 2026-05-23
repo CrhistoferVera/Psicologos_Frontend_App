@@ -53,6 +53,12 @@ function isAtLeast24HoursAhead(isoDate: string, now = new Date()) {
   return date.getTime() > now.getTime() + 24 * 60 * 60 * 1000;
 }
 
+function sortRequestsByNewest(requests: BookingRescheduleRequest[]) {
+  return [...requests].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+}
+
 function getRequestStatusLabel(status: BookingRescheduleRequestStatus) {
   if (status === 'PENDING') return 'Pendiente';
   if (status === 'ACCEPTED') return 'Aceptada';
@@ -129,6 +135,9 @@ export default function MyBookingsScreen() {
       existing.push(row);
       grouped.set(row.bookingId, existing);
     }
+    for (const [bookingId, rows] of grouped.entries()) {
+      grouped.set(bookingId, sortRequestsByNewest(rows));
+    }
     return grouped;
   }, [rescheduleRequests]);
 
@@ -136,6 +145,16 @@ export default function MyBookingsScreen() {
     if (booking.status !== 'CONFIRMED' || booking.paymentStatus !== 'PAID') return false;
     if (pendingRequest) return false;
     return isAtLeast24HoursAhead(booking.scheduledStartAt);
+  }
+
+  function getRescheduleBlockedMessage(booking: Booking) {
+    if (booking.status !== 'CONFIRMED' || booking.paymentStatus !== 'PAID') {
+      return 'Disponible solo para citas confirmadas y pagadas.';
+    }
+    if (!isAtLeast24HoursAhead(booking.scheduledStartAt)) {
+      return 'Solo puedes reprogramar con al menos 24 horas de anticipacion.';
+    }
+    return 'No se puede solicitar reprogramacion para esta cita.';
   }
 
   function openRescheduleModal(booking: Booking) {
@@ -257,6 +276,7 @@ export default function MyBookingsScreen() {
             const canCreate = canCreateRescheduleRequest(booking, pendingRequest);
             const isPendingByMe = pendingRequest ? pendingRequest.requestedByUserId === user?.id : false;
             const isPendingByOther = pendingRequest ? pendingRequest.requestedByUserId !== user?.id : false;
+            const requestHistory = requests.slice(1, 4);
 
             const amount = formatMoneyByCurrency(
               booking.currency === 'USD' ? booking.priceUsd : booking.priceBob,
@@ -318,6 +338,16 @@ export default function MyBookingsScreen() {
                     </View>
                   ) : null}
 
+                  {requestHistory.length > 0 ? (
+                    <View style={styles.requestHistoryWrap}>
+                      {requestHistory.map((item) => (
+                        <Text key={item.id} style={styles.requestHistoryItem}>
+                          {getRequestStatusLabel(item.status)} · {formatDateTime(item.proposedStartAt)}
+                        </Text>
+                      ))}
+                    </View>
+                  ) : null}
+
                   {pendingRequest ? (
                     isPendingByOther ? (
                       <View style={styles.rowActions}>
@@ -350,9 +380,7 @@ export default function MyBookingsScreen() {
                       onPress={() => openRescheduleModal(booking)}
                     />
                   ) : (
-                    <Text style={styles.requestMeta}>
-                      Solo puedes reprogramar con al menos 24 horas de anticipación.
-                    </Text>
+                    <Text style={styles.requestMeta}>{getRescheduleBlockedMessage(booking)}</Text>
                   )}
                 </View>
               </Pressable>
@@ -492,6 +520,15 @@ const styles = StyleSheet.create({
   requestMeta: {
     fontSize: 12,
     color: '#334155',
+    fontFamily: appTheme.fonts.body,
+  },
+  requestHistoryWrap: {
+    marginTop: 2,
+    gap: 2,
+  },
+  requestHistoryItem: {
+    fontSize: 11,
+    color: '#64748B',
     fontFamily: appTheme.fonts.body,
   },
   rowActions: {
