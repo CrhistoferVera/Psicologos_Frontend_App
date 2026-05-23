@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, Share, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import AppButton from "../../../components/ui/AppButton";
@@ -10,14 +10,24 @@ import { getMyReferrals, type MyReferralsData, type ReferralHistoryItem } from "
 
 const STATUS_LABEL: Record<string, string> = {
   PENDING: "Pendiente",
-  ACTIVE: "Activo",
   QUALIFIED: "Valido",
-  REWARDED: "Recompensado",
+};
+
+const CASE_LABEL: Record<string, string> = {
+  PRO_TO_PRO: "Pro → Pro",
+  PRO_TO_USER: "Pro → Cliente",
+  USER_TO_USER: "Cliente → Cliente",
+};
+
+const TYPE_LABEL: Record<string, string> = {
+  SESSION: "Sesion",
+  PACKAGE: "Paquete",
 };
 
 function ReferralRow({ item }: { item: ReferralHistoryItem }) {
   const fullName = item.referred.fullName || item.referred.email || "Usuario";
   const status = STATUS_LABEL[item.status] ?? item.status;
+  const caseLabel = item.case ? CASE_LABEL[item.case] : null;
 
   return (
     <View style={styles.referralRow}>
@@ -26,6 +36,17 @@ function ReferralRow({ item }: { item: ReferralHistoryItem }) {
         <Text style={styles.referralMeta}>
           {item.referred.role} · {new Date(item.referred.createdAt).toLocaleDateString()}
         </Text>
+        {caseLabel ? <Text style={styles.referralMeta}>Caso: {caseLabel}</Text> : null}
+        {item.rewardPaidAt ? (
+          <Text style={[styles.referralMeta, { color: appTheme.colors.success }]}>
+            Recompensa pagada el {new Date(item.rewardPaidAt).toLocaleDateString()}
+          </Text>
+        ) : null}
+        {item.rewards.length > 0 ? (
+          <Text style={[styles.referralMeta, { color: appTheme.colors.success }]}>
+            +{item.totalRewardsEarned.toFixed(2)} ganado
+          </Text>
+        ) : null}
       </View>
       <View style={styles.badge}>
         <Text style={styles.badgeText}>{status}</Text>
@@ -42,6 +63,7 @@ export default function ReferralsScreen() {
 
   const role = data?.role ?? user?.role ?? null;
   const isProfessional = role === "PROFESSIONAL" || role === "ANFITRIONA";
+  const rewardPercent = data?.rules.referralRewardPercent ?? 5;
 
   useEffect(() => {
     void load();
@@ -72,31 +94,12 @@ export default function ReferralsScreen() {
     });
   }
 
-  const rules = data?.rules ?? {
-    validPurchasesRequired: 1,
-    threshold: 10,
-    clientDiscountPercent: 5,
-    clientDiscountSessions: 10,
-    professionalRewardPercent: 5,
-  };
-  const progress = data?.progress ?? {
-    valid: 0,
-    threshold: rules.threshold,
-    pending: 0,
-    cyclesUnlocked: 0,
-  };
-
-  const headerText = useMemo(() => {
-    if (isProfessional) {
-      return `Cuando ${rules.threshold} personas invitadas cumplan las compras validas requeridas, recibes ${rules.professionalRewardPercent}% permanente de las sesiones que generen esas personas.`;
-    }
-    return `Cuando ${rules.threshold} personas invitadas cumplan las compras validas requeridas, recibes ${rules.clientDiscountPercent}% de descuento en ${rules.clientDiscountSessions} sesiones.`;
-  }, [isProfessional, rules]);
-
-  const remainingDiscountSessions = data?.clientBenefit?.remainingDiscountSessions ?? 0;
-  const beneficiaries = data?.professionalBenefit?.beneficiaries ?? [];
-  const rewardsHistory = data?.professionalBenefit?.rewardsHistory ?? [];
   const history = data?.history ?? [];
+  const allRewards = history.flatMap((h) => h.rewards);
+
+  const headerText = isProfessional
+    ? `Comparte tu codigo y gana el ${rewardPercent}% de cada sesion que generen los profesionales que invites. Para clientes, ganas el ${rewardPercent}% en su primera compra.`
+    : `Comparte tu codigo y gana el ${rewardPercent}% en la primera compra de cada persona que invites.`;
 
   return (
     <AppScreen scroll>
@@ -106,6 +109,7 @@ export default function ReferralsScreen() {
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
+        {/* Código de referido */}
         <AppCard>
           <Text style={styles.label}>Tu codigo de referido</Text>
           <Text style={styles.code}>{loading ? "Cargando..." : data?.code || "-"}</Text>
@@ -115,59 +119,36 @@ export default function ReferralsScreen() {
           </View>
         </AppCard>
 
+        {/* Resumen */}
         <AppCard>
-          <Text style={styles.sectionTitle}>Progreso</Text>
+          <Text style={styles.sectionTitle}>Resumen</Text>
           <Text style={styles.progressValue}>
-            {progress.valid} / {progress.threshold} referidos validos
+            {data?.invitedCount ?? 0} personas invitadas
           </Text>
-          <Text style={styles.meta}>
-            Compras validas requeridas por referido: {rules.validPurchasesRequired}
+          <Text style={styles.progressValue}>
+            +{(data?.totalRewardsEarned ?? 0).toFixed(2)} ganado en total
           </Text>
-          <Text style={styles.meta}>Cuenta recargas de saldo y sesiones pagadas.</Text>
-          <Text style={styles.meta}>Referidos pendientes: {progress.pending}</Text>
         </AppCard>
 
-        {!isProfessional ? (
+        {/* Historial de recompensas (si tiene) */}
+        {allRewards.length > 0 ? (
           <AppCard>
-            <Text style={styles.sectionTitle}>Beneficio activo</Text>
-            <Text style={styles.progressValue}>
-              Te quedan {remainingDiscountSessions} sesiones con {rules.clientDiscountPercent}% de descuento.
-            </Text>
-            <Text style={styles.meta}>El descuento se consume solo en sesiones pagadas.</Text>
-          </AppCard>
-        ) : (
-          <AppCard>
-            <Text style={styles.sectionTitle}>Beneficiarios permanentes</Text>
-            <Text style={styles.progressValue}>{beneficiaries.length} activos</Text>
-            {beneficiaries.slice(0, 10).map((item) => (
-              <Text key={item.id} style={styles.meta}>
-                • {item.referredUser.fullName || item.referredUser.email || item.referredUserId}
-              </Text>
+            <Text style={styles.sectionTitle}>Recompensas recibidas</Text>
+            {allRewards.slice(0, 20).map((reward) => (
+              <View key={reward.id} style={styles.rewardRow}>
+                <Text style={styles.meta}>
+                  {new Date(reward.createdAt).toLocaleDateString()} · {TYPE_LABEL[reward.type] ?? reward.type}
+                  {reward.case ? ` · ${CASE_LABEL[reward.case] ?? reward.case}` : ""}
+                </Text>
+                <Text style={styles.rewardAmount}>
+                  +{reward.rewardAmount.toFixed(2)} {reward.currency}
+                </Text>
+              </View>
             ))}
-            {beneficiaries.length === 0 ? <Text style={styles.meta}>Sin beneficiarios todavia.</Text> : null}
-          </AppCard>
-        )}
-
-        {isProfessional ? (
-          <AppCard>
-            <Text style={styles.sectionTitle}>Historial de recompensas</Text>
-            {rewardsHistory.length === 0 ? (
-              <Text style={styles.meta}>Sin recompensas registradas aun.</Text>
-            ) : (
-              rewardsHistory.slice(0, 10).map((reward) => (
-                <View key={reward.id} style={styles.rewardRow}>
-                  <Text style={styles.meta}>
-                    {new Date(reward.createdAt).toLocaleDateString()} · {reward.referred.fullName || reward.referred.email || "Referido"}
-                  </Text>
-                  <Text style={styles.rewardAmount}>
-                    +{reward.rewardAmount.toFixed(2)} {reward.currency}
-                  </Text>
-                </View>
-              ))
-            )}
           </AppCard>
         ) : null}
 
+        {/* Lista de referidos */}
         <View style={styles.historyHeader}>
           <Text style={styles.sectionTitle}>Referidos</Text>
           <TouchableOpacity onPress={load}>
