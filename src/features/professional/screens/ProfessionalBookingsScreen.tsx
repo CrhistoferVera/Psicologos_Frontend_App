@@ -3,10 +3,18 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import AppCard from '../../../components/ui/AppCard';
+import AppButton from '../../../components/ui/AppButton';
 import AppScreen from '../../../components/ui/AppScreen';
-import { appTheme } from '../../../theme/appTheme';
-import { getProfessionalBookings, type ProfessionalBooking } from '../../../api/sessionOfferings';
+import {
+  acceptBookingRescheduleRequest,
+  getMyBookingRescheduleRequests,
+  rejectBookingRescheduleRequest,
+  type BookingRescheduleRequest,
+  type BookingRescheduleRequestStatus,
+} from '../../../api/bookings';
 import { getMyChats } from '../../../api/messages';
+import { getProfessionalBookings, type ProfessionalBooking } from '../../../api/sessionOfferings';
+import { appTheme } from '../../../theme/appTheme';
 import { formatMoneyByCurrency } from '../../../utils/money';
 
 function formatDateTime(iso: string) {
@@ -64,22 +72,54 @@ function getCommunicationStateLabel(booking: ProfessionalBooking, now = new Date
   return `Sesión activa hasta ${formatHour(booking.scheduledEndAt)}.`;
 }
 
+function getRequestStatusLabel(status: BookingRescheduleRequestStatus) {
+  if (status === 'PENDING') return 'Pendiente';
+  if (status === 'ACCEPTED') return 'Aceptada';
+  if (status === 'REJECTED') return 'Rechazada';
+  if (status === 'CANCELLED') return 'Cancelada';
+  if (status === 'EXPIRED') return 'Expirada';
+  return status;
+}
+
+function getRequestStatusColor(status: BookingRescheduleRequestStatus) {
+  if (status === 'PENDING') return '#92400E';
+  if (status === 'ACCEPTED') return '#166534';
+  if (status === 'REJECTED') return '#991B1B';
+  if (status === 'CANCELLED') return '#475569';
+  if (status === 'EXPIRED') return '#991B1B';
+  return '#475569';
+}
+
+function getApiErrorMessage(err: any, fallback: string) {
+  const raw = err?.response?.data?.message;
+  if (Array.isArray(raw)) return raw.join('\n');
+  if (typeof raw === 'string' && raw.trim()) return raw;
+  if (typeof err?.message === 'string' && err.message.trim()) return err.message;
+  return fallback;
+}
+
 export default function ProfessionalBookingsScreen() {
   const router = useRouter();
   const [items, setItems] = useState<ProfessionalBooking[]>([]);
+  const [rescheduleRequests, setRescheduleRequests] = useState<BookingRescheduleRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [openingChatBookingId, setOpeningChatBookingId] = useState<string | null>(null);
+  const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
 
   async function load(isRefresh = false) {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
 
     try {
-      const data = await getProfessionalBookings();
-      setItems(Array.isArray(data) ? data : []);
-    } catch {
-      Alert.alert('Error', 'No se pudo cargar tu agenda de reservas.');
+      const [bookingRows, requestRows] = await Promise.all([
+        getProfessionalBookings(),
+        getMyBookingRescheduleRequests(),
+      ]);
+      setItems(Array.isArray(bookingRows) ? bookingRows : []);
+      setRescheduleRequests(Array.isArray(requestRows) ? requestRows : []);
+    } catch (err: any) {
+      Alert.alert('Error', getApiErrorMessage(err, 'No se pudo cargar tu agenda de reservas.'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -91,9 +131,48 @@ export default function ProfessionalBookingsScreen() {
   }, []);
 
   const sortedItems = useMemo(
-    () => [...items].sort((a, b) => new Date(a.scheduledStartAt).getTime() - new Date(b.scheduledStartAt).getTime()),
+    () =>
+      [...items].sort(
+        (a, b) => new Date(a.scheduledStartAt).getTime() - new Date(b.scheduledStartAt).getTime(),
+      ),
     [items],
   );
+
+  const requestsByBookingId = useMemo(() => {
+    const grouped = new Map<string, BookingRescheduleRequest[]>();
+    for (const row of rescheduleRequests) {
+      const existing = grouped.get(row.bookingId) ?? [];
+      existing.push(row);
+      grouped.set(row.bookingId, existing);
+    }
+    return grouped;
+  }, [rescheduleRequests]);
+
+  async function handleAcceptRequest(requestId: string) {
+    try {
+      setProcessingRequestId(requestId);
+      await acceptBookingRescheduleRequest(requestId);
+      Alert.alert('Reprogramación aceptada', 'La cita fue reprogramada correctamente.');
+      await load(true);
+    } catch (err: any) {
+      Alert.alert('Error', getApiErrorMessage(err, 'No se pudo aceptar la reprogramación.'));
+    } finally {
+      setProcessingRequestId(null);
+    }
+  }
+
+  async function handleRejectRequest(requestId: string) {
+    try {
+      setProcessingRequestId(requestId);
+      await rejectBookingRescheduleRequest(requestId);
+      Alert.alert('Solicitud rechazada', 'La solicitud de reprogramación fue rechazada.');
+      await load(true);
+    } catch (err: any) {
+      Alert.alert('Error', getApiErrorMessage(err, 'No se pudo rechazar la reprogramación.'));
+    } finally {
+      setProcessingRequestId(null);
+    }
+  }
 
   async function handleOpenChat(booking: ProfessionalBooking) {
     if (openingChatBookingId) return;
@@ -140,7 +219,7 @@ export default function ProfessionalBookingsScreen() {
       >
         <View style={styles.headerRow}>
           <Pressable style={styles.backBtn} onPress={() => router.back()}>
-            <Ionicons name='arrow-back' size={18} color={appTheme.colors.text} />
+            <Ionicons name="arrow-back" size={18} color={appTheme.colors.text} />
           </Pressable>
           <Text style={styles.title}>Agenda / Reservas</Text>
         </View>
@@ -154,7 +233,13 @@ export default function ProfessionalBookingsScreen() {
           ) : (
             <View style={styles.list}>
               {sortedItems.map((booking) => {
-                const fullName = `${booking.client?.firstName ?? ''} ${booking.client?.lastName ?? ''}`.trim() || 'Cliente';
+                const requests = requestsByBookingId.get(booking.id) ?? [];
+                const pendingRequest = requests.find((item) => item.status === 'PENDING') ?? null;
+                const latestRequest = requests[0] ?? null;
+                const isPendingByClient = pendingRequest?.requestedByRole === 'USER';
+
+                const fullName =
+                  `${booking.client?.firstName ?? ''} ${booking.client?.lastName ?? ''}`.trim() || 'Cliente';
                 const amount = formatMoneyByCurrency(
                   booking.currency === 'USD' ? booking.priceUsd : booking.priceBob,
                   booking.currency === 'USD' ? 'USD' : 'BOB',
@@ -194,6 +279,45 @@ export default function ProfessionalBookingsScreen() {
                           {openingChatBookingId === booking.id ? 'Abriendo...' : 'Abrir chat'}
                         </Text>
                       </Pressable>
+                    </View>
+
+                    <View style={styles.rescheduleWrap}>
+                      <Text style={styles.rescheduleTitle}>Reprogramar cita</Text>
+                      <Text style={styles.rescheduleNotice}>
+                        No hay devoluciones. El pago original se mantiene asociado a la cita.
+                      </Text>
+
+                      {latestRequest ? (
+                        <View style={styles.requestStatusRow}>
+                          <Text style={[styles.requestStatus, { color: getRequestStatusColor(latestRequest.status) }]}>
+                            Estado: {getRequestStatusLabel(latestRequest.status)}
+                          </Text>
+                          <Text style={styles.requestMeta}>
+                            Propuesta: {formatDateTime(latestRequest.proposedStartAt)}
+                          </Text>
+                        </View>
+                      ) : null}
+
+                      {pendingRequest && isPendingByClient ? (
+                        <View style={styles.rowActions}>
+                          <AppButton
+                            title={processingRequestId === pendingRequest.id ? 'Procesando...' : 'Aceptar reprogramación'}
+                            onPress={() => void handleAcceptRequest(pendingRequest.id)}
+                            loading={processingRequestId === pendingRequest.id}
+                            disabled={processingRequestId !== null}
+                          />
+                          <AppButton
+                            title="Rechazar reprogramación"
+                            variant="secondary"
+                            onPress={() => void handleRejectRequest(pendingRequest.id)}
+                            disabled={processingRequestId !== null}
+                          />
+                        </View>
+                      ) : (
+                        <Text style={styles.requestMeta}>Sin solicitudes pendientes del cliente para esta cita.</Text>
+                      )}
+
+                      {/* Flujo profesional -> cliente preparado en backend, oculto temporalmente en UI hasta requerimiento. */}
                     </View>
                   </View>
                 );
@@ -286,17 +410,17 @@ const styles = StyleSheet.create({
   commLabelActive: {
     color: '#166534',
   },
-  actionsRow: {
-    marginTop: 6,
-    flexDirection: 'row',
-    gap: 8,
-  },
   callWaitHint: {
     marginTop: 2,
     fontSize: 12,
     color: '#166534',
     fontFamily: appTheme.fonts.body,
     fontWeight: '600',
+  },
+  actionsRow: {
+    marginTop: 6,
+    flexDirection: 'row',
+    gap: 8,
   },
   actionBtn: {
     borderRadius: 10,
@@ -313,10 +437,43 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
+  rescheduleWrap: {
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    paddingTop: 8,
+    gap: 6,
+  },
+  rescheduleTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.body,
+  },
+  rescheduleNotice: {
+    fontSize: 11,
+    color: '#92400E',
+    fontFamily: appTheme.fonts.body,
+  },
+  requestStatusRow: {
+    gap: 2,
+  },
+  requestStatus: {
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: appTheme.fonts.body,
+  },
+  requestMeta: {
+    fontSize: 12,
+    color: '#334155',
+    fontFamily: appTheme.fonts.body,
+  },
+  rowActions: {
+    gap: 8,
+  },
   muted: {
     fontSize: 13,
     color: appTheme.colors.textMuted,
     fontFamily: appTheme.fonts.body,
   },
 });
-

@@ -48,6 +48,8 @@ export type AvailabilityRuleInput = {
 
 export type ProfessionalBooking = {
   id: string;
+  professionalId?: string;
+  sessionOfferingId?: string;
   status: string;
   currency: string;
   paymentMethod?: string | null;

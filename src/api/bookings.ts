@@ -11,6 +11,55 @@ export type BookingStatus =
 
 export type BookingPaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED' | 'EXPIRED';
 export type BookingPaymentMethod = 'BANECO_QR' | 'STRIPE' | 'WALLET';
+export type BookingRescheduleRequestStatus =
+  | 'PENDING'
+  | 'ACCEPTED'
+  | 'REJECTED'
+  | 'CANCELLED'
+  | 'EXPIRED';
+
+export type BookingRescheduleRequest = {
+  id: string;
+  bookingId: string;
+  requestedByUserId: string;
+  requestedByRole: 'USER' | 'PROFESSIONAL' | 'ANFITRIONA' | 'ADMIN';
+  currentStartAt: string;
+  currentEndAt: string;
+  proposedStartAt: string;
+  proposedEndAt: string;
+  proposedTimezone: string;
+  reason?: string | null;
+  status: BookingRescheduleRequestStatus;
+  respondedByUserId?: string | null;
+  respondedAt?: string | null;
+  responseNote?: string | null;
+  requestExpiresAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  booking?: {
+    id: string;
+    clientId: string;
+    professionalId: string;
+    scheduledStartAt: string;
+    scheduledEndAt: string;
+    timezone: string;
+    status: BookingStatus;
+    paymentStatus: BookingPaymentStatus;
+    rescheduleCount: number;
+  };
+  requestedByUser?: {
+    id: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    role?: string | null;
+  } | null;
+  respondedByUser?: {
+    id: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    role?: string | null;
+  } | null;
+};
 
 export type ProfessionalSessionOffering = {
   id: string;
@@ -59,6 +108,12 @@ export type Booking = {
       avatarUrl?: string | null;
     };
   };
+};
+
+export type CreateBookingRescheduleRequestPayload = {
+  proposedStartAt: string;
+  proposedTimezone?: string;
+  reason?: string;
 };
 
 export type BookingPaymentInitResponse = {
@@ -175,6 +230,54 @@ export async function getMyBookings(params?: {
       ...(params?.to ? { to: params.to } : {}),
     },
   });
+  return res.data;
+}
+
+export async function createBookingRescheduleRequest(
+  bookingId: string,
+  payload: CreateBookingRescheduleRequestPayload,
+) {
+  const res = await apiClient.post<BookingRescheduleRequest>(
+    `/bookings/${bookingId}/reschedule-requests`,
+    payload,
+  );
+  return res.data;
+}
+
+export async function getBookingRescheduleRequests(bookingId: string) {
+  const res = await apiClient.get<BookingRescheduleRequest[]>(`/bookings/${bookingId}/reschedule-requests`);
+  return res.data;
+}
+
+export async function getMyBookingRescheduleRequests(params?: {
+  status?: BookingRescheduleRequestStatus;
+}) {
+  const res = await apiClient.get<BookingRescheduleRequest[]>('/bookings/reschedule-requests/me', {
+    params: {
+      ...(params?.status ? { status: params.status } : {}),
+    },
+  });
+  return res.data;
+}
+
+export async function acceptBookingRescheduleRequest(requestId: string, payload?: { responseNote?: string }) {
+  const res = await apiClient.patch<BookingRescheduleRequest>(
+    `/bookings/reschedule-requests/${requestId}/accept`,
+    payload ?? {},
+  );
+  return res.data;
+}
+
+export async function rejectBookingRescheduleRequest(requestId: string, payload?: { responseNote?: string }) {
+  const res = await apiClient.patch<BookingRescheduleRequest>(
+    `/bookings/reschedule-requests/${requestId}/reject`,
+    payload ?? {},
+  );
+  return res.data;
+}
+
+export async function cancelBookingRescheduleRequest(requestId: string) {
+  const res = await apiClient.patch<BookingRescheduleRequest>(`/bookings/reschedule-requests/${requestId}/cancel`);
   return res.data;
 }
 
