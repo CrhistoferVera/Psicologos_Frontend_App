@@ -1,3 +1,7 @@
+import type { EducationEntry } from "../professionals/types";
+
+export type { EducationEntry };
+
 export type ProfessionalRole = "PROFESSIONAL" | "ANFITRIONA";
 
 export type ProfessionalProfile = {
@@ -12,6 +16,7 @@ export type ProfessionalProfile = {
   rateCredits?: number;
   reviewStatus?: "PENDING" | "APPROVED" | "REJECTED";
   reviewNotes?: string | null;
+  education?: EducationEntry[];
   availability?: {
     monFri?: string;
     sat?: string;

@@ -1,5 +1,5 @@
 import apiClient from "../../../api/client";
-import type { Professional, ProfessionalPriceMap } from "../types";
+import type { EducationEntry, Professional, ProfessionalPriceMap } from "../types";
 
 type ListResponse = {
   data?: any[];
@@ -78,6 +78,8 @@ function mapRawProfessional(item: any): Professional {
       call: servicePrices.call ?? null,
       video: servicePrices.video ?? null,
     },
+    education: Array.isArray(item?.education) ? (item.education as EducationEntry[]) : [],
+    isVerified: Boolean(item?.isVerified ?? false),
   };
 }
 

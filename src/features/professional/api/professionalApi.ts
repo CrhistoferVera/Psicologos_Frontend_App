@@ -16,6 +16,7 @@ import { apiGetMyServicePrices, apiUpsertServicePrice, type ServicePrice } from 
 import { getMyChats, type Chat } from "../../../api/messages";
 import { sendOtp, verifyOtp, type PhoneRegistrationInput } from "../../../services/auth";
 import type {
+  EducationEntry,
   ProfessionalChatItem,
   ProfessionalPriceInput,
   ProfessionalProfile,
@@ -54,9 +55,10 @@ function normalizeProfile(raw: any): ProfessionalProfile {
     avatarUrl: raw?.avatarUrl ?? null,
     coverUrl: raw?.coverUrl ?? null,
     rateCredits: typeof raw?.rateCredits === "number" ? raw.rateCredits : undefined,
-    reviewStatus: (raw?.reviewStatus as any) ?? "PENDING",
+    reviewStatus: (raw?.reviewStatus as ProfessionalProfile["reviewStatus"]) ?? "PENDING",
     reviewNotes: raw?.reviewNotes ?? null,
     availability: (raw?.availability as ProfessionalAvailability | null) ?? null,
+    education: Array.isArray(raw?.education) ? (raw.education as EducationEntry[]) : [],
   };
 }
 
@@ -156,6 +158,7 @@ export async function updateMyProfessionalProfile(
     bio?: string;
     isOnline?: boolean;
     availability?: ProfessionalAvailability;
+    education?: EducationEntry[];
   },
   avatarFile?: { uri: string; name: string; type: string },
   coverFile?: { uri: string; name: string; type: string },
@@ -167,6 +170,7 @@ export async function updateMyProfessionalProfile(
   if (payload.bio !== undefined) formData.append("bio", payload.bio);
   if (payload.isOnline !== undefined) formData.append("isOnline", String(payload.isOnline));
   if (payload.availability !== undefined) formData.append("availability", JSON.stringify(payload.availability));
+  if (payload.education !== undefined) formData.append("education", JSON.stringify(payload.education));
 
   if (avatarFile) {
     formData.append("avatar", { uri: avatarFile.uri, name: avatarFile.name, type: avatarFile.type } as any);
@@ -322,5 +326,18 @@ export async function requestProfessionalWithdrawal(payload: {
 
 export async function getProfessionalWithdrawalRequests(): Promise<WithdrawalRequest[]> {
   return apiGetWithdrawalRequests();
+}
+
+export async function uploadEducationPhoto(file: {
+  uri: string;
+  name: string;
+  type: string;
+}): Promise<{ url: string }> {
+  const formData = new FormData();
+  formData.append("photo", { uri: file.uri, name: file.name, type: file.type } as any);
+  const response = await apiClient.post("/professionals/me/education-photo", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return response.data;
 }
 

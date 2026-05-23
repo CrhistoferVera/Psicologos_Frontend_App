@@ -3,7 +3,7 @@ import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
-import { Alert, Image, Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Modal, Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import AppButton from "../../../components/ui/AppButton";
 import AppCard from "../../../components/ui/AppCard";
 import AppChip from "../../../components/ui/AppChip";
@@ -16,7 +16,9 @@ import {
   getProfessionalSpecialtiesCatalog,
   updateMyProfessionalProfile,
   updateMyProfessionalSpecialties,
+  uploadEducationPhoto,
 } from "../api/professionalApi";
+import type { EducationEntry } from "../types";
 
 export default function ProfessionalProfileScreen() {
   const router = useRouter();
@@ -41,6 +43,17 @@ export default function ProfessionalProfileScreen() {
   const [editingBio, setEditingBio] = useState(false);
   const [editingSpecialties, setEditingSpecialties] = useState(false);
 
+  const [education, setEducation] = useState<EducationEntry[]>([]);
+  const [showEduModal, setShowEduModal] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<EducationEntry | null>(null);
+  const [eduDegree, setEduDegree] = useState("");
+  const [eduInstitution, setEduInstitution] = useState("");
+  const [eduYear, setEduYear] = useState("");
+  const [eduDescription, setEduDescription] = useState("");
+  const [eduPhotoUri, setEduPhotoUri] = useState<string | null>(null);
+  const [eduPhotoUrl, setEduPhotoUrl] = useState<string | null>(null);
+  const [uploadingEduPhoto, setUploadingEduPhoto] = useState(false);
+
   const loadProfile = useCallback(async () => {
     try {
       setLoading(true);
@@ -58,6 +71,7 @@ export default function ProfessionalProfileScreen() {
       setBio(profile.bio || "");
       setIsOnline(Boolean(profile.isOnline));
       setAvatarUrl(profile.avatarUrl ?? null);
+      setEducation(Array.isArray(profile.education) ? profile.education : []);
 
       const trimmed = specialtiesCatalog.slice(0, 48).map((item) => ({ id: item.id, name: item.name }));
       setCatalog(trimmed);
@@ -120,6 +134,107 @@ export default function ProfessionalProfileScreen() {
     }
   }
 
+  function openAddEduModal() {
+    setEditingEntry(null);
+    setEduDegree("");
+    setEduInstitution("");
+    setEduYear("");
+    setEduDescription("");
+    setEduPhotoUri(null);
+    setEduPhotoUrl(null);
+    setShowEduModal(true);
+  }
+
+  function openEditEduModal(entry: EducationEntry) {
+    setEditingEntry(entry);
+    setEduDegree(entry.degree);
+    setEduInstitution(entry.institution);
+    setEduYear(String(entry.year));
+    setEduDescription(entry.description ?? "");
+    setEduPhotoUri(entry.photoUrl ?? null);
+    setEduPhotoUrl(entry.photoUrl ?? null);
+    setShowEduModal(true);
+  }
+
+  async function pickEduPhoto() {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        quality: 0.8,
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0];
+      const file = {
+        uri: asset.uri,
+        name: asset.uri.split("/").pop() ?? "photo.jpg",
+        type: asset.mimeType ?? "image/jpeg",
+      };
+      setEduPhotoUri(asset.uri);
+      setEduPhotoUrl(null);
+      setUploadingEduPhoto(true);
+      try {
+        const { url } = await uploadEducationPhoto(file);
+        setEduPhotoUrl(url);
+      } catch {
+        Alert.alert("Error", "No se pudo subir la foto. Intenta de nuevo.");
+        setEduPhotoUri(null);
+      } finally {
+        setUploadingEduPhoto(false);
+      }
+    } catch {
+      Alert.alert("Error", "No se pudo seleccionar la imagen.");
+    }
+  }
+
+  async function saveEduEntry() {
+    if (uploadingEduPhoto) {
+      Alert.alert("Espera", "La foto se está subiendo, por favor espera.");
+      return;
+    }
+    const year = Number.parseInt(eduYear, 10);
+    if (!eduDegree.trim() || !eduInstitution.trim() || !year || year < 1900 || year > 2100) {
+      Alert.alert("Datos incompletos", "Completa el grado, institución y un año válido (1900-2100).");
+      return;
+    }
+    const entry: EducationEntry = {
+      id: editingEntry?.id ?? String(Date.now()),
+      degree: eduDegree.trim(),
+      institution: eduInstitution.trim(),
+      year,
+      description: eduDescription.trim() || undefined,
+      photoUrl: eduPhotoUrl ?? undefined,
+    };
+    const updated = editingEntry
+      ? education.map((e) => (e.id === editingEntry.id ? entry : e))
+      : [...education, entry];
+    setEducation(updated);
+    setShowEduModal(false);
+    try {
+      await updateMyProfessionalProfile({ education: updated });
+    } catch (err: any) {
+      const raw = err?.response?.data?.message ?? err?.message;
+      Alert.alert("Error al guardar", Array.isArray(raw) ? raw.join(", ") : raw || "No se pudo guardar la formación.");
+    }
+  }
+
+  async function confirmDeleteEduEntry(id: string) {
+    const updated = education.filter((e) => e.id !== id);
+    setEducation(updated);
+    try {
+      await updateMyProfessionalProfile({ education: updated });
+    } catch (err: any) {
+      const raw = err?.response?.data?.message ?? err?.message;
+      Alert.alert("Error al eliminar", Array.isArray(raw) ? raw.join(", ") : raw || "No se pudo eliminar la formación.");
+    }
+  }
+
+  function deleteEduEntry(id: string) {
+    Alert.alert("Eliminar formación", "¿Eliminar esta entrada de formación académica?", [
+      { text: "Cancelar", style: "cancel" },
+      { text: "Eliminar", style: "destructive", onPress: () => void confirmDeleteEduEntry(id) },
+    ]);
+  }
+
   async function handleSave() {
     if (!firstName.trim() || !lastName.trim()) {
       setError("Nombre y apellido son obligatorios.");
@@ -137,6 +252,7 @@ export default function ProfessionalProfileScreen() {
           username: username.trim(),
           bio: bio.trim(),
           isOnline,
+          education,
         },
         avatarFile,
       );
@@ -308,6 +424,114 @@ export default function ProfessionalProfileScreen() {
             <Text style={styles.linkBtnText}>Ir a Disponibilidad</Text>
           </Pressable>
         </AppCard>
+
+        <AppCard style={styles.sectionCard}>
+          <View style={styles.cardHead}>
+            <Text style={styles.cardTitle}>Formación académica</Text>
+            <Pressable onPress={openAddEduModal}>
+              <Text style={styles.editLink}>+ Agregar</Text>
+            </Pressable>
+          </View>
+
+          {education.length === 0 ? (
+            <Text style={styles.cardBodyText}>
+              Agrega tu formación académica para que los clientes conozcan tus credenciales.
+            </Text>
+          ) : (
+            <View style={styles.eduList}>
+              {education.map((entry) => (
+                <View key={entry.id} style={styles.eduItem}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.eduDegree}>{entry.degree}</Text>
+                    <Text style={styles.eduMeta}>{entry.institution} · {entry.year}</Text>
+                    {entry.description ? (
+                      <Text style={styles.eduDesc}>{entry.description}</Text>
+                    ) : null}
+                    {entry.photoUrl ? (
+                      <Image source={{ uri: entry.photoUrl }} style={styles.eduItemPhoto} />
+                    ) : null}
+                  </View>
+                  <View style={styles.eduActions}>
+                    <Pressable style={styles.eduActionBtn} onPress={() => openEditEduModal(entry)}>
+                      <Ionicons name="create-outline" size={15} color="#4F7BAE" />
+                    </Pressable>
+                    <Pressable style={[styles.eduActionBtn, styles.eduActionBtnDanger]} onPress={() => deleteEduEntry(entry.id)}>
+                      <Ionicons name="trash-outline" size={15} color="#DC2626" />
+                    </Pressable>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+        </AppCard>
+
+        {/* Modal agregar / editar formación */}
+        <Modal visible={showEduModal} transparent animationType="fade" onRequestClose={() => setShowEduModal(false)}>
+          <View style={styles.eduModalOverlay}>
+            <View style={styles.eduModalCard}>
+              <Text style={styles.eduModalTitle}>
+                {editingEntry ? "Editar formación" : "Agregar formación"}
+              </Text>
+
+              <TextInput
+                value={eduDegree}
+                onChangeText={setEduDegree}
+                placeholder="Grado o título (ej. Licenciatura en Psicología)"
+                placeholderTextColor="#7A8EA8"
+                style={styles.inlineInput}
+              />
+              <TextInput
+                value={eduInstitution}
+                onChangeText={setEduInstitution}
+                placeholder="Institución (ej. Universidad Mayor de San Andrés)"
+                placeholderTextColor="#7A8EA8"
+                style={styles.inlineInput}
+              />
+              <TextInput
+                value={eduYear}
+                onChangeText={setEduYear}
+                placeholder="Año (ej. 2018)"
+                placeholderTextColor="#7A8EA8"
+                keyboardType="numeric"
+                maxLength={4}
+                style={styles.inlineInput}
+              />
+              <TextInput
+                value={eduDescription}
+                onChangeText={setEduDescription}
+                placeholder="Descripción breve (opcional)"
+                placeholderTextColor="#7A8EA8"
+                multiline
+                style={styles.textArea}
+              />
+
+              <Pressable style={styles.eduPhotoPickerBtn} onPress={pickEduPhoto} disabled={uploadingEduPhoto}>
+                {eduPhotoUri ? (
+                  <Image source={{ uri: eduPhotoUri }} style={styles.eduPhotoPreview} />
+                ) : (
+                  <View style={styles.eduPhotoPickerPlaceholder}>
+                    <Ionicons name="image-outline" size={22} color="#4F7BAE" />
+                    <Text style={styles.eduPhotoPickerText}>Agregar foto (título, diploma...)</Text>
+                  </View>
+                )}
+                {uploadingEduPhoto ? (
+                  <View style={styles.eduPhotoUploading}>
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  </View>
+                ) : null}
+              </Pressable>
+
+              <View style={styles.eduModalBtns}>
+                <Pressable style={styles.eduCancelBtn} onPress={() => setShowEduModal(false)}>
+                  <Text style={styles.eduCancelBtnText}>Cancelar</Text>
+                </Pressable>
+                <Pressable style={styles.eduSaveBtn} onPress={() => void saveEduEntry()}>
+                  <Text style={styles.eduSaveBtnText}>Guardar</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         <AppButton title="Guardar cambios" onPress={handleSave} loading={saving} />
 
@@ -536,5 +760,150 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.body,
     fontSize: 15,
     fontWeight: "700",
+  },
+  eduList: {
+    gap: 10,
+  },
+  eduItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#EEF3FA",
+  },
+  eduDegree: {
+    color: "#2A405B",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 20,
+  },
+  eduMeta: {
+    color: "#5F7896",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  eduDesc: {
+    color: "#8EA5BE",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    marginTop: 3,
+    lineHeight: 17,
+  },
+  eduActions: {
+    flexDirection: "row",
+    gap: 6,
+  },
+  eduActionBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    backgroundColor: "#EDF4FB",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  eduActionBtnDanger: {
+    backgroundColor: "#FEF2F2",
+  },
+  eduModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
+  eduModalCard: {
+    width: "100%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 20,
+    gap: 10,
+  },
+  eduModalTitle: {
+    color: "#172B46",
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 17,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  eduModalBtns: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 4,
+  },
+  eduCancelBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#D5DFEB",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  eduCancelBtnText: {
+    color: "#5F7896",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  eduSaveBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: appTheme.colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  eduSaveBtnText: {
+    color: "#FFFFFF",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  eduPhotoPickerBtn: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#D5DFEB",
+    borderStyle: "dashed",
+    overflow: "hidden",
+    minHeight: 80,
+  },
+  eduPhotoPickerPlaceholder: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    padding: 16,
+  },
+  eduPhotoPickerText: {
+    color: "#4F7BAE",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  eduPhotoPreview: {
+    width: "100%",
+    height: 120,
+    resizeMode: "cover",
+  },
+  eduPhotoUploading: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  eduItemPhoto: {
+    width: "100%",
+    height: 80,
+    borderRadius: 10,
+    marginTop: 6,
+    resizeMode: "cover",
   },
 });

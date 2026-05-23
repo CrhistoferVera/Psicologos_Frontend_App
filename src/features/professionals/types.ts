@@ -4,6 +4,15 @@ export type ProfessionalPriceMap = {
   video?: number | null;
 };
 
+export type EducationEntry = {
+  id: string;
+  degree: string;
+  institution: string;
+  year: number;
+  description?: string;
+  photoUrl?: string;
+};
+
 export type Professional = {
   id: string;
   name: string;
@@ -16,5 +25,7 @@ export type Professional = {
   rating?: number;
   reviewCount?: number;
   prices: ProfessionalPriceMap;
+  education?: EducationEntry[];
+  isVerified?: boolean;
 };
 

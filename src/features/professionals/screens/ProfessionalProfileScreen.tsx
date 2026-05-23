@@ -42,6 +42,7 @@ export default function ProfessionalProfileScreen() {
 
   const [professional, setProfessional] = useState<Professional | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [offerings, setOfferings] = useState<ProfessionalSessionOffering[]>([]);
   const [offeringsError, setOfferingsError] = useState<string | null>(null);
   const [offeringsLoading, setOfferingsLoading] = useState(true);
@@ -359,6 +360,16 @@ export default function ProfessionalProfileScreen() {
   return (
     <AppScreen scroll contentPadding={0}>
       <View style={styles.page}>
+        {/* Full-screen photo viewer */}
+        <Modal visible={!!selectedPhoto} transparent animationType="fade" onRequestClose={() => setSelectedPhoto(null)}>
+          <Pressable style={styles.photoViewerOverlay} onPress={() => setSelectedPhoto(null)}>
+            <Image source={{ uri: selectedPhoto ?? '' }} style={styles.photoViewerImage} resizeMode="contain" />
+            <Pressable style={styles.photoViewerClose} onPress={() => setSelectedPhoto(null)}>
+              <Ionicons name="close" size={22} color="#FFFFFF" />
+            </Pressable>
+          </Pressable>
+        </Modal>
+
         {/* Review modal */}
         <Modal visible={showReviewModal} transparent animationType="fade">
           <View style={styles.modalOverlay}>
@@ -464,6 +475,13 @@ export default function ProfessionalProfileScreen() {
                   <Text style={styles.reviews}>Sin calificaciones aún</Text>
                 )}
               </View>
+
+              {professional.isVerified ? (
+                <View style={styles.verifiedBadge}>
+                  <Ionicons name="checkmark-circle" size={12} color="#22C55E" />
+                  <Text style={styles.verifiedBadgeText}>Credenciales verificadas</Text>
+                </View>
+              ) : null}
             </View>
 
           </View>
@@ -595,6 +613,35 @@ export default function ProfessionalProfileScreen() {
                   'Profesional de salud mental con enfoque clínico y orientado a resultados.'}
               </Text>
             </AppCard>
+
+            {professional.education && professional.education.length > 0 ? (
+              <AppCard>
+                <Text style={styles.blockTitle}>Formación académica</Text>
+                <View style={styles.educationList}>
+                  {professional.education.map((entry) => (
+                    <View key={entry.id} style={styles.educationItem}>
+                      <View style={styles.educationIconWrap}>
+                        <Ionicons name="school-outline" size={18} color="#4F7BAE" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.educationDegree}>{entry.degree}</Text>
+                        <Text style={styles.educationMeta}>
+                          {entry.institution} · {entry.year}
+                        </Text>
+                        {entry.description ? (
+                          <Text style={styles.educationDesc}>{entry.description}</Text>
+                        ) : null}
+                        {entry.photoUrl ? (
+                          <Pressable onPress={() => setSelectedPhoto(entry.photoUrl!)}>
+                            <Image source={{ uri: entry.photoUrl }} style={styles.educationPhoto} />
+                          </Pressable>
+                        ) : null}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </AppCard>
+            ) : null}
 
             <AppCard>
               <Text style={styles.blockTitle}>Especialidades</Text>
@@ -1140,5 +1187,87 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.body,
     fontSize: 15,
     fontWeight: '700',
+  },
+  verifiedBadge: {
+    marginTop: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(34,197,94,0.18)',
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  verifiedBadgeText: {
+    color: '#86EFAC',
+    fontFamily: appTheme.fonts.body,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  educationList: {
+    gap: 12,
+    marginTop: 4,
+  },
+  educationItem: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'flex-start',
+  },
+  educationIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: '#EDF4FB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  educationDegree: {
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
+  },
+  educationMeta: {
+    color: '#64748B',
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  educationDesc: {
+    color: '#94A3B8',
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    marginTop: 3,
+    lineHeight: 18,
+  },
+  educationPhoto: {
+    width: '100%',
+    height: 100,
+    borderRadius: 10,
+    marginTop: 8,
+    resizeMode: 'cover',
+  },
+  photoViewerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoViewerImage: {
+    width: '100%',
+    height: '80%',
+  },
+  photoViewerClose: {
+    position: 'absolute',
+    top: 48,
+    right: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
