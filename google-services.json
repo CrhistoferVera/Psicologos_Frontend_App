@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:449243342864:android:9e54fa8fca6c87187fc295",
         "android_client_info": {
-          "package_name": "com.sanamenteoficial.app"
+          "package_name": "com.sanamente.appoficial"
         }
       },
       "oauth_client": [
@@ -17,7 +17,7 @@
           "client_id": "449243342864-vtjkqehvo12fqa8qs856agnq1hd2opac.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.sanamenteoficial.app",
+            "package_name": "com.sanamente.appoficial",
             "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
           }
         },
