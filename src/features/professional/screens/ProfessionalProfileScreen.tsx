@@ -21,6 +21,7 @@ import {
 import type { EducationEntry } from "../types";
 import { LanguageSelectorModal } from "../components/LanguageSelectorModal";
 import { getLangInfo } from "../constants/languages";
+import { PROFESSIONAL_TITLES, formatProfessionalName } from "../constants/titles";
 
 export default function ProfessionalProfileScreen() {
   const router = useRouter();
@@ -33,6 +34,7 @@ export default function ProfessionalProfileScreen() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [username, setUsername] = useState("");
+  const [title, setTitle] = useState<string | null>(null);
   const [bio, setBio] = useState("");
   const [isOnline, setIsOnline] = useState(false);
 
@@ -73,6 +75,7 @@ export default function ProfessionalProfileScreen() {
       setFirstName(profile.firstName || "");
       setLastName(profile.lastName || "");
       setUsername(profile.username || "");
+      setTitle(profile.title ?? null);
       setBio(profile.bio || "");
       setIsOnline(Boolean(profile.isOnline));
       setAvatarUrl(profile.avatarUrl ?? null);
@@ -106,8 +109,8 @@ export default function ProfessionalProfileScreen() {
   const displayName = useMemo(() => {
     const full = `${firstName} ${lastName}`.trim();
     if (!full) return "Profesional";
-    return full.startsWith("Dra.") || full.startsWith("Dr.") ? full : `Dra. ${full}`;
-  }, [firstName, lastName]);
+    return formatProfessionalName(full, title);
+  }, [firstName, lastName, title]);
 
   const visibleSpecialties = selectedSpecialtyNames.length > 0 ? selectedSpecialtyNames : catalog.slice(0, 4).map((item) => item.name);
   const readonlySpecialties = selectedSpecialties.length > 0 ? catalog.filter((item) => selectedSpecialties.includes(item.id)) : catalog.slice(0, 4);
@@ -256,6 +259,7 @@ export default function ProfessionalProfileScreen() {
           firstName: firstName.trim(),
           lastName: lastName.trim(),
           username: username.trim(),
+          title,
           bio: bio.trim(),
           isOnline,
           education,
@@ -269,6 +273,7 @@ export default function ProfessionalProfileScreen() {
       setFirstName(updatedProfile.firstName || "");
       setLastName(updatedProfile.lastName || "");
       setUsername(updatedProfile.username || "");
+      setTitle(updatedProfile.title ?? null);
       setBio(updatedProfile.bio || "");
       setIsOnline(Boolean(updatedProfile.isOnline));
       setAvatarUrl(updatedProfile.avatarUrl ?? null);
@@ -407,6 +412,22 @@ export default function ProfessionalProfileScreen() {
 
           {editingBio ? (
             <View style={{ gap: 8 }}>
+              <Text style={styles.fieldLabel}>Título profesional</Text>
+              <View style={styles.titleChipsWrap}>
+                <AppChip
+                  label="Sin título"
+                  active={!title}
+                  onPress={() => setTitle(null)}
+                />
+                {PROFESSIONAL_TITLES.map((option) => (
+                  <AppChip
+                    key={option}
+                    label={option}
+                    active={title === option}
+                    onPress={() => setTitle(option)}
+                  />
+                ))}
+              </View>
               <TextInput
                 value={firstName}
                 onChangeText={setFirstName}
@@ -764,6 +785,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
+  },
+  fieldLabel: {
+    color: "#394F67",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 13,
+    fontWeight: "600",
+    marginBottom: 2,
+  },
+  titleChipsWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginBottom: 4,
   },
   textArea: {
     borderWidth: 1,

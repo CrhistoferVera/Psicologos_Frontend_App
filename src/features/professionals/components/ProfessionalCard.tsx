@@ -2,6 +2,7 @@ import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import AppCard from "../../../components/ui/AppCard";
 import { appTheme } from "../../../theme/appTheme";
 import type { Professional } from "../types";
+import { formatProfessionalName } from "../../professional/constants/titles";
 
 type Props = {
   professional: Professional;
@@ -22,7 +23,7 @@ export default function ProfessionalCard({ professional, onPress }: Props) {
             style={styles.avatar}
           />
           <View style={styles.info}>
-            <Text style={styles.name}>{professional.name}</Text>
+            <Text style={styles.name}>{formatProfessionalName(professional.name, professional.title)}</Text>
             <Text style={styles.specialtyText} numberOfLines={1}>
               {professional.specialties.length > 0
                 ? professional.specialties.join(" · ")
