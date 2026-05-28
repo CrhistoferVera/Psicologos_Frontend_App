@@ -19,6 +19,8 @@ import {
   uploadEducationPhoto,
 } from "../api/professionalApi";
 import type { EducationEntry } from "../types";
+import { LanguageSelectorModal } from "../components/LanguageSelectorModal";
+import { getLangInfo } from "../constants/languages";
 
 export default function ProfessionalProfileScreen() {
   const router = useRouter();
@@ -39,6 +41,9 @@ export default function ProfessionalProfileScreen() {
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<{ uri: string; name: string; type: string } | undefined>(undefined);
+
+  const [languages, setLanguages] = useState<string[]>([]);
+  const [showLangModal, setShowLangModal] = useState(false);
 
   const [editingBio, setEditingBio] = useState(false);
   const [editingSpecialties, setEditingSpecialties] = useState(false);
@@ -72,6 +77,7 @@ export default function ProfessionalProfileScreen() {
       setIsOnline(Boolean(profile.isOnline));
       setAvatarUrl(profile.avatarUrl ?? null);
       setEducation(Array.isArray(profile.education) ? profile.education : []);
+      setLanguages(Array.isArray(profile.languages) ? profile.languages : []);
 
       const trimmed = specialtiesCatalog.slice(0, 48).map((item) => ({ id: item.id, name: item.name }));
       setCatalog(trimmed);
@@ -253,6 +259,7 @@ export default function ProfessionalProfileScreen() {
           bio: bio.trim(),
           isOnline,
           education,
+          languages,
         },
         avatarFile,
       );
@@ -320,6 +327,75 @@ export default function ProfessionalProfileScreen() {
 
         {loading ? <Text style={styles.infoText}>Cargando perfil...</Text> : null}
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+        <AppCard style={styles.sectionCard}>
+          <View style={styles.cardHead}>
+            <View style={styles.langCardTitleRow}>
+              <View style={styles.langCardIcon}>
+                <Ionicons name="language" size={15} color={appTheme.colors.primary} />
+              </View>
+              <Text style={styles.cardTitle}>Idiomas que hablo</Text>
+            </View>
+            <Pressable style={styles.langAddPill} onPress={() => setShowLangModal(true)}>
+              <Ionicons name="add" size={14} color={appTheme.colors.primary} />
+              <Text style={styles.langAddPillText}>Agregar</Text>
+            </Pressable>
+          </View>
+
+          {languages.length === 0 ? (
+            <Pressable style={styles.langEmptyBtn} onPress={() => setShowLangModal(true)}>
+              <Ionicons name="language-outline" size={20} color="#A0B4C8" />
+              <Text style={styles.langEmptyText}>Toca para agregar los idiomas{"\n"}en los que atiendes</Text>
+            </Pressable>
+          ) : (
+            <View style={styles.langChipWrap}>
+              {languages.map((lang) => {
+                const info = getLangInfo(lang);
+                return (
+                  <View
+                    key={lang}
+                    style={[
+                      styles.langChip,
+                      info && { backgroundColor: info.color, borderColor: info.border },
+                    ]}
+                  >
+                    {info && <Text style={styles.langFlag}>{info.flag}</Text>}
+                    <Text style={[styles.langChipText, info && { color: info.accent }]}>
+                      {lang}
+                    </Text>
+                    <Pressable
+                      hitSlop={6}
+                      onPress={async () => {
+                        const updated = languages.filter((l) => l !== lang);
+                        setLanguages(updated);
+                        try {
+                          await updateMyProfessionalProfile({ languages: updated });
+                        } catch {}
+                      }}
+                    >
+                      <Ionicons name="close-circle" size={15} color={info?.accent ?? "#4F7BAE"} />
+                    </Pressable>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+        </AppCard>
+
+        <LanguageSelectorModal
+          visible={showLangModal}
+          selected={languages}
+          onToggle={(lang) => setLanguages((prev) => prev.includes(lang) ? prev.filter((l) => l !== lang) : [...prev, lang])}
+          onClose={async () => {
+            setShowLangModal(false);
+            try {
+              await updateMyProfessionalProfile({ languages });
+            } catch (err: any) {
+              const raw = err?.response?.data?.message ?? err?.message;
+              Alert.alert("Error", Array.isArray(raw) ? raw.join(", ") : raw || "No se pudieron guardar los idiomas.");
+            }
+          }}
+        />
 
         <AppCard style={styles.sectionCard}>
           <View style={styles.cardHead}>
@@ -898,6 +974,78 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.45)",
     alignItems: "center",
     justifyContent: "center",
+  },
+  langCardTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  langCardIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: `${appTheme.colors.primary}12`,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  langAddPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderWidth: 1.5,
+    borderColor: appTheme.colors.primary,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  langAddPillText: {
+    color: appTheme.colors.primary,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  langEmptyBtn: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderWidth: 1.5,
+    borderColor: "#D5DFEB",
+    borderStyle: "dashed",
+    borderRadius: 14,
+    paddingVertical: 18,
+  },
+  langEmptyText: {
+    color: "#A0B4C8",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 13,
+    textAlign: "center",
+    lineHeight: 19,
+  },
+  langChipWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  langChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#EDF4FB",
+    borderWidth: 1.5,
+    borderColor: "#BDD5EE",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  langFlag: {
+    fontSize: 15,
+    lineHeight: 18,
+  },
+  langChipText: {
+    color: "#2A405B",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 13,
+    fontWeight: "700",
   },
   eduItemPhoto: {
     width: "100%",

@@ -117,6 +117,26 @@ export default function ProfessionalFeedCard({
           </ScrollView>
         )}
 
+        {professional.languages && professional.languages.length > 0 && (
+          <View style={styles.langsRow}>
+            <View style={styles.langsIconWrap}>
+              <Ionicons name="chatbubbles-outline" size={11} color="rgba(255,255,255,0.70)" />
+            </View>
+            <Text style={styles.langsLabel}>Habla</Text>
+            <View style={styles.langsDivider} />
+            {professional.languages.slice(0, 3).map((lang) => (
+              <View key={lang} style={styles.langTag}>
+                <Text style={styles.langTagText}>{lang}</Text>
+              </View>
+            ))}
+            {professional.languages.length > 3 && (
+              <View style={[styles.langTag, styles.langTagMore]}>
+                <Text style={styles.langTagText}>+{professional.languages.length - 3}</Text>
+              </View>
+            )}
+          </View>
+        )}
+
         {bio ? (
           <Text style={styles.bio} numberOfLines={2}>
             {bio}
@@ -307,5 +327,83 @@ const styles = StyleSheet.create({
   },
   communicationHintAllowed: {
     color: "#BBF7D0",
+  },
+  langsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  langPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.20)",
+    borderRadius: 99,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  langFlag: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  langText: {
+    color: "rgba(255,255,255,0.90)",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  langMore: {
+    color: "rgba(255,255,255,0.55)",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 11,
+    fontWeight: "600",
+    alignSelf: "center",
+  },
+  langsLabel: {
+    color: "rgba(255,255,255,0.55)",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+  },
+  langsValue: {
+    color: "rgba(255,255,255,0.90)",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    fontWeight: "600",
+    flexShrink: 1,
+  },
+  langsIconWrap: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  langsDivider: {
+    width: 1,
+    height: 12,
+    backgroundColor: "rgba(255,255,255,0.20)",
+    marginHorizontal: 2,
+  },
+  langTag: {
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+    borderRadius: 99,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+  },
+  langTagMore: {
+    backgroundColor: "rgba(255,255,255,0.06)",
+  },
+  langTagText: {
+    color: "rgba(255,255,255,0.88)",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 11,
+    fontWeight: "600",
   },
 });

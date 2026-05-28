@@ -17,6 +17,7 @@ export type ProfessionalProfile = {
   reviewStatus?: "PENDING" | "APPROVED" | "REJECTED";
   reviewNotes?: string | null;
   education?: EducationEntry[];
+  languages?: string[];
   availability?: {
     monFri?: string;
     sat?: string;

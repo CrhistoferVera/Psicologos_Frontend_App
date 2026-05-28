@@ -79,6 +79,7 @@ function mapRawProfessional(item: any): Professional {
       video: servicePrices.video ?? null,
     },
     education: Array.isArray(item?.education) ? (item.education as EducationEntry[]) : [],
+    languages: Array.isArray(item?.languages) ? (item.languages as string[]) : [],
     isVerified: Boolean(item?.isVerified ?? false),
   };
 }
