@@ -25,7 +25,7 @@ import { PROFESSIONAL_TITLES, formatProfessionalName } from "../constants/titles
 
 export default function ProfessionalProfileScreen() {
   const router = useRouter();
-  const { hydrate, logout } = useAuth();
+  const { hydrate, logout, user } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -43,6 +43,9 @@ export default function ProfessionalProfileScreen() {
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<{ uri: string; name: string; type: string } | undefined>(undefined);
+
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [coverFile, setCoverFile] = useState<{ uri: string; name: string; type: string } | undefined>(undefined);
 
   const [languages, setLanguages] = useState<string[]>([]);
   const [showLangModal, setShowLangModal] = useState(false);
@@ -79,6 +82,7 @@ export default function ProfessionalProfileScreen() {
       setBio(profile.bio || "");
       setIsOnline(Boolean(profile.isOnline));
       setAvatarUrl(profile.avatarUrl ?? null);
+      setCoverUrl(profile.coverUrl ?? null);
       setEducation(Array.isArray(profile.education) ? profile.education : []);
       setLanguages(Array.isArray(profile.languages) ? profile.languages : []);
 
@@ -140,6 +144,28 @@ export default function ProfessionalProfileScreen() {
       setAvatarUrl(asset.uri);
     } catch {
       setError("No se pudo seleccionar la imagen.");
+    }
+  }
+
+  async function pickCover() {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        quality: 0.8,
+      });
+
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0];
+      const file = {
+        uri: asset.uri,
+        name: asset.uri.split("/").pop() ?? "cover.jpg",
+        type: asset.mimeType ?? "image/jpeg",
+      };
+
+      setCoverFile(file);
+      setCoverUrl(asset.uri);
+    } catch {
+      setError("No se pudo seleccionar la imagen de portada.");
     }
   }
 
@@ -266,6 +292,7 @@ export default function ProfessionalProfileScreen() {
           languages,
         },
         avatarFile,
+        coverFile,
       );
 
       const updatedSpecialtyIds = await updateMyProfessionalSpecialties(selectedSpecialties);
@@ -278,6 +305,8 @@ export default function ProfessionalProfileScreen() {
       setIsOnline(Boolean(updatedProfile.isOnline));
       setAvatarUrl(updatedProfile.avatarUrl ?? null);
       setAvatarFile(undefined);
+      setCoverUrl(updatedProfile.coverUrl ?? null);
+      setCoverFile(undefined);
       setSelectedSpecialties(Array.from(new Set(updatedSpecialtyIds)));
       await hydrate();
 
@@ -310,6 +339,21 @@ export default function ProfessionalProfileScreen() {
           </Pressable>
         </View>
 
+        <Pressable style={styles.coverWrap} onPress={pickCover}>
+          {coverUrl ? (
+            <Image source={{ uri: coverUrl }} style={styles.coverImage} />
+          ) : (
+            <View style={styles.coverPlaceholder}>
+              <Ionicons name="image-outline" size={22} color="#A0B4C8" />
+              <Text style={styles.coverPlaceholderText}>Agregar foto de portada</Text>
+            </View>
+          )}
+          <View style={styles.coverEditBtn}>
+            <Ionicons name="camera" size={13} color="#FFFFFF" />
+            <Text style={styles.coverEditText}>{coverUrl ? "Cambiar" : "Agregar"}</Text>
+          </View>
+        </Pressable>
+
         <View style={styles.identityCard}>
           <View style={styles.avatarWrap}>
             <Image
@@ -324,9 +368,15 @@ export default function ProfessionalProfileScreen() {
           <View style={{ flex: 1 }}>
             <Text style={styles.name}>{displayName}</Text>
             <Text style={styles.roleSubtitle}>{visibleSpecialties[0] ?? "Psicologia clinica"}</Text>
-            <View style={styles.verifiedPill}>
-              <Text style={styles.verifiedText}>Verificada</Text>
-            </View>
+            {user?.isActive ? (
+              <View style={styles.verifiedPill}>
+                <Text style={styles.verifiedText}>Verificada</Text>
+              </View>
+            ) : (
+              <View style={[styles.verifiedPill, styles.pendingPill]}>
+                <Text style={[styles.verifiedText, styles.pendingText]}>Pendiente de verificación</Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -678,6 +728,47 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
   },
+  coverWrap: {
+    width: "100%",
+    height: 140,
+    position: "relative",
+    backgroundColor: "#E2EBF5",
+  },
+  coverImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+  },
+  coverPlaceholder: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  coverPlaceholderText: {
+    color: "#A0B4C8",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  coverEditBtn: {
+    position: "absolute",
+    bottom: 8,
+    right: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  coverEditText: {
+    color: "#FFFFFF",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    fontWeight: "700",
+  },
   identityCard: {
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -738,6 +829,18 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
     fontWeight: "700",
+  },
+  pendingPill: {
+    backgroundColor: "#FFF8E1",
+  },
+  pendingText: {
+    color: "#B8860B",
+  },
+  rejectedPill: {
+    backgroundColor: "#FEF2F2",
+  },
+  rejectedText: {
+    color: "#DC2626",
   },
   infoText: {
     color: appTheme.colors.textMuted,

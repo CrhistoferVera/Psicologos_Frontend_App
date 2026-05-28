@@ -14,6 +14,7 @@ export type User = {
   lastName: string | null;
   role: string;
   isProfileComplete: boolean;
+  isActive?: boolean;
   createdAt?: string;
   updatedAt?: string;
   lastLogin?: string | null;

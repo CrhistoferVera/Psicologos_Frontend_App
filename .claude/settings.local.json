@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(node scripts/createUser.js)"
+      "Bash(node scripts/createUser.js)",
+      "Read(//d/Psicologos_Project/sanamente-web/src/app/admin/professionals/**)",
+      "Read(//d/Psicologos_Project/sanamente-web/src/**)"
+    ],
+    "additionalDirectories": [
+      "d:\\Psicologos_Project\\sanamente-web\\src\\components\\admin"
     ]
   }
 }
