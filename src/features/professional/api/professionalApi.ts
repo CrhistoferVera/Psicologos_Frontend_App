@@ -45,11 +45,13 @@ export type ProfessionalAvailability = {
 };
 
 function normalizeProfile(raw: any): ProfessionalProfile {
+  const rawTitle = typeof raw?.title === "string" ? raw.title.trim() : "";
   return {
     id: String(raw?.id ?? ""),
     firstName: String(raw?.firstName ?? ""),
     lastName: String(raw?.lastName ?? ""),
     username: String(raw?.username ?? ""),
+    title: rawTitle || null,
     bio: String(raw?.bio ?? ""),
     isOnline: Boolean(raw?.isOnline ?? false),
     avatarUrl: raw?.avatarUrl ?? null,
@@ -156,6 +158,7 @@ export async function updateMyProfessionalProfile(
     firstName?: string;
     lastName?: string;
     username?: string;
+    title?: string | null;
     bio?: string;
     isOnline?: boolean;
     availability?: ProfessionalAvailability;
@@ -169,6 +172,7 @@ export async function updateMyProfessionalProfile(
   if (payload.firstName !== undefined) formData.append("firstName", payload.firstName);
   if (payload.lastName !== undefined) formData.append("lastName", payload.lastName);
   if (payload.username !== undefined) formData.append("username", payload.username);
+  if (payload.title !== undefined) formData.append("title", payload.title ?? "");
   if (payload.bio !== undefined) formData.append("bio", payload.bio);
   if (payload.isOnline !== undefined) formData.append("isOnline", String(payload.isOnline));
   if (payload.availability !== undefined) formData.append("availability", JSON.stringify(payload.availability));

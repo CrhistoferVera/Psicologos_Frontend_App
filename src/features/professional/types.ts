@@ -9,6 +9,7 @@ export type ProfessionalProfile = {
   firstName: string;
   lastName: string;
   username: string;
+  title: string | null;
   bio: string;
   isOnline: boolean;
   avatarUrl: string | null;

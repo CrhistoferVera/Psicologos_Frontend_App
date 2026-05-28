@@ -17,6 +17,7 @@ export type Professional = {
   id: string;
   name: string;
   username?: string;
+  title?: string | null;
   avatar: string;
   coverImage?: string;
   bio: string;

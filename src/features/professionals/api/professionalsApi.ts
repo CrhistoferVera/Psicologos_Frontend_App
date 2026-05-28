@@ -62,10 +62,12 @@ function mapRawProfessional(item: any): Professional {
   const servicePrices = parsePricesFromServicePrices(item?.servicePrices);
   const coverImage: string | undefined =
     item?.mainImage ?? item?.coverUrl ?? item?.coverImage ?? undefined;
+  const rawTitle = typeof item?.title === "string" ? item.title.trim() : "";
   return {
     id: String(item?.id ?? ""),
     name: String(item?.name ?? item?.fullName ?? "Professional"),
     username: item?.username ?? undefined,
+    title: rawTitle || null,
     avatar: item?.avatar ?? item?.avatarUrl ?? "",
     coverImage: coverImage || undefined,
     bio: pickProfessionalBio(item),

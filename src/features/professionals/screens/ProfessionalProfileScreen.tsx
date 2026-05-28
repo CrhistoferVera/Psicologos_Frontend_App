@@ -23,6 +23,7 @@ import { getCommunicationAccess, type CommunicationAccess } from '../../../api/c
 import { createReview, getProfessionalReviews, type Review } from '../../../api/reviews';
 import { appTheme } from '../../../theme/appTheme';
 import { getLangInfo } from '../../professional/constants/languages';
+import { formatProfessionalName } from '../../professional/constants/titles';
 import { useAuth } from '../../../context/AuthContext';
 import { useUserRegion } from '../../../hooks/useUserRegion';
 import { formatBob, formatUsd } from '../../../utils/money';
@@ -376,7 +377,7 @@ export default function ProfessionalProfileScreen() {
           <View style={styles.modalOverlay}>
             <View style={styles.modalCard}>
               <Text style={styles.modalTitle}>
-                ¿Cómo fue tu sesión con {professional.name}?
+                ¿Cómo fue tu sesión con {formatProfessionalName(professional.name, professional.title)}?
               </Text>
 
               <View style={styles.starsRow}>
@@ -456,7 +457,7 @@ export default function ProfessionalProfileScreen() {
             </View>
 
             <View style={{ flex: 1 }}>
-              <Text style={styles.name}>{professional.name}</Text>
+              <Text style={styles.name}>{formatProfessionalName(professional.name, professional.title)}</Text>
               {professional.username ? <Text style={styles.username}>@{professional.username}</Text> : null}
               <Text style={styles.subtitle}>{subtitle}</Text>
               <View style={[styles.statusBadge, professional.isOnline ? styles.statusBadgeOnline : styles.statusBadgeOffline]}>
