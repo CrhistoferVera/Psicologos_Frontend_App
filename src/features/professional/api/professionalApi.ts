@@ -45,11 +45,13 @@ export type ProfessionalAvailability = {
 };
 
 function normalizeProfile(raw: any): ProfessionalProfile {
+  const rawTitle = typeof raw?.title === "string" ? raw.title.trim() : "";
   return {
     id: String(raw?.id ?? ""),
     firstName: String(raw?.firstName ?? ""),
     lastName: String(raw?.lastName ?? ""),
     username: String(raw?.username ?? ""),
+    title: rawTitle || null,
     bio: String(raw?.bio ?? ""),
     isOnline: Boolean(raw?.isOnline ?? false),
     avatarUrl: raw?.avatarUrl ?? null,
@@ -59,6 +61,7 @@ function normalizeProfile(raw: any): ProfessionalProfile {
     reviewNotes: raw?.reviewNotes ?? null,
     availability: (raw?.availability as ProfessionalAvailability | null) ?? null,
     education: Array.isArray(raw?.education) ? (raw.education as EducationEntry[]) : [],
+    languages: Array.isArray(raw?.languages) ? (raw.languages as string[]) : [],
   };
 }
 
@@ -155,10 +158,12 @@ export async function updateMyProfessionalProfile(
     firstName?: string;
     lastName?: string;
     username?: string;
+    title?: string | null;
     bio?: string;
     isOnline?: boolean;
     availability?: ProfessionalAvailability;
     education?: EducationEntry[];
+    languages?: string[];
   },
   avatarFile?: { uri: string; name: string; type: string },
   coverFile?: { uri: string; name: string; type: string },
@@ -167,10 +172,12 @@ export async function updateMyProfessionalProfile(
   if (payload.firstName !== undefined) formData.append("firstName", payload.firstName);
   if (payload.lastName !== undefined) formData.append("lastName", payload.lastName);
   if (payload.username !== undefined) formData.append("username", payload.username);
+  if (payload.title !== undefined) formData.append("title", payload.title ?? "");
   if (payload.bio !== undefined) formData.append("bio", payload.bio);
   if (payload.isOnline !== undefined) formData.append("isOnline", String(payload.isOnline));
   if (payload.availability !== undefined) formData.append("availability", JSON.stringify(payload.availability));
   if (payload.education !== undefined) formData.append("education", JSON.stringify(payload.education));
+  if (payload.languages !== undefined) formData.append("languages", JSON.stringify(payload.languages));
 
   if (avatarFile) {
     formData.append("avatar", { uri: avatarFile.uri, name: avatarFile.name, type: avatarFile.type } as any);

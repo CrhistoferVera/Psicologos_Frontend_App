@@ -22,6 +22,8 @@ import {
 import { getCommunicationAccess, type CommunicationAccess } from '../../../api/communication';
 import { createReview, getProfessionalReviews, type Review } from '../../../api/reviews';
 import { appTheme } from '../../../theme/appTheme';
+import { getLangInfo } from '../../professional/constants/languages';
+import { formatProfessionalName } from '../../professional/constants/titles';
 import { useAuth } from '../../../context/AuthContext';
 import { useUserRegion } from '../../../hooks/useUserRegion';
 import { formatBob, formatUsd } from '../../../utils/money';
@@ -375,7 +377,7 @@ export default function ProfessionalProfileScreen() {
           <View style={styles.modalOverlay}>
             <View style={styles.modalCard}>
               <Text style={styles.modalTitle}>
-                ¿Cómo fue tu sesión con {professional.name}?
+                ¿Cómo fue tu sesión con {formatProfessionalName(professional.name, professional.title)}?
               </Text>
 
               <View style={styles.starsRow}>
@@ -455,7 +457,7 @@ export default function ProfessionalProfileScreen() {
             </View>
 
             <View style={{ flex: 1 }}>
-              <Text style={styles.name}>{professional.name}</Text>
+              <Text style={styles.name}>{formatProfessionalName(professional.name, professional.title)}</Text>
               {professional.username ? <Text style={styles.username}>@{professional.username}</Text> : null}
               <Text style={styles.subtitle}>{subtitle}</Text>
               <View style={[styles.statusBadge, professional.isOnline ? styles.statusBadgeOnline : styles.statusBadgeOffline]}>
@@ -613,6 +615,36 @@ export default function ProfessionalProfileScreen() {
                   'Profesional de salud mental con enfoque clínico y orientado a resultados.'}
               </Text>
             </AppCard>
+
+            {professional.languages && professional.languages.length > 0 && (
+              <AppCard>
+                <View style={styles.langCardHeader}>
+                  <View style={styles.langCardIconWrap}>
+                    <Ionicons name="language" size={16} color={appTheme.colors.primary} />
+                  </View>
+                  <Text style={styles.blockTitle}>Idiomas</Text>
+                </View>
+                <View style={styles.langChipWrap}>
+                  {professional.languages.map((lang) => {
+                    const info = getLangInfo(lang);
+                    return (
+                      <View
+                        key={lang}
+                        style={[
+                          styles.langChip,
+                          info && { backgroundColor: info.color, borderColor: info.border },
+                        ]}
+                      >
+                        {info && <Text style={styles.langChipFlag}>{info.flag}</Text>}
+                        <Text style={[styles.langChipText, info && { color: info.accent }]}>
+                          {lang}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </AppCard>
+            )}
 
             {professional.education && professional.education.length > 0 ? (
               <AppCard>
@@ -1248,6 +1280,50 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginTop: 8,
     resizeMode: 'cover',
+  },
+  langCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+  },
+  langCardIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: `${appTheme.colors.primary}15`,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  langChipWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  langChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    width: '30%',
+    flexGrow: 1,
+    maxWidth: '32%',
+    backgroundColor: '#EDF4FB',
+    borderWidth: 1.5,
+    borderColor: '#BDD5EE',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  langChipFlag: {
+    fontSize: 16,
+    lineHeight: 20,
+  },
+  langChipText: {
+    color: '#2A405B',
+    fontFamily: appTheme.fonts.body,
+    fontSize: 13,
+    fontWeight: '700',
   },
   photoViewerOverlay: {
     flex: 1,

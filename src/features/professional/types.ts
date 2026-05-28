@@ -9,6 +9,7 @@ export type ProfessionalProfile = {
   firstName: string;
   lastName: string;
   username: string;
+  title: string | null;
   bio: string;
   isOnline: boolean;
   avatarUrl: string | null;
@@ -17,6 +18,7 @@ export type ProfessionalProfile = {
   reviewStatus?: "PENDING" | "APPROVED" | "REJECTED";
   reviewNotes?: string | null;
   education?: EducationEntry[];
+  languages?: string[];
   availability?: {
     monFri?: string;
     sat?: string;

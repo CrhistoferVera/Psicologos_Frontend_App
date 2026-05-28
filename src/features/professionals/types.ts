@@ -17,6 +17,7 @@ export type Professional = {
   id: string;
   name: string;
   username?: string;
+  title?: string | null;
   avatar: string;
   coverImage?: string;
   bio: string;
@@ -26,6 +27,7 @@ export type Professional = {
   reviewCount?: number;
   prices: ProfessionalPriceMap;
   education?: EducationEntry[];
+  languages?: string[];
   isVerified?: boolean;
 };
 

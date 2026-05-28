@@ -19,6 +19,9 @@ import {
   uploadEducationPhoto,
 } from "../api/professionalApi";
 import type { EducationEntry } from "../types";
+import { LanguageSelectorModal } from "../components/LanguageSelectorModal";
+import { getLangInfo } from "../constants/languages";
+import { PROFESSIONAL_TITLES, formatProfessionalName } from "../constants/titles";
 
 export default function ProfessionalProfileScreen() {
   const router = useRouter();
@@ -31,6 +34,7 @@ export default function ProfessionalProfileScreen() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [username, setUsername] = useState("");
+  const [title, setTitle] = useState<string | null>(null);
   const [bio, setBio] = useState("");
   const [isOnline, setIsOnline] = useState(false);
 
@@ -39,6 +43,9 @@ export default function ProfessionalProfileScreen() {
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<{ uri: string; name: string; type: string } | undefined>(undefined);
+
+  const [languages, setLanguages] = useState<string[]>([]);
+  const [showLangModal, setShowLangModal] = useState(false);
 
   const [editingBio, setEditingBio] = useState(false);
   const [editingSpecialties, setEditingSpecialties] = useState(false);
@@ -68,10 +75,12 @@ export default function ProfessionalProfileScreen() {
       setFirstName(profile.firstName || "");
       setLastName(profile.lastName || "");
       setUsername(profile.username || "");
+      setTitle(profile.title ?? null);
       setBio(profile.bio || "");
       setIsOnline(Boolean(profile.isOnline));
       setAvatarUrl(profile.avatarUrl ?? null);
       setEducation(Array.isArray(profile.education) ? profile.education : []);
+      setLanguages(Array.isArray(profile.languages) ? profile.languages : []);
 
       const trimmed = specialtiesCatalog.slice(0, 48).map((item) => ({ id: item.id, name: item.name }));
       setCatalog(trimmed);
@@ -100,8 +109,8 @@ export default function ProfessionalProfileScreen() {
   const displayName = useMemo(() => {
     const full = `${firstName} ${lastName}`.trim();
     if (!full) return "Profesional";
-    return full.startsWith("Dra.") || full.startsWith("Dr.") ? full : `Dra. ${full}`;
-  }, [firstName, lastName]);
+    return formatProfessionalName(full, title);
+  }, [firstName, lastName, title]);
 
   const visibleSpecialties = selectedSpecialtyNames.length > 0 ? selectedSpecialtyNames : catalog.slice(0, 4).map((item) => item.name);
   const readonlySpecialties = selectedSpecialties.length > 0 ? catalog.filter((item) => selectedSpecialties.includes(item.id)) : catalog.slice(0, 4);
@@ -250,9 +259,11 @@ export default function ProfessionalProfileScreen() {
           firstName: firstName.trim(),
           lastName: lastName.trim(),
           username: username.trim(),
+          title,
           bio: bio.trim(),
           isOnline,
           education,
+          languages,
         },
         avatarFile,
       );
@@ -262,6 +273,7 @@ export default function ProfessionalProfileScreen() {
       setFirstName(updatedProfile.firstName || "");
       setLastName(updatedProfile.lastName || "");
       setUsername(updatedProfile.username || "");
+      setTitle(updatedProfile.title ?? null);
       setBio(updatedProfile.bio || "");
       setIsOnline(Boolean(updatedProfile.isOnline));
       setAvatarUrl(updatedProfile.avatarUrl ?? null);
@@ -323,6 +335,75 @@ export default function ProfessionalProfileScreen() {
 
         <AppCard style={styles.sectionCard}>
           <View style={styles.cardHead}>
+            <View style={styles.langCardTitleRow}>
+              <View style={styles.langCardIcon}>
+                <Ionicons name="language" size={15} color={appTheme.colors.primary} />
+              </View>
+              <Text style={styles.cardTitle}>Idiomas que hablo</Text>
+            </View>
+            <Pressable style={styles.langAddPill} onPress={() => setShowLangModal(true)}>
+              <Ionicons name="add" size={14} color={appTheme.colors.primary} />
+              <Text style={styles.langAddPillText}>Agregar</Text>
+            </Pressable>
+          </View>
+
+          {languages.length === 0 ? (
+            <Pressable style={styles.langEmptyBtn} onPress={() => setShowLangModal(true)}>
+              <Ionicons name="language-outline" size={20} color="#A0B4C8" />
+              <Text style={styles.langEmptyText}>Toca para agregar los idiomas{"\n"}en los que atiendes</Text>
+            </Pressable>
+          ) : (
+            <View style={styles.langChipWrap}>
+              {languages.map((lang) => {
+                const info = getLangInfo(lang);
+                return (
+                  <View
+                    key={lang}
+                    style={[
+                      styles.langChip,
+                      info && { backgroundColor: info.color, borderColor: info.border },
+                    ]}
+                  >
+                    {info && <Text style={styles.langFlag}>{info.flag}</Text>}
+                    <Text style={[styles.langChipText, info && { color: info.accent }]}>
+                      {lang}
+                    </Text>
+                    <Pressable
+                      hitSlop={6}
+                      onPress={async () => {
+                        const updated = languages.filter((l) => l !== lang);
+                        setLanguages(updated);
+                        try {
+                          await updateMyProfessionalProfile({ languages: updated });
+                        } catch {}
+                      }}
+                    >
+                      <Ionicons name="close-circle" size={15} color={info?.accent ?? "#4F7BAE"} />
+                    </Pressable>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+        </AppCard>
+
+        <LanguageSelectorModal
+          visible={showLangModal}
+          selected={languages}
+          onToggle={(lang) => setLanguages((prev) => prev.includes(lang) ? prev.filter((l) => l !== lang) : [...prev, lang])}
+          onClose={async () => {
+            setShowLangModal(false);
+            try {
+              await updateMyProfessionalProfile({ languages });
+            } catch (err: any) {
+              const raw = err?.response?.data?.message ?? err?.message;
+              Alert.alert("Error", Array.isArray(raw) ? raw.join(", ") : raw || "No se pudieron guardar los idiomas.");
+            }
+          }}
+        />
+
+        <AppCard style={styles.sectionCard}>
+          <View style={styles.cardHead}>
             <Text style={styles.cardTitle}>Datos del perfil</Text>
             <Pressable onPress={() => setEditingBio((prev) => !prev)}>
               <Text style={styles.editLink}>{editingBio ? "Listo" : "Editar"}</Text>
@@ -331,6 +412,22 @@ export default function ProfessionalProfileScreen() {
 
           {editingBio ? (
             <View style={{ gap: 8 }}>
+              <Text style={styles.fieldLabel}>Título profesional</Text>
+              <View style={styles.titleChipsWrap}>
+                <AppChip
+                  label="Sin título"
+                  active={!title}
+                  onPress={() => setTitle(null)}
+                />
+                {PROFESSIONAL_TITLES.map((option) => (
+                  <AppChip
+                    key={option}
+                    label={option}
+                    active={title === option}
+                    onPress={() => setTitle(option)}
+                  />
+                ))}
+              </View>
               <TextInput
                 value={firstName}
                 onChangeText={setFirstName}
@@ -689,6 +786,19 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 8,
   },
+  fieldLabel: {
+    color: "#394F67",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 13,
+    fontWeight: "600",
+    marginBottom: 2,
+  },
+  titleChipsWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginBottom: 4,
+  },
   textArea: {
     borderWidth: 1,
     borderColor: "#D5DFEB",
@@ -898,6 +1008,78 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.45)",
     alignItems: "center",
     justifyContent: "center",
+  },
+  langCardTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  langCardIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: `${appTheme.colors.primary}12`,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  langAddPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderWidth: 1.5,
+    borderColor: appTheme.colors.primary,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  langAddPillText: {
+    color: appTheme.colors.primary,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  langEmptyBtn: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderWidth: 1.5,
+    borderColor: "#D5DFEB",
+    borderStyle: "dashed",
+    borderRadius: 14,
+    paddingVertical: 18,
+  },
+  langEmptyText: {
+    color: "#A0B4C8",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 13,
+    textAlign: "center",
+    lineHeight: 19,
+  },
+  langChipWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  langChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#EDF4FB",
+    borderWidth: 1.5,
+    borderColor: "#BDD5EE",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  langFlag: {
+    fontSize: 15,
+    lineHeight: 18,
+  },
+  langChipText: {
+    color: "#2A405B",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 13,
+    fontWeight: "700",
   },
   eduItemPhoto: {
     width: "100%",
