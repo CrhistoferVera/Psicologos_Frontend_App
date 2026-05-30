@@ -117,7 +117,10 @@ export default function ProfessionalProfileScreen() {
   }, [firstName, lastName, title]);
 
   const visibleSpecialties = selectedSpecialtyNames.length > 0 ? selectedSpecialtyNames : catalog.slice(0, 4).map((item) => item.name);
-  const readonlySpecialties = selectedSpecialties.length > 0 ? catalog.filter((item) => selectedSpecialties.includes(item.id)) : catalog.slice(0, 4);
+  // Preserva el orden de selección del psicólogo, no el orden del catálogo
+  const readonlySpecialties = selectedSpecialties.length > 0
+    ? selectedSpecialties.map((id) => catalog.find((item) => item.id === id)).filter(Boolean) as { id: string; name: string }[]
+    : catalog.slice(0, 4);
 
   function toggleSpecialty(id: string) {
     setSelectedSpecialties((prev) =>
@@ -526,7 +529,21 @@ export default function ProfessionalProfileScreen() {
         <AppCard style={styles.sectionCard}>
           <View style={styles.cardHead}>
             <Text style={styles.cardTitle}>Especialidades</Text>
-            <Pressable onPress={() => setEditingSpecialties((prev) => !prev)}>
+            <Pressable
+              onPress={async () => {
+                if (editingSpecialties) {
+                  setEditingSpecialties(false);
+                  try {
+                    await updateMyProfessionalSpecialties(selectedSpecialties);
+                  } catch (err: any) {
+                    const raw = err?.response?.data?.message ?? err?.message;
+                    Alert.alert("Error al guardar", Array.isArray(raw) ? raw.join(", ") : raw || "No se pudieron guardar las especialidades.");
+                  }
+                } else {
+                  setEditingSpecialties(true);
+                }
+              }}
+            >
               <Text style={styles.editLink}>{editingSpecialties ? "Listo" : "Editar"}</Text>
             </Pressable>
           </View>
