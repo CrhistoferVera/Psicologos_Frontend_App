@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useStripe } from '@stripe/stripe-react-native';
 import AppCard from '../../../components/ui/AppCard';
 import AppScreen from '../../../components/ui/AppScreen';
@@ -13,8 +13,9 @@ import {
   type Booking,
   type BookingPaymentInitResponse,
 } from '../../../api/bookings';
-import { formatBob, formatMoneyByCurrency } from '../../../utils/money';
+import { formatBob, formatMoneyByCurrency, formatUsd } from '../../../utils/money';
 import { safeBack } from '../../../utils/navigation';
+import { pendingPaymentStore } from '../stores/pendingPaymentStore';
 
 function normalizeStatus(status: string) {
   if (status === 'PENDING_PAYMENT') return 'Pendiente de pago';
@@ -41,7 +42,7 @@ function formatDateTime(iso: string) {
   return `${date} | ${time}`;
 }
 
-function formatRemainingMs(ms: number) {
+function formatCountdown(ms: number) {
   const safeMs = Math.max(0, ms);
   const totalSeconds = Math.floor(safeMs / 1000);
   const minutes = Math.floor(totalSeconds / 60);
@@ -63,7 +64,6 @@ export default function BookingPaymentScreen() {
     ? params.professionalName[0]
     : params.professionalName ?? '';
 
-  // Prefer the bookingIds list, fall back to single bookingId
   let bookingIdList: string[];
   if (rawBookingIds) {
     bookingIdList = rawBookingIds.split(',').filter(Boolean);
@@ -74,20 +74,42 @@ export default function BookingPaymentScreen() {
   }
 
   const primaryBookingId = bookingIdList[0] ?? '';
-  const isBatch = bookingIdList.length > 1;
 
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
-  const [paying, setPaying] = useState(false);
+  const [initiating, setInitiating] = useState(false);  // generando QR / creando Stripe intent
+  const [paying, setPaying] = useState(false);           // sheet de Stripe abierto
   const [paymentData, setPaymentData] = useState<BookingPaymentInitResponse | null>(null);
   const [nowMs, setNowMs] = useState(Date.now());
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoInitTriggeredRef = useRef(false);
   const expiryNoticeShownRef = useRef(false);
 
-  // The primary booking drives the payment flow (used for single-booking PENDING case)
-  const booking = bookings[0] ?? null;
+  // Booking primario (el que está PENDING_PAYMENT)
+  const pendingBooking = bookings.find((b) => b.status === 'PENDING_PAYMENT') ?? null;
+  const primaryBooking = pendingBooking ?? bookings[0] ?? null;
+  const allConfirmed = bookings.length > 0 && bookings.every((b) => b.status === 'CONFIRMED');
+
+  const bookingExpiresAtMs = pendingBooking?.expiresAt
+    ? new Date(pendingBooking.expiresAt).getTime()
+    : null;
+  const hasValidExpiry = bookingExpiresAtMs !== null && Number.isFinite(bookingExpiresAtMs);
+  const remainingMs = hasValidExpiry ? Math.max(0, bookingExpiresAtMs! - nowMs) : null;
+  const isExpiredLocally = Boolean(pendingBooking && hasValidExpiry && remainingMs === 0);
+
+  // Total de TODAS las sesiones pendientes
+  const allPendingBookings = bookings.filter((b) => b.status === 'PENDING_PAYMENT');
+  const totalFullPrice = allPendingBookings.reduce((sum, b) =>
+    sum + (pendingBooking?.currency === 'USD' ? b.priceUsd : b.priceBob), 0);
+
+  // Aporte del wallet = precio total de todas las pendientes - monto externo total (QR o Stripe)
+  const walletContribution = (() => {
+    if (!pendingBooking || !paymentData) return null;
+    const contrib = Math.round((totalFullPrice - paymentData.amount) * 100) / 100;
+    return contrib > 0.001 ? contrib : null;
+  })();
 
   async function loadBookings(options?: { silent?: boolean }) {
     if (bookingIdList.length === 0) return;
@@ -99,12 +121,20 @@ export default function BookingPaymentScreen() {
     }
   }
 
+  // Carga inicial: consume el store si el QR ya fue generado en la pantalla anterior
   useEffect(() => {
     if (bookingIdList.length === 0) return;
-
     void (async () => {
       try {
         setLoading(true);
+
+        // Si el schedule screen ya llamó initBookingPayment, usar ese resultado al instante
+        const preloaded = pendingPaymentStore.consume(primaryBookingId);
+        if (preloaded) {
+          setPaymentData(preloaded);
+          autoInitTriggeredRef.current = true; // no volver a llamar initBookingPayment
+        }
+
         await loadBookings();
       } catch {
         Alert.alert('Error', 'No se pudo cargar la reserva.');
@@ -114,33 +144,31 @@ export default function BookingPaymentScreen() {
     })();
   }, [primaryBookingId]);
 
+  // Ticker para countdown
   useEffect(() => {
     const timer = setInterval(() => setNowMs(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  const allConfirmed = bookings.length > 0 && bookings.every((b) => b.status === 'CONFIRMED');
-  const isPending = booking?.status === 'PENDING_PAYMENT';
-  const isConfirmed = booking?.status === 'CONFIRMED';
-  const bookingExpiresAtMs = booking?.expiresAt ? new Date(booking.expiresAt).getTime() : null;
-  const hasValidExpiry = bookingExpiresAtMs !== null && Number.isFinite(bookingExpiresAtMs);
-  const remainingMs = hasValidExpiry ? Math.max(0, bookingExpiresAtMs! - nowMs) : null;
-  const isExpiredLocally = Boolean(isPending && hasValidExpiry && remainingMs === 0);
-
+  // Auto-iniciar pago cuando hay un booking pendiente
   useEffect(() => {
-    if (!isExpiredLocally || booking?.status !== 'PENDING_PAYMENT') {
-      expiryNoticeShownRef.current = false;
-      return;
+    if (
+      !loading &&
+      pendingBooking &&
+      !paymentData &&
+      !initiating &&
+      !paying &&
+      !isExpiredLocally &&
+      !autoInitTriggeredRef.current
+    ) {
+      autoInitTriggeredRef.current = true;
+      void handleInitPayment();
     }
-    if (expiryNoticeShownRef.current) return;
-    expiryNoticeShownRef.current = true;
-    Alert.alert('Reserva expirada', 'La reserva expiró. Vuelve a seleccionar un horario.');
-    void loadBookings({ silent: true });
-  }, [booking?.status, isExpiredLocally]);
+  }, [loading, pendingBooking?.id, paymentData, initiating, paying, isExpiredLocally]);
 
+  // Polling mientras hay pendiente
   useEffect(() => {
-    const status = booking?.status;
-    if (status !== 'PENDING_PAYMENT' || isExpiredLocally) {
+    if (!pendingBooking || isExpiredLocally) {
       if (pollingRef.current) clearInterval(pollingRef.current);
       pollingRef.current = null;
       return;
@@ -152,79 +180,100 @@ export default function BookingPaymentScreen() {
       if (pollingRef.current) clearInterval(pollingRef.current);
       pollingRef.current = null;
     };
-  }, [booking?.status, isExpiredLocally]);
+  }, [pendingBooking?.id, isExpiredLocally]);
 
-  const amountLabel = useMemo(() => {
-    if (!booking) return '';
-    const amount = booking.currency === 'USD' ? booking.priceUsd : booking.priceBob;
-    return formatMoneyByCurrency(amount, booking.currency, true);
-  }, [booking]);
+  // Alerta de expiración
+  useEffect(() => {
+    if (!isExpiredLocally || pendingBooking?.status !== 'PENDING_PAYMENT') {
+      expiryNoticeShownRef.current = false;
+      return;
+    }
+    if (expiryNoticeShownRef.current) return;
+    expiryNoticeShownRef.current = true;
+    Alert.alert('Reserva expirada', 'La reserva expiró. Vuelve a seleccionar un horario.');
+    void loadBookings({ silent: true });
+  }, [pendingBooking?.status, isExpiredLocally]);
+
+  async function openStripeSheet(data: BookingPaymentInitResponse) {
+    if (!data.paymentIntentClientSecret) {
+      Alert.alert('Error', 'No se recibió el client secret de Stripe.');
+      return;
+    }
+    const sheetConfig: any = {
+      merchantDisplayName: 'SanaMente',
+      paymentIntentClientSecret: data.paymentIntentClientSecret,
+      appearance: { colors: { primary: appTheme.colors.primary } },
+    };
+    if (data.customerId && data.ephemeralKey) {
+      sheetConfig.customerId = data.customerId;
+      sheetConfig.customerEphemeralKeySecret = data.ephemeralKey;
+    }
+    const { error: initError } = await initPaymentSheet(sheetConfig);
+    if (initError) {
+      Alert.alert('Error al inicializar pago', initError.message);
+      return;
+    }
+    setInitiating(false);
+    setPaying(true);
+    const { error: presentError } = await presentPaymentSheet();
+    setPaying(false);
+    if (presentError) {
+      if (presentError.code !== 'Canceled') {
+        Alert.alert('Pago fallido', presentError.message);
+      }
+      return;
+    }
+    Alert.alert('Pago procesado', 'Estamos confirmando tu pago, espera un momento.');
+    await loadBookings({ silent: true });
+  }
 
   async function handleInitPayment() {
-    if (!booking) return;
+    if (!pendingBooking) return;
     if (isExpiredLocally) {
       Alert.alert('Reserva expirada', 'La reserva expiró. Vuelve a seleccionar un horario.');
       await loadBookings();
       return;
     }
-    if (booking.status !== 'PENDING_PAYMENT') return;
 
     try {
-      setPaying(true);
-      const data = await initBookingPayment(booking.id);
+      setInitiating(true);
+
+      // Si ya tenemos el clientSecret de Stripe (precargado o de llamada anterior),
+      // abrir el sheet directamente sin ir al backend de nuevo.
+      if (paymentData?.paymentMethod === 'STRIPE' && paymentData.paymentIntentClientSecret) {
+        await openStripeSheet(paymentData);
+        return;
+      }
+
+      const allPendingIds = bookings
+        .filter((b) => b.status === 'PENDING_PAYMENT')
+        .map((b) => b.id);
+      const data = await initBookingPayment(pendingBooking.id, allPendingIds);
       setPaymentData(data);
 
       if (data.paymentMethod === 'BANECO_QR') {
-        await loadBookings();
         return;
       }
 
       if (data.paymentMethod === 'STRIPE') {
-        if (!data.paymentIntentClientSecret) {
-          Alert.alert('Error', 'No se recibio el client secret de Stripe.');
-          return;
-        }
-
-        const sheetConfig: any = {
-          merchantDisplayName: 'SanaMente',
-          paymentIntentClientSecret: data.paymentIntentClientSecret,
-          appearance: { colors: { primary: appTheme.colors.primary } },
-        };
-
-        if (data.customerId && data.ephemeralKey) {
-          sheetConfig.customerId = data.customerId;
-          sheetConfig.customerEphemeralKeySecret = data.ephemeralKey;
-        }
-
-        const { error: initError } = await initPaymentSheet(sheetConfig);
-        if (initError) {
-          Alert.alert('Error al inicializar pago', initError.message);
-          return;
-        }
-
-        const { error: presentError } = await presentPaymentSheet();
-        if (presentError) {
-          if (presentError.code !== 'Canceled') {
-            Alert.alert('Pago fallido', presentError.message);
-          }
-          return;
-        }
-
-        Alert.alert('Pago procesado', 'Estamos confirmando tu pago.');
-        await loadBookings();
+        await openStripeSheet(data);
       }
     } catch (err: any) {
+      autoInitTriggeredRef.current = false; // permitir reintentar
       Alert.alert('Error', err?.response?.data?.message ?? 'No se pudo iniciar el pago.');
-      await loadBookings();
+      await loadBookings({ silent: true });
     } finally {
-      setPaying(false);
+      setInitiating(false);
     }
   }
+
+  // ── RENDER ────────────────────────────────────────────────────────────────
 
   if (loading) {
     return (
       <AppScreen>
         <View style={styles.center}>
+          <ActivityIndicator color={appTheme.colors.primary} />
           <Text style={styles.muted}>Cargando reserva...</Text>
         </View>
       </AppScreen>
@@ -235,22 +284,29 @@ export default function BookingPaymentScreen() {
     return (
       <AppScreen>
         <View style={styles.center}>
-          <Text style={styles.muted}>No se encontro la reserva.</Text>
+          <Text style={styles.muted}>No se encontró la reserva.</Text>
         </View>
       </AppScreen>
     );
   }
 
   const qrImage = paymentData?.paymentMethod === 'BANECO_QR' ? paymentData.qrImage : null;
+  const isQr = paymentData?.paymentMethod === 'BANECO_QR';
+  const isStripe = paymentData?.paymentMethod === 'STRIPE';
+
+  // Índice de la sesión pendiente actual dentro del total de sesiones
+  const totalSessions = bookings.length;
+  const pendingIdx = pendingBooking ? bookings.findIndex((b) => b.id === pendingBooking.id) + 1 : 0;
+  const isBatchPending = totalSessions > 1;
+
   const headerTitle = allConfirmed
-    ? isBatch
-      ? 'Reservas confirmadas'
-      : 'Reserva confirmada'
+    ? bookings.length > 1 ? 'Reservas confirmadas' : 'Reserva confirmada'
     : 'Pago de reserva';
 
   return (
     <AppScreen scroll contentPadding={0}>
       <ScrollView contentContainerStyle={styles.page}>
+
         {/* Header */}
         <View style={styles.header}>
           <Pressable style={styles.backBtn} onPress={() => safeBack(router, '/(user)')}>
@@ -262,18 +318,20 @@ export default function BookingPaymentScreen() {
           </View>
         </View>
 
-        {/* Batch confirmed: success banner + all booking cards */}
+        {/* ── TODAS CONFIRMADAS ─────────────────────────────────────────── */}
         {allConfirmed && (
           <>
             <AppCard style={styles.confirmedCard}>
-              <Ionicons name="checkmark-circle" size={34} color={appTheme.colors.success} />
+              <View style={styles.confirmedIconWrap}>
+                <Ionicons name="checkmark-circle" size={44} color={appTheme.colors.success} />
+              </View>
               <Text style={styles.confirmedTitle}>
                 {bookings.length > 1
                   ? `${bookings.length} sesiones reservadas`
-                  : 'Reserva confirmada'}
+                  : '¡Reserva confirmada!'}
               </Text>
               <Text style={styles.muted}>
-                El saldo fue descontado de tu billetera correctamente.
+                Tu reserva está lista. El psicólogo ha sido notificado.
               </Text>
             </AppCard>
 
@@ -297,8 +355,9 @@ export default function BookingPaymentScreen() {
                     true,
                   )}
                 </Text>
-                <View style={styles.statusWrap}>
-                  <Text style={[styles.statusText, { color: statusColor(b.status) }]}>
+                <View style={styles.statusRow}>
+                  <Ionicons name="checkmark-circle" size={14} color={appTheme.colors.success} />
+                  <Text style={[styles.statusText, { color: appTheme.colors.success }]}>
                     {normalizeStatus(b.status)}
                   </Text>
                 </View>
@@ -312,47 +371,123 @@ export default function BookingPaymentScreen() {
           </>
         )}
 
-        {/* Single booking pending payment flow */}
-        {!allConfirmed && booking && (
+        {/* ── PENDIENTE DE PAGO ─────────────────────────────────────────── */}
+        {!allConfirmed && pendingBooking && (
           <>
+            {/* Resumen de la sesión */}
             <AppCard>
-              <Text style={styles.blockTitle}>{booking.sessionOffering?.title ?? 'Sesión'}</Text>
-              <Text style={styles.meta}>{formatDateTime(booking.scheduledStartAt)}</Text>
-              <Text style={styles.meta}>Monto: {amountLabel}</Text>
-              <View style={styles.statusWrap}>
-                <Text style={[styles.statusText, { color: statusColor(booking.status) }]}>
-                  {normalizeStatus(booking.status)}
+              {/* Indicador de sesión N de M */}
+              {isBatchPending && (
+                <View style={styles.sessionBadgeRow}>
+                  <View style={styles.sessionBadge}>
+                    <Text style={styles.sessionBadgeText}>{totalSessions}</Text>
+                  </View>
+                  <Text style={styles.sessionBadgeLabel}>
+                    {totalSessions} sesiones en un solo pago
+                  </Text>
+                </View>
+              )}
+
+              <Text style={styles.blockTitle}>
+                {pendingBooking.sessionOffering?.title ?? 'Sesión'}
+              </Text>
+              <Text style={styles.meta}>{formatDateTime(pendingBooking.scheduledStartAt)}</Text>
+
+              {/* Desglose de pago */}
+              <View style={styles.priceBreakdown}>
+                <View style={styles.priceRow}>
+                  <Text style={styles.priceLabel}>
+                    {isBatchPending
+                      ? `Total (${allPendingBookings.length} sesiones)`
+                      : 'Precio de la sesión'}
+                  </Text>
+                  <Text style={styles.priceValue}>
+                    {pendingBooking.currency === 'USD'
+                      ? formatUsd(totalFullPrice, true)
+                      : formatBob(totalFullPrice)}
+                  </Text>
+                </View>
+
+                {walletContribution !== null && (
+                  <>
+                    <View style={styles.priceRow}>
+                      <View style={styles.priceLabelRow}>
+                        <Ionicons name="wallet-outline" size={13} color={appTheme.colors.success} />
+                        <Text style={[styles.priceLabel, { color: appTheme.colors.success }]}>
+                          Saldo de tu billetera
+                        </Text>
+                      </View>
+                      <Text style={[styles.priceValue, { color: appTheme.colors.success }]}>
+                        {pendingBooking.currency === 'USD'
+                          ? formatUsd(walletContribution, true)
+                          : formatBob(walletContribution)}
+                      </Text>
+                    </View>
+                    <View style={styles.priceDivider} />
+                    <View style={styles.priceRow}>
+                      <Text style={[styles.priceLabel, { fontWeight: '700' }]}>
+                        {isQr ? 'A pagar por QR' : 'A pagar por tarjeta'}
+                      </Text>
+                      <Text style={[styles.priceValue, { color: appTheme.colors.primary, fontWeight: '700' }]}>
+                        {pendingBooking.currency === 'USD'
+                          ? formatUsd(paymentData!.amount, true)
+                          : formatBob(paymentData!.amount)}
+                      </Text>
+                    </View>
+                  </>
+                )}
+
+                {walletContribution === null && paymentData && (
+                  <View style={styles.priceRow}>
+                    <Text style={[styles.priceLabel, { fontWeight: '700' }]}>
+                      {isQr ? 'A pagar por QR' : 'A pagar por tarjeta'}
+                    </Text>
+                    <Text style={[styles.priceValue, { color: appTheme.colors.primary, fontWeight: '700' }]}>
+                      {pendingBooking.currency === 'USD'
+                        ? formatUsd(paymentData.amount, true)
+                        : formatBob(paymentData.amount)}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.statusRow}>
+                <Ionicons name="time-outline" size={14} color={appTheme.colors.primary} />
+                <Text style={[styles.statusText, { color: appTheme.colors.primary }]}>
+                  {normalizeStatus(pendingBooking.status)}
                 </Text>
               </View>
             </AppCard>
 
-            {isPending && (
-              <AppCard>
-                {hasValidExpiry && remainingMs !== null ? (
-                  isExpiredLocally ? (
+            {/* Countdown */}
+            {hasValidExpiry && remainingMs !== null && (
+              <AppCard style={styles.countdownCard}>
+                {isExpiredLocally ? (
+                  <View style={styles.expiredRow}>
+                    <Ionicons name="alert-circle" size={18} color={appTheme.colors.danger} />
                     <Text style={[styles.meta, { color: appTheme.colors.danger, marginTop: 0 }]}>
                       La reserva expiró. Vuelve a seleccionar un horario.
                     </Text>
-                  ) : (
-                    <>
-                      <Text style={[styles.meta, { marginTop: 0 }]}>
-                        Tu reserva expira en {formatRemainingMs(remainingMs)} minutos.
-                      </Text>
-                      <Text style={styles.meta}>Tienes 15 minutos para completar el pago.</Text>
-                    </>
-                  )
+                  </View>
                 ) : (
-                  <Text style={[styles.meta, { marginTop: 0 }]}>
-                    Esta reserva está pendiente de pago.
-                  </Text>
+                  <View style={styles.countdownRow}>
+                    <Ionicons name="hourglass-outline" size={16} color="#92400E" />
+                    <Text style={styles.countdownText}>
+                      Tiempo restante:{' '}
+                      <Text style={styles.countdownTimer}>{formatCountdown(remainingMs)}</Text>
+                    </Text>
+                  </View>
                 )}
               </AppCard>
             )}
 
-            {isPending && paymentData?.paymentMethod === 'BANECO_QR' && (
+            {/* QR */}
+            {isQr && !isExpiredLocally && (
               <AppCard style={styles.qrCard}>
-                <Text style={styles.blockTitle}>Escanea el QR para pagar</Text>
-                <Text style={styles.meta}>Monto: {formatBob(paymentData.amount, true)}</Text>
+                <View style={styles.qrHeader}>
+                  <Ionicons name="qr-code" size={20} color={appTheme.colors.primary} />
+                  <Text style={styles.blockTitle}>Escanea el QR para pagar</Text>
+                </View>
                 {qrImage ? (
                   <Image
                     source={{ uri: `data:image/png;base64,${qrImage}` }}
@@ -361,43 +496,94 @@ export default function BookingPaymentScreen() {
                   />
                 ) : (
                   <View style={styles.qrPlaceholder}>
-                    <Ionicons name="qr-code-outline" size={48} color={appTheme.colors.textMuted} />
+                    <ActivityIndicator color={appTheme.colors.primary} />
+                    <Text style={styles.muted}>Generando QR...</Text>
                   </View>
                 )}
-                <Text style={styles.meta}>Referencia: {paymentData.providerReference ?? '-'}</Text>
-                <Text style={styles.muted}>
-                  La reserva se confirmará cuando Baneco confirme el pago.
+                <Text style={styles.qrRef}>
+                  Ref: {paymentData?.providerReference ?? '—'}
                 </Text>
+                <View style={styles.qrHintRow}>
+                  <Ionicons name="information-circle-outline" size={14} color={appTheme.colors.textMuted} />
+                  <Text style={styles.qrHint}>
+                    La reserva se confirma automáticamente al detectar tu pago en Banco Unión.
+                  </Text>
+                </View>
               </AppCard>
             )}
 
-            {isPending && (
+            {/* Stripe loading indicator */}
+            {isStripe && paying && (
+              <AppCard style={styles.center}>
+                <ActivityIndicator color={appTheme.colors.primary} />
+                <Text style={styles.muted}>Procesando pago con tarjeta...</Text>
+              </AppCard>
+            )}
+
+            {/* Generando QR / Intent */}
+            {initiating && !paymentData && (
+              <AppCard style={styles.loadingCard}>
+                <ActivityIndicator color={appTheme.colors.primary} />
+                <Text style={styles.muted}>Preparando tu pago...</Text>
+              </AppCard>
+            )}
+
+            {/* Botón de pago */}
+            {!isExpiredLocally && !paying && (
               <AppButton
                 title={
-                  isExpiredLocally
-                    ? 'Reserva expirada'
-                    : paying
-                    ? 'Procesando...'
-                    : paymentData
-                    ? 'Reintentar pago'
+                  initiating
+                    ? 'Preparando...'
+                    : isQr
+                    ? 'Regenerar QR'
+                    : isStripe
+                    ? 'Pagar con tarjeta'
                     : 'Iniciar pago'
                 }
-                onPress={() => void handleInitPayment()}
-                loading={paying}
-                disabled={paying || isExpiredLocally}
+                onPress={() => {
+                  autoInitTriggeredRef.current = true;
+                  void handleInitPayment();
+                }}
+                loading={initiating}
+                disabled={initiating || paying || isExpiredLocally}
               />
             )}
 
-            {!isPending && !isConfirmed && (
-              <AppCard>
-                <Text style={styles.muted}>
-                  Esta reserva no puede pagarse en su estado actual (
-                  {normalizeStatus(booking.status)}).
-                </Text>
-              </AppCard>
+            {isExpiredLocally && (
+              <AppButton
+                title="Volver a seleccionar horario"
+                onPress={() => safeBack(router, '/(user)')}
+              />
             )}
           </>
         )}
+
+        {/* Otros bookings del batch (los que ya están confirmados) */}
+        {!allConfirmed && bookings.filter((b) => b.status === 'CONFIRMED').length > 0 && (
+          <>
+            <View style={styles.sectionLabel}>
+              <Ionicons name="checkmark-circle" size={14} color={appTheme.colors.success} />
+              <Text style={[styles.meta, { color: appTheme.colors.success, marginTop: 0 }]}>
+                Sesiones ya confirmadas
+              </Text>
+            </View>
+            {bookings
+              .filter((b) => b.status === 'CONFIRMED')
+              .map((b) => (
+                <AppCard key={b.id} style={styles.confirmedSmallCard}>
+                  <Text style={styles.blockTitle}>{b.sessionOffering?.title ?? 'Sesión'}</Text>
+                  <Text style={styles.meta}>{formatDateTime(b.scheduledStartAt)}</Text>
+                  <View style={styles.statusRow}>
+                    <Ionicons name="checkmark-circle" size={13} color={appTheme.colors.success} />
+                    <Text style={[styles.statusText, { color: appTheme.colors.success }]}>
+                      Confirmada
+                    </Text>
+                  </View>
+                </AppCard>
+              ))}
+          </>
+        )}
+
       </ScrollView>
     </AppScreen>
   );
@@ -407,7 +593,7 @@ const styles = StyleSheet.create({
   page: {
     paddingHorizontal: 14,
     paddingTop: 10,
-    paddingBottom: 24,
+    paddingBottom: 32,
     gap: 12,
     backgroundColor: appTheme.colors.background,
   },
@@ -415,6 +601,8 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 20,
   },
   header: {
     flexDirection: 'row',
@@ -447,14 +635,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: appTheme.colors.text,
     fontFamily: appTheme.fonts.heading,
-  },
-  statusWrap: {
-    marginTop: 6,
-  },
-  statusText: {
-    fontSize: 13,
-    fontWeight: '700',
-    fontFamily: appTheme.fonts.body,
+    marginBottom: 2,
   },
   meta: {
     fontSize: 13,
@@ -462,38 +643,166 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.body,
     marginTop: 4,
   },
-  qrCard: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  qrImage: {
-    width: 220,
-    height: 220,
-    borderRadius: 12,
-  },
-  qrPlaceholder: {
-    width: 220,
-    height: 220,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F8FAFC',
-  },
-  confirmedCard: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  confirmedTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: appTheme.colors.success,
-    fontFamily: appTheme.fonts.heading,
-  },
   muted: {
     fontSize: 13,
     color: appTheme.colors.textMuted,
     fontFamily: appTheme.fonts.body,
     textAlign: 'center',
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 8,
+  },
+  statusText: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: appTheme.fonts.body,
+  },
+
+  // Desglose de precio
+  priceBreakdown: {
+    marginTop: 12,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  priceLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  priceLabel: {
+    fontSize: 13,
+    color: '#475569',
+    fontFamily: appTheme.fonts.body,
+  },
+  priceValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: appTheme.colors.text,
+    fontFamily: appTheme.fonts.body,
+  },
+  priceDivider: {
+    height: 1,
+    backgroundColor: appTheme.colors.border,
+    marginVertical: 2,
+  },
+
+  // Countdown
+  countdownCard: {
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+  },
+  countdownRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  countdownText: {
+    fontSize: 13,
+    color: '#92400E',
+    fontFamily: appTheme.fonts.body,
+  },
+  countdownTimer: {
+    fontWeight: '700',
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 15,
+  },
+  expiredRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  // QR
+  qrCard: {
+    alignItems: 'center',
+    gap: 10,
+  },
+  qrHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    alignSelf: 'flex-start',
+  },
+  qrImage: {
+    width: 230,
+    height: 230,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+  },
+  qrPlaceholder: {
+    width: 230,
+    height: 230,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+  },
+  qrRef: {
+    fontSize: 11,
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+  },
+  qrHintRow: {
+    flexDirection: 'row',
+    gap: 6,
+    alignItems: 'flex-start',
+  },
+  qrHint: {
+    flex: 1,
+    fontSize: 12,
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    lineHeight: 17,
+  },
+
+  // Loading card
+  loadingCard: {
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 20,
+  },
+
+  // Confirmadas
+  confirmedCard: {
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 20,
+  },
+  confirmedIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#F0FDF4',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmedTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: appTheme.colors.success,
+    fontFamily: appTheme.fonts.heading,
+    textAlign: 'center',
+  },
+  confirmedSmallCard: {
+    borderLeftWidth: 3,
+    borderLeftColor: appTheme.colors.success,
   },
   sessionBadgeRow: {
     flexDirection: 'row',
@@ -520,5 +829,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: appTheme.colors.textMuted,
     fontFamily: appTheme.fonts.body,
+  },
+  sectionLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 2,
   },
 });

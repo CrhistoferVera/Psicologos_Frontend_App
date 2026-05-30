@@ -208,8 +208,11 @@ export async function createBatchBookings(payload: {
   return res.data;
 }
 
-export async function initBookingPayment(bookingId: string) {
-  const res = await apiClient.post<BookingPaymentInitResponse>(`/bookings/${bookingId}/payment`);
+export async function initBookingPayment(bookingId: string, batchBookingIds?: string[]) {
+  const res = await apiClient.post<BookingPaymentInitResponse>(
+    `/bookings/${bookingId}/payment`,
+    batchBookingIds && batchBookingIds.length > 0 ? { batchBookingIds } : undefined,
+  );
   return res.data;
 }
 

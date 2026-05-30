@@ -13,9 +13,11 @@ import {
   createBatchBookings,
   getAvailableSlots,
   getProfessionalSessionOfferings,
+  initBookingPayment,
   type AvailableSlot,
   type ProfessionalSessionOffering,
 } from '../../../api/bookings';
+import { pendingPaymentStore } from '../stores/pendingPaymentStore';
 import { safeBack } from '../../../utils/navigation';
 
 type DateOption = { key: string; label: string; dayName: string };
@@ -211,10 +213,29 @@ export default function BookingScheduleScreen() {
           timezone: s.slotTimezone,
         })),
       });
+      // Si hay bookings pendientes de pago externo, el primaryBookingId es el primero pendiente
+      const firstPending = result.bookings.find((b) => b.status === 'PENDING_PAYMENT');
+      const primaryBookingId = firstPending?.id ?? result.bookings[0].id;
+
+      // Si hay un booking pendiente, generar el QR/Stripe intent ANTES de navegar
+      // para que la pantalla de pago lo muestre al instante.
+      if (firstPending) {
+        try {
+          const allPendingIds = result.bookings
+            .filter((b) => b.status === 'PENDING_PAYMENT')
+            .map((b) => b.id);
+          const paymentData = await initBookingPayment(firstPending.id, allPendingIds);
+          pendingPaymentStore.set(firstPending.id, paymentData);
+        } catch {
+          // Si falla, la pantalla de pago lo reintentará automáticamente
+          pendingPaymentStore.clear();
+        }
+      }
+
       router.replace({
         pathname: '/(user)/bookings/payment/[bookingId]',
         params: {
-          bookingId: result.bookings[0].id,
+          bookingId: primaryBookingId,
           bookingIds: result.bookings.map((b) => b.id).join(','),
           professionalName,
         },
