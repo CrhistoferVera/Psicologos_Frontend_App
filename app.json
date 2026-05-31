@@ -3,7 +3,7 @@
     "name": "SanaMente",
     "slug": "sanamente",
     "scheme": "sanamente",
-    "version": "27.0",
+    "version": "29.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -37,6 +37,12 @@
     "plugins": [
       "expo-dev-client",
       "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "La app necesita acceder a tus fotos para actualizar tu foto de perfil."
+        }
+      ],
       "expo-web-browser",
       "expo-secure-store",
       "expo-video",

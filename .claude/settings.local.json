@@ -3,7 +3,8 @@
     "allow": [
       "Bash(node scripts/createUser.js)",
       "Read(//d/Psicologos_Project/sanamente-web/src/app/admin/professionals/**)",
-      "Read(//d/Psicologos_Project/sanamente-web/src/**)"
+      "Read(//d/Psicologos_Project/sanamente-web/src/**)",
+      "Bash(npm uninstall *)"
     ],
     "additionalDirectories": [
       "d:\\Psicologos_Project\\sanamente-web\\src\\components\\admin"

@@ -3,7 +3,8 @@ import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
-import { ActivityIndicator, Alert, Image, Modal, Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Modal, Pressable, StyleSheet, Switch, Text, TextInput, useWindowDimensions, View } from "react-native";
+import ProfessionalFeedCard from "../../user-home/components/ProfessionalFeedCard";
 import AppButton from "../../../components/ui/AppButton";
 import AppCard from "../../../components/ui/AppCard";
 import AppChip from "../../../components/ui/AppChip";
@@ -26,6 +27,8 @@ import { PROFESSIONAL_TITLES, formatProfessionalName } from "../constants/titles
 export default function ProfessionalProfileScreen() {
   const router = useRouter();
   const { hydrate, logout, user } = useAuth();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const feedCardHeight = screenHeight * 0.78;
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -52,6 +55,7 @@ export default function ProfessionalProfileScreen() {
 
   const [editingBio, setEditingBio] = useState(false);
   const [editingSpecialties, setEditingSpecialties] = useState(false);
+  const [showPublicView, setShowPublicView] = useState(false);
 
   const [education, setEducation] = useState<EducationEntry[]>([]);
   const [showEduModal, setShowEduModal] = useState(false);
@@ -155,6 +159,8 @@ export default function ProfessionalProfileScreen() {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
         quality: 0.8,
+        allowsEditing: true,
+        aspect: [9, 16],
       });
 
       if (result.canceled || !result.assets?.[0]) return;
@@ -337,25 +343,31 @@ export default function ProfessionalProfileScreen() {
             <Ionicons name="arrow-back" size={18} color={appTheme.colors.text} />
           </Pressable>
           <Text style={styles.headerTitle}>Mi perfil</Text>
-          <Pressable onPress={() => Alert.alert("Proximamente", "Vista publica en la siguiente iteracion.")}> 
+          <Pressable onPress={() => setShowPublicView(true)}>
             <Text style={styles.publicLink}>Vista publica</Text>
           </Pressable>
         </View>
 
-        <Pressable style={styles.coverWrap} onPress={pickCover}>
-          {coverUrl ? (
-            <Image source={{ uri: coverUrl }} style={styles.coverImage} />
-          ) : (
-            <View style={styles.coverPlaceholder}>
-              <Ionicons name="image-outline" size={22} color="#A0B4C8" />
-              <Text style={styles.coverPlaceholderText}>Agregar foto de portada</Text>
+        <View style={styles.coverSection}>
+          <Pressable
+            style={[styles.coverWrap, { width: screenWidth * 0.46, height: screenWidth * 0.46 * (16 / 9) }]}
+            onPress={pickCover}
+          >
+            {coverUrl ? (
+              <Image source={{ uri: coverUrl }} style={styles.coverImage} />
+            ) : (
+              <View style={styles.coverPlaceholder}>
+                <Ionicons name="image-outline" size={28} color="#A0B4C8" />
+                <Text style={styles.coverPlaceholderText}>Agregar portada</Text>
+              </View>
+            )}
+            <View style={styles.coverEditBtn}>
+              <Ionicons name="camera" size={13} color="#FFFFFF" />
+              <Text style={styles.coverEditText}>{coverUrl ? "Cambiar" : "Agregar"}</Text>
             </View>
-          )}
-          <View style={styles.coverEditBtn}>
-            <Ionicons name="camera" size={13} color="#FFFFFF" />
-            <Text style={styles.coverEditText}>{coverUrl ? "Cambiar" : "Agregar"}</Text>
-          </View>
-        </Pressable>
+          </Pressable>
+          <Text style={styles.coverHint}>Así te verán{"\n"}en el feed</Text>
+        </View>
 
         <View style={styles.identityCard}>
           <View style={styles.avatarWrap}>
@@ -697,6 +709,39 @@ export default function ProfessionalProfileScreen() {
           </View>
         </Modal>
 
+        {/* Modal Vista pública — muestra exactamente lo que ve el cliente en el feed */}
+        <Modal visible={showPublicView} transparent animationType="slide" onRequestClose={() => setShowPublicView(false)}>
+          <View style={styles.publicViewOverlay}>
+            <View style={styles.publicViewHeader}>
+              <Text style={styles.publicViewTitle}>Vista pública en el feed</Text>
+              <Pressable style={styles.publicViewCloseBtn} onPress={() => setShowPublicView(false)}>
+                <Ionicons name="close" size={20} color="#FFFFFF" />
+              </Pressable>
+            </View>
+            <ProfessionalFeedCard
+              professional={{
+                id: user?.id ?? "",
+                name: displayName,
+                username: username || undefined,
+                avatar: avatarUrl ?? "",
+                coverImage: coverUrl ?? undefined,
+                bio: bio,
+                specialties: selectedSpecialtyNames,
+                isOnline: isOnline,
+                prices: {},
+                languages: languages,
+                isVerified: user?.isActive,
+              }}
+              cardHeight={feedCardHeight}
+              onProfilePress={() => {}}
+              onChatPress={() => {}}
+            />
+            <View style={styles.publicViewFooter}>
+              <Text style={styles.publicViewFooterText}>Así te ven los clientes en el feed</Text>
+            </View>
+          </View>
+        </Modal>
+
         <AppButton title="Guardar cambios" onPress={handleSave} loading={saving} />
 
         <Pressable style={styles.logoutBtn} onPress={() => void handleLogout()}>
@@ -745,11 +790,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
   },
+  coverSection: {
+    alignItems: "center",
+    paddingVertical: 14,
+    gap: 8,
+    backgroundColor: appTheme.colors.background,
+  },
+  coverHint: {
+    color: "#A0B4C8",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    textAlign: "center",
+    lineHeight: 17,
+  },
   coverWrap: {
-    width: "100%",
-    height: 140,
     position: "relative",
     backgroundColor: "#E2EBF5",
+    borderRadius: 16,
+    overflow: "hidden",
   },
   coverImage: {
     width: "100%",
@@ -1207,5 +1265,41 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginTop: 6,
     resizeMode: "cover",
+  },
+  publicViewOverlay: {
+    flex: 1,
+    backgroundColor: "#000000",
+  },
+  publicViewHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "#0a0f1a",
+  },
+  publicViewTitle: {
+    color: "#FFFFFF",
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  publicViewCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  publicViewFooter: {
+    paddingVertical: 10,
+    alignItems: "center",
+    backgroundColor: "#0a0f1a",
+  },
+  publicViewFooterText: {
+    color: "rgba(255,255,255,0.45)",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
   },
 });
