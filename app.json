@@ -3,7 +3,7 @@
     "name": "SanaMente",
     "slug": "sanamente",
     "scheme": "sanamente",
-    "version": "30.0",
+    "version": "31.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -28,7 +28,9 @@
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.BLUETOOTH",
-        "android.permission.READ_PHONE_STATE"
+        "android.permission.READ_PHONE_STATE",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_DATA_SYNC"
       ]
     },
     "web": {
@@ -45,7 +47,13 @@
       ],
       "expo-web-browser",
       "expo-secure-store",
-      "expo-video",
+      [
+        "expo-video",
+        {
+          "supportsBackgroundPlayback": false,
+          "supportsPictureInPicture": false
+        }
+      ],
       "@react-native-firebase/app",
       "@react-native-firebase/messaging",
       "expo-font",
