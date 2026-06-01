@@ -29,8 +29,7 @@
         "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.BLUETOOTH",
         "android.permission.READ_PHONE_STATE",
-        "android.permission.FOREGROUND_SERVICE",
-        "android.permission.FOREGROUND_SERVICE_DATA_SYNC"
+        "android.permission.FOREGROUND_SERVICE"
       ]
     },
     "web": {
