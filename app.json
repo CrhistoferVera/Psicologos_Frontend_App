@@ -46,13 +46,6 @@
       ],
       "expo-web-browser",
       "expo-secure-store",
-      [
-        "expo-video",
-        {
-          "supportsBackgroundPlayback": false,
-          "supportsPictureInPicture": false
-        }
-      ],
       "@react-native-firebase/app",
       "@react-native-firebase/messaging",
       "expo-font",
@@ -61,7 +54,8 @@
         {
           "enableGooglePay": false
         }
-      ]
+      ],
+      "./plugins/blockMediaPermissions"
     ],
     "extra": {
       "router": {},
