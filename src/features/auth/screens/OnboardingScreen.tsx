@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "expo-router";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import AppButton from "../../../components/ui/AppButton";
 import AppScreen from "../../../components/ui/AppScreen";
 import { appTheme } from "../../../theme/appTheme";
@@ -10,16 +10,19 @@ const slides = [
     title: "Encuentra al profesional ideal",
     description:
       "Busca por especialidad y elige al profesional que mejor se adapte a tu situaciÃ³n.",
+      image: require("../../../../assets/onboarding-1.jpeg"),
   },
   {
     title: "Habla por chat de forma segura",
     description:
       "Inicia conversaciones privadas con un flujo simple y transparente.",
+      image: require("../../../../assets/onboarding-2.jpeg"),
   },
   {
     title: "Gestiona tu saldo con claridad",
     description:
-      "Visualiza tu saldo y pagos en una experiencia clara y sin fricción.",
+      "Visualiza tu saldo y pagos en una experiencia clara y sin friccin.",
+      image: require("../../../../assets/onboarding-3.jpeg"),
   },
 ];
 
@@ -36,10 +39,14 @@ export default function OnboardingScreen() {
           <Text style={styles.skipText}>Omitir</Text>
         </Pressable>
 
-        <View style={styles.hero} />
+        <View style={styles.imageContainer}>
+          <Image source={current.image} style={styles.hero} resizeMode="contain" />
+        </View>
 
-        <Text style={styles.title}>{current.title}</Text>
-        <Text style={styles.description}>{current.description}</Text>
+        <View style={styles.textContent}>
+          <Text style={styles.title}>{current.title}</Text>
+          <Text style={styles.description}>{current.description}</Text>
+        </View>
 
         <View style={styles.dots}>
           {slides.map((_, index) => (
@@ -66,7 +73,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: "center",
-    gap: 18,
+    gap: 20,
   },
 
   skipWrap: {
@@ -80,12 +87,21 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
-  hero: {
-    height: 220,
+  imageContainer: {
+    width: "100%",
+    aspectRatio: 1,
     borderRadius: appTheme.radius.xl,
-    backgroundColor: "#EAF2FB",
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
+    overflow: "hidden",
+    backgroundColor: "#EEF4FB",
+  },
+
+  hero: {
+    width: "100%",
+    height: "100%",
+  },
+
+  textContent: {
+    gap: 8,
   },
 
   title: {
