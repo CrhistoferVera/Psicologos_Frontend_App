@@ -3,7 +3,7 @@
     "name": "SanaMente",
     "slug": "sanamente",
     "scheme": "sanamente",
-    "version": "31.0",
+    "version": "32.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
