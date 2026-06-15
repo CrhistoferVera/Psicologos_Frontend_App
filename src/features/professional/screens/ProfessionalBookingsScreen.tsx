@@ -138,6 +138,7 @@ function getApiErrorMessage(err: any, fallback: string) {
 export default function ProfessionalBookingsScreen() {
   const { user } = useAuth();
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState<'reservas' | 'inmediata'>('reservas');
   const [items, setItems] = useState<ProfessionalBooking[]>([]);
   const [rescheduleRequests, setRescheduleRequests] = useState<BookingRescheduleRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -174,9 +175,19 @@ export default function ProfessionalBookingsScreen() {
   const sortedItems = useMemo(
     () =>
       [...items].sort(
-        (a, b) => new Date(a.scheduledStartAt).getTime() - new Date(b.scheduledStartAt).getTime(),
+        (a, b) => new Date(b.scheduledStartAt).getTime() - new Date(a.scheduledStartAt).getTime(),
       ),
     [items],
+  );
+
+  const normalBookings = useMemo(
+    () => sortedItems.filter((b) => b.sessionOffering?.title !== 'Atención Inmediata'),
+    [sortedItems],
+  );
+
+  const immediateBookings = useMemo(
+    () => sortedItems.filter((b) => b.sessionOffering?.title === 'Atención Inmediata'),
+    [sortedItems],
   );
 
   const requestsByBookingId = useMemo(() => {
@@ -331,15 +342,53 @@ export default function ProfessionalBookingsScreen() {
           <Text style={styles.title}>Agenda / Reservas</Text>
         </View>
 
+        {/* Tabs */}
+        <View style={styles.tabs}>
+          <Pressable
+            style={[styles.tab, activeTab === 'reservas' && styles.tabActive]}
+            onPress={() => setActiveTab('reservas')}
+          >
+            <Ionicons name="calendar-outline" size={14} color={activeTab === 'reservas' ? appTheme.colors.primary : '#6B7280'} />
+            <Text style={[styles.tabText, activeTab === 'reservas' && styles.tabTextActive]}>
+              Reservas
+            </Text>
+            {normalBookings.length > 0 && (
+              <View style={styles.tabBadge}>
+                <Text style={styles.tabBadgeText}>{normalBookings.length}</Text>
+              </View>
+            )}
+          </Pressable>
+          <Pressable
+            style={[styles.tab, activeTab === 'inmediata' && styles.tabActiveRed]}
+            onPress={() => setActiveTab('inmediata')}
+          >
+            <Ionicons name="flash" size={14} color={activeTab === 'inmediata' ? '#DC2626' : '#6B7280'} />
+            <Text style={[styles.tabText, activeTab === 'inmediata' && styles.tabTextRed]}>
+              Sesión Inmediata
+            </Text>
+            {immediateBookings.length > 0 && (
+              <View style={[styles.tabBadge, styles.tabBadgeRed]}>
+                <Text style={styles.tabBadgeText}>{immediateBookings.length}</Text>
+              </View>
+            )}
+          </Pressable>
+        </View>
+
         <AppCard>
-          <Text style={styles.blockTitle}>Proximas y recientes</Text>
+          <Text style={styles.blockTitle}>
+            {activeTab === 'reservas' ? 'Próximas y recientes' : 'Sesiones inmediatas'}
+          </Text>
           {loading ? (
             <Text style={styles.muted}>Cargando reservas...</Text>
-          ) : sortedItems.length === 0 ? (
-            <Text style={styles.muted}>Aun no tienes reservas registradas.</Text>
+          ) : (activeTab === 'reservas' ? normalBookings : immediateBookings).length === 0 ? (
+            <Text style={styles.muted}>
+              {activeTab === 'reservas'
+                ? 'Aun no tienes reservas registradas.'
+                : 'No tienes sesiones inmediatas registradas.'}
+            </Text>
           ) : (
             <View style={styles.list}>
-              {sortedItems.map((booking) => {
+              {(activeTab === 'reservas' ? normalBookings : immediateBookings).map((booking) => {
                 const requests = requestsByBookingId.get(booking.id) ?? [];
                 const pendingRequest = requests.find((item) => item.status === 'PENDING') ?? null;
                 const latestRequest = requests[0] ?? null;
@@ -357,13 +406,20 @@ export default function ProfessionalBookingsScreen() {
                 );
 
                 const activeNow = isCommunicationActive(booking);
+                const isImmediate = activeTab === 'inmediata';
 
                 return (
-                  <View key={booking.id} style={styles.itemCard}>
+                  <View key={booking.id} style={[styles.itemCard, isImmediate && styles.itemCardImmediate]}>
                     <View style={styles.itemTop}>
                       <Text style={styles.itemTitle}>{booking.sessionOffering?.title ?? 'Sesion'}</Text>
                       <Text style={styles.status}>{statusLabel(booking.status)}</Text>
                     </View>
+                    {isImmediate && (
+                      <View style={styles.immediateBadge}>
+                        <Ionicons name="flash" size={11} color="#DC2626" />
+                        <Text style={styles.immediateBadgeText}>Sesión Inmediata · El cliente está esperando</Text>
+                      </View>
+                    )}
                     <Text style={styles.meta}>Cliente: {fullName}</Text>
                     <Text style={styles.meta}>Fecha/Hora: {formatDateTime(booking.scheduledStartAt)}</Text>
                     <Text style={styles.meta}>Monto: {amount}</Text>
@@ -512,6 +568,60 @@ const styles = StyleSheet.create({
   list: {
     gap: 10,
   },
+  tabs: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+    padding: 4,
+    gap: 4,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 9,
+    borderRadius: 9,
+  },
+  tabActive: {
+    backgroundColor: '#EFF6FF',
+  },
+  tabActiveRed: {
+    backgroundColor: '#FFF1F2',
+  },
+  tabText: {
+    fontFamily: appTheme.fonts.body,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  tabTextActive: {
+    color: appTheme.colors.primary,
+  },
+  tabTextRed: {
+    color: '#DC2626',
+  },
+  tabBadge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: appTheme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  tabBadgeRed: {
+    backgroundColor: '#DC2626',
+  },
+  tabBadgeText: {
+    fontFamily: appTheme.fonts.body,
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
   itemCard: {
     borderWidth: 1,
     borderColor: appTheme.colors.border,
@@ -519,6 +629,30 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     padding: 10,
     gap: 4,
+  },
+  itemCardImmediate: {
+    borderColor: '#FECDD3',
+    borderLeftWidth: 4,
+    borderLeftColor: '#DC2626',
+    backgroundColor: '#FFFAFA',
+  },
+  immediateBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#FFF1F2',
+    borderRadius: 99,
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    alignSelf: 'flex-start',
+  },
+  immediateBadgeText: {
+    fontFamily: appTheme.fonts.body,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#DC2626',
   },
   itemTop: {
     flexDirection: 'row',

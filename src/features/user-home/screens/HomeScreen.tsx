@@ -20,6 +20,7 @@ import { getMyChats } from "../../../api/messages";
 import { getCommunicationAccess, type CommunicationAccess } from "../../../api/communication";
 import { getProfessionals } from "../../professionals/api/professionalsApi";
 import type { Professional } from "../../professionals/types";
+import { getImmediateProfessionals, type ImmediateProfessional } from "../../../api/immediateAvailability";
 import ProfessionalFeedCard from "../components/ProfessionalFeedCard";
 
 const PAGE_SIZE = 10;
@@ -33,6 +34,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
 
+  const [activeTab, setActiveTab] = useState<'disponibles' | 'inmediata'>('disponibles');
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -44,11 +46,36 @@ export default function HomeScreen() {
     useState<CommunicationAccessByProfessional>({});
   const [communicationAccessLoadingByProfessional, setCommunicationAccessLoadingByProfessional] =
     useState<CommunicationAccessLoadingByProfessional>({});
+  const [immediateProfessionals, setImmediateProfessionals] = useState<ImmediateProfessional[]>([]);
+  const [immediateLoading, setImmediateLoading] = useState(false);
+  const immediateIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadingRef = useRef(false);
   const feedRef = useRef<FlatList<Professional> | null>(null);
   const wrapPendingRef = useRef(false);
   const lastLoadedAtRef = useRef(0);
+
+  // Carga psicólogos de atención inmediata al cambiar al tab
+  useEffect(() => {
+    if (activeTab !== 'inmediata') return;
+    void loadImmediate();
+    const poll = setInterval(() => void loadImmediate(), 30_000);
+    immediateIntervalRef.current = poll;
+    return () => clearInterval(poll);
+  }, [activeTab]);
+
+
+  async function loadImmediate() {
+    setImmediateLoading(true);
+    try {
+      const data = await getImmediateProfessionals();
+      setImmediateProfessionals(data);
+    } catch {
+      // silent
+    } finally {
+      setImmediateLoading(false);
+    }
+  }
 
   async function loadFeed(targetPage: number, reset: boolean) {
     if (loadingRef.current) return;
@@ -248,6 +275,28 @@ export default function HomeScreen() {
             <Ionicons name="search" size={20} color={appTheme.colors.primary} />
           </Pressable>
         </View>
+
+        {/* Tabs */}
+        <View style={styles.tabs}>
+          <Pressable
+            style={[styles.tab, activeTab === 'disponibles' && styles.tabActive]}
+            onPress={() => setActiveTab('disponibles')}
+          >
+            <Ionicons name="people-outline" size={14} color={activeTab === 'disponibles' ? appTheme.colors.primary : '#6B7280'} />
+            <Text style={[styles.tabText, activeTab === 'disponibles' && styles.tabTextActive]}>
+              Disponibles
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.tab, activeTab === 'inmediata' && styles.tabActiveRed]}
+            onPress={() => setActiveTab('inmediata')}
+          >
+            <Ionicons name="flash" size={14} color={activeTab === 'inmediata' ? '#DC2626' : '#6B7280'} />
+            <Text style={[styles.tabText, activeTab === 'inmediata' && styles.tabTextRed]}>
+              Atención Inmediata
+            </Text>
+          </Pressable>
+        </View>
       </View>
 
       <View
@@ -257,68 +306,127 @@ export default function HomeScreen() {
           if (h > 0) setFeedHeight(h);
         }}
       >
-        {loading ? (
-          <View style={styles.feedState}>
-            <ActivityIndicator size="large" color={appTheme.colors.primary} />
-            <Text style={styles.feedStateText}>Cargando profesionales...</Text>
-          </View>
-        ) : professionals.length === 0 ? (
-          <View style={styles.feedState}>
-            <Ionicons name="people-outline" size={48} color="rgba(255,255,255,0.3)" />
-            <Text style={styles.feedStateText}>
-              No hay profesionales disponibles en este momento.
-            </Text>
-            <Pressable style={styles.retryBtn} onPress={() => loadFeed(1, true)}>
-              <Text style={styles.retryText}>Reintentar</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <FlatList
-            ref={feedRef}
-            data={professionals}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <ProfessionalFeedCard
-                professional={item}
-                cardHeight={CARD_HEIGHT}
-                onProfilePress={() => handleProfile(item)}
-                onChatPress={() => handleChat(item)}
-                chatLoading={chatLoadingId === item.id}
-                communicationAccess={communicationAccessByProfessional[item.id] ?? null}
-                communicationAccessLoading={
-                  communicationAccessLoadingByProfessional[item.id] === true
-                }
-              />
-            )}
-            snapToInterval={CARD_HEIGHT}
-            snapToAlignment="start"
-            decelerationRate="fast"
-            disableIntervalMomentum
-            showsVerticalScrollIndicator={false}
-            onEndReached={handleLoadMore}
-            onEndReachedThreshold={0.5}
-            onMomentumScrollEnd={handleMomentumEnd}
-            getItemLayout={(_, index) => ({
-              length: CARD_HEIGHT,
-              offset: CARD_HEIGHT * index,
-              index,
-            })}
-            onScrollToIndexFailed={() => {
-              feedRef.current?.scrollToOffset({ offset: 0, animated: false });
-            }}
-            ListFooterComponent={
-              loadingMore ? (
-                <View style={[styles.footerLoader, { height: CARD_HEIGHT }]}>
-                  <ActivityIndicator color={appTheme.colors.primary} size="large" />
-                  <Text style={styles.feedStateText}>Cargando más...</Text>
-                </View>
-              ) : null
-            }
-            windowSize={3}
-            maxToRenderPerBatch={3}
-            initialNumToRender={2}
-            removeClippedSubviews
-          />
+        {/* Tab Disponibles */}
+        {activeTab === 'disponibles' && (
+          loading ? (
+            <View style={styles.feedState}>
+              <ActivityIndicator size="large" color={appTheme.colors.primary} />
+              <Text style={styles.feedStateText}>Cargando profesionales...</Text>
+            </View>
+          ) : professionals.length === 0 ? (
+            <View style={styles.feedState}>
+              <Ionicons name="people-outline" size={48} color="rgba(255,255,255,0.3)" />
+              <Text style={styles.feedStateText}>No hay profesionales disponibles en este momento.</Text>
+              <Pressable style={styles.retryBtn} onPress={() => loadFeed(1, true)}>
+                <Text style={styles.retryText}>Reintentar</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <FlatList
+              ref={feedRef}
+              data={professionals}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <ProfessionalFeedCard
+                  professional={item}
+                  cardHeight={CARD_HEIGHT}
+                  onProfilePress={() => handleProfile(item)}
+                  onChatPress={() => handleChat(item)}
+                  chatLoading={chatLoadingId === item.id}
+                  communicationAccess={communicationAccessByProfessional[item.id] ?? null}
+                  communicationAccessLoading={communicationAccessLoadingByProfessional[item.id] === true}
+                />
+              )}
+              snapToInterval={CARD_HEIGHT}
+              snapToAlignment="start"
+              decelerationRate="fast"
+              disableIntervalMomentum
+              showsVerticalScrollIndicator={false}
+              onEndReached={handleLoadMore}
+              onEndReachedThreshold={0.5}
+              onMomentumScrollEnd={handleMomentumEnd}
+              getItemLayout={(_, index) => ({ length: CARD_HEIGHT, offset: CARD_HEIGHT * index, index })}
+              onScrollToIndexFailed={() => feedRef.current?.scrollToOffset({ offset: 0, animated: false })}
+              ListFooterComponent={
+                loadingMore ? (
+                  <View style={[styles.footerLoader, { height: CARD_HEIGHT }]}>
+                    <ActivityIndicator color={appTheme.colors.primary} size="large" />
+                    <Text style={styles.feedStateText}>Cargando más...</Text>
+                  </View>
+                ) : null
+              }
+              windowSize={3}
+              maxToRenderPerBatch={3}
+              initialNumToRender={2}
+              removeClippedSubviews
+            />
+          )
+        )}
+
+        {/* Tab Atención Inmediata */}
+        {activeTab === 'inmediata' && (
+          immediateLoading && immediateProfessionals.length === 0 ? (
+            <View style={styles.feedState}>
+              <ActivityIndicator size="large" color="#DC2626" />
+              <Text style={styles.feedStateText}>Buscando disponibles ahora...</Text>
+            </View>
+          ) : immediateProfessionals.length === 0 ? (
+            <View style={styles.feedState}>
+              <Ionicons name="flash-off-outline" size={48} color="rgba(255,255,255,0.3)" />
+              <Text style={styles.feedStateText}>Ningún psicólogo está disponible para atención inmediata en este momento.</Text>
+              <Pressable style={styles.retryBtn} onPress={loadImmediate}>
+                <Text style={styles.retryText}>Actualizar</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <FlatList
+              data={immediateProfessionals}
+              keyExtractor={(item) => item.professionalId}
+              renderItem={({ item }) => {
+                const pro: Professional = {
+                  id: item.professional.id,
+                  name: [item.professional.firstName, item.professional.lastName].filter(Boolean).join(' ') || 'Psicólogo',
+                  avatar: item.professional.avatarUrl ?? '',
+                  bio: item.professional.bio ?? '',
+                  specialties: item.professional.specialties,
+                  isOnline: true,
+                  prices: {},
+                };
+                return (
+                  <ProfessionalFeedCard
+                    professional={pro}
+                    cardHeight={CARD_HEIGHT}
+                    mode="immediate"
+                    immediateData={{
+                      priceBob: item.priceBob,
+                      priceUsd: item.priceUsd,
+                      durationMinutes: item.durationMinutes,
+                      expiresAt: item.expiresAt,
+                      description: item.description,
+                    }}
+                    onProfilePress={() => handleProfile(pro)}
+                    onChatPress={() => {}}
+                    onImmediatePress={() => {
+                      router.push({
+                        pathname: '/(user)/immediate/[professionalId]',
+                        params: { professionalId: item.professional.id },
+                      } as any);
+                    }}
+                  />
+                );
+              }}
+              snapToInterval={CARD_HEIGHT}
+              snapToAlignment="start"
+              decelerationRate="fast"
+              disableIntervalMomentum
+              showsVerticalScrollIndicator={false}
+              getItemLayout={(_, index) => ({ length: CARD_HEIGHT, offset: CARD_HEIGHT * index, index })}
+              windowSize={3}
+              maxToRenderPerBatch={3}
+              initialNumToRender={2}
+              removeClippedSubviews
+            />
+          )
         )}
       </View>
     </View>
@@ -399,5 +507,38 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 12,
     backgroundColor: "#0a0f1a",
+  },
+  tabs: {
+    flexDirection: "row",
+    borderTopWidth: 1,
+    borderTopColor: appTheme.colors.border,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
+  },
+  tabActive: {
+    borderBottomColor: appTheme.colors.primary,
+  },
+  tabActiveRed: {
+    borderBottomColor: "#DC2626",
+  },
+  tabText: {
+    fontFamily: appTheme.fonts.body,
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#6B7280",
+  },
+  tabTextActive: {
+    color: appTheme.colors.primary,
+  },
+  tabTextRed: {
+    color: "#DC2626",
   },
 });

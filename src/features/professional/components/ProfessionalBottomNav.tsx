@@ -1,4 +1,4 @@
-import { MessageCircle, UserRoundCog, WalletCards, LayoutDashboard, CalendarDays } from "lucide-react-native";
+import { MessageCircle, UserRoundCog, WalletCards, LayoutDashboard } from "lucide-react-native";
 import { usePathname, useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";

@@ -12,6 +12,15 @@ import {
 import { appTheme } from "../../../theme/appTheme";
 import type { CommunicationAccess } from "../../../api/communication";
 import type { Professional } from "../../professionals/types";
+import { useUserRegion } from "../../../hooks/useUserRegion";
+
+type ImmediateData = {
+  priceBob: number;
+  priceUsd: number;
+  durationMinutes: number;
+  expiresAt: string;
+  description?: string | null;
+};
 
 type Props = {
   professional: Professional;
@@ -21,6 +30,9 @@ type Props = {
   chatLoading?: boolean;
   communicationAccess?: CommunicationAccess | null;
   communicationAccessLoading?: boolean;
+  mode?: 'normal' | 'immediate';
+  immediateData?: ImmediateData;
+  onImmediatePress?: () => void;
 };
 
 const NO_IMAGE = require("../../../../assets/no_image.jpg");
@@ -33,6 +45,9 @@ export default function ProfessionalFeedCard({
   chatLoading = false,
   communicationAccess = null,
   communicationAccessLoading = false,
+  mode = 'normal',
+  immediateData,
+  onImmediatePress,
 }: Props) {
   const bgSource =
     professional.coverImage
@@ -41,6 +56,7 @@ export default function ProfessionalFeedCard({
       ? { uri: professional.avatar }
       : NO_IMAGE;
 
+  const { isBolivian } = useUserRegion();
   const username = professional.username ? `@${professional.username}` : null;
   const bio = professional.bio?.trim() || null;
   const canCommunicate = communicationAccess?.allowed === true;
@@ -78,12 +94,19 @@ export default function ProfessionalFeedCard({
         pointerEvents="none"
       />
 
-      <View style={[styles.onlineBadge, !professional.isOnline && styles.offlineBadge]}>
-        {professional.isOnline ? <View style={styles.onlineDot} /> : null}
-        <Text style={[styles.onlineText, !professional.isOnline && styles.offlineText]}>
-          {professional.isOnline ? "Disponible" : "No disponible"}
-        </Text>
-      </View>
+      {mode === 'immediate' ? (
+        <View style={styles.immediateBadge}>
+          <Ionicons name="flash" size={11} color="#FCA5A5" />
+          <Text style={styles.immediateBadgeText}>Atención Inmediata</Text>
+        </View>
+      ) : (
+        <View style={[styles.onlineBadge, !professional.isOnline && styles.offlineBadge]}>
+          {professional.isOnline ? <View style={styles.onlineDot} /> : null}
+          <Text style={[styles.onlineText, !professional.isOnline && styles.offlineText]}>
+            {professional.isOnline ? "Disponible" : "No disponible"}
+          </Text>
+        </View>
+      )}
 
       <View style={styles.infoPanel}>
         <View style={styles.nameRow}>
@@ -143,38 +166,61 @@ export default function ProfessionalFeedCard({
           </Text>
         ) : null}
 
-        <Pressable
-          style={styles.scheduleBtn}
-          onPress={(e) => {
-            e.stopPropagation?.();
-            onProfilePress();
-          }}
-        >
-          <Ionicons name="calendar-outline" size={16} color="#FFFFFF" />
-          <Text style={styles.scheduleBtnText}>Agendar sesión</Text>
-        </Pressable>
+        {mode === 'immediate' ? (
+          <>
+            {/* Precio y duración inline */}
+            {immediateData ? (
+              <View style={styles.immediateInfoRow}>
+                <View style={styles.immediateInfoChip}>
+                  <Ionicons name="cash-outline" size={12} color="#FCA5A5" />
+                  <Text style={styles.immediateInfoText}>
+                    {isBolivian ? `Bs. ${immediateData.priceBob}` : `${immediateData.priceUsd} USD`}
+                  </Text>
+                </View>
+                <View style={styles.immediateInfoChip}>
+                  <Ionicons name="time-outline" size={12} color="#FCA5A5" />
+                  <Text style={styles.immediateInfoText}>{immediateData.durationMinutes} min</Text>
+                </View>
+              </View>
+            ) : null}
+            <Pressable
+              style={styles.immediateBtn}
+              onPress={(e) => { e.stopPropagation?.(); onImmediatePress?.(); }}
+            >
+              <Ionicons name="flash" size={16} color="#FFFFFF" />
+              <Text style={styles.immediateBtnText}>Recibir atención ahora</Text>
+            </Pressable>
+          </>
+        ) : (
+          <>
+            <Pressable
+              style={styles.scheduleBtn}
+              onPress={(e) => { e.stopPropagation?.(); onProfilePress(); }}
+            >
+              <Ionicons name="calendar-outline" size={16} color="#FFFFFF" />
+              <Text style={styles.scheduleBtnText}>Agendar sesión</Text>
+            </Pressable>
 
-        <Pressable
-          style={[styles.chatBtn, (!canCommunicate || chatLoading) && styles.chatBtnDisabled]}
-          onPress={(e) => {
-            e.stopPropagation?.();
-            onChatPress();
-          }}
-          disabled={chatLoading || !canCommunicate}
-        >
-          {chatLoading ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : (
-            <>
-              <Ionicons name="chatbubble-outline" size={16} color="#FFFFFF" />
-              <Text style={styles.chatBtnText}>Chatear</Text>
-            </>
-          )}
-        </Pressable>
+            <Pressable
+              style={[styles.chatBtn, (!canCommunicate || chatLoading) && styles.chatBtnDisabled]}
+              onPress={(e) => { e.stopPropagation?.(); onChatPress(); }}
+              disabled={chatLoading || !canCommunicate}
+            >
+              {chatLoading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="chatbubble-outline" size={16} color="#FFFFFF" />
+                  <Text style={styles.chatBtnText}>Chatear</Text>
+                </>
+              )}
+            </Pressable>
 
-        <Text style={[styles.communicationHint, canCommunicate && styles.communicationHintAllowed]}>
-          {communicationHint}
-        </Text>
+            <Text style={[styles.communicationHint, canCommunicate && styles.communicationHintAllowed]}>
+              {communicationHint}
+            </Text>
+          </>
+        )}
       </View>
     </Pressable>
   );
@@ -405,5 +451,61 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.body,
     fontSize: 11,
     fontWeight: "600",
+  },
+  immediateInfoRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  immediateInfoChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(220,38,38,0.25)",
+    borderWidth: 1,
+    borderColor: "rgba(220,38,38,0.40)",
+    borderRadius: 99,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  immediateInfoText: {
+    color: "#FCA5A5",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  immediateBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    backgroundColor: "#DC2626",
+    borderRadius: 99,
+    paddingVertical: 13,
+  },
+  immediateBtnText: {
+    color: "#FFFFFF",
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  immediateBadge: {
+    position: "absolute",
+    top: 16,
+    right: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(127,10,10,0.60)",
+    borderWidth: 1,
+    borderColor: "rgba(220,38,38,0.60)",
+    borderRadius: 99,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  immediateBadgeText: {
+    color: "#FCA5A5",
+    fontSize: 12,
+    fontFamily: appTheme.fonts.body,
+    fontWeight: "700",
   },
 });

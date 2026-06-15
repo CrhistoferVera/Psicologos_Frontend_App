@@ -246,6 +246,17 @@ export default function ProfessionalDashboardScreen() {
           <Ionicons name="chevron-forward" size={18} color="#64748B" />
         </Pressable>
 
+        <Pressable style={styles.immediateCard} onPress={() => router.push("/(professional)/immediate") as any}>
+          <View style={styles.immediateIconWrap}>
+            <Ionicons name="flash" size={20} color="#DC2626" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.immediateTitle}>Atención Inmediata</Text>
+            <Text style={styles.immediateSubtitle}>Actívate y atiende clientes ahora mismo</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#64748B" />
+        </Pressable>
+
         <Text style={styles.sectionTitle}>Proximas reservas</Text>
 
         {nextBookings.length === 0 ? (
@@ -506,6 +517,38 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   referralsSubtitle: {
+    color: "#475569",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  immediateCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    backgroundColor: "#FFF8F8",
+    minHeight: 76,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  immediateIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFE4E4",
+  },
+  immediateTitle: {
+    color: "#991B1B",
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  immediateSubtitle: {
     color: "#475569",
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
