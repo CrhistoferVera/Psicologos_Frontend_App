@@ -28,6 +28,7 @@ export type IncomingCallPushPayload = {
 };
 
 const incomingCallListeners = new Set<(payload: IncomingCallPushPayload) => void>();
+let pendingIncomingCallPayload: IncomingCallPushPayload | null = null;
 
 function parseIncomingCallPayload(
   data: Record<string, string | undefined> | undefined,
@@ -46,13 +47,28 @@ function parseIncomingCallPayload(
 }
 
 function notifyIncomingCall(payload: IncomingCallPushPayload) {
+  console.log('[notifyIncomingCall] listeners:', incomingCallListeners.size, 'payload:', payload.callId);
+  if (incomingCallListeners.size === 0) {
+    console.log('[notifyIncomingCall] no listeners, storing pending payload');
+    pendingIncomingCallPayload = payload;
+    return;
+  }
   incomingCallListeners.forEach((listener) => listener(payload));
+}
+
+export function requeueIncomingCallPayload(payload: IncomingCallPushPayload) {
+  pendingIncomingCallPayload = payload;
 }
 
 export function subscribeIncomingCallPush(
   listener: (payload: IncomingCallPushPayload) => void,
 ): () => void {
   incomingCallListeners.add(listener);
+  if (pendingIncomingCallPayload) {
+    const pending = pendingIncomingCallPayload;
+    pendingIncomingCallPayload = null;
+    listener(pending);
+  }
   return () => {
     incomingCallListeners.delete(listener);
   };
@@ -193,8 +209,9 @@ export const setupBackgroundNotificationHandler = (): void => {
     });
 
   messaging().onNotificationOpenedApp((remoteMessage) => {
-    console.log('App abierta desde notificacion (background):', remoteMessage.data);
+    console.log('[onNotificationOpenedApp] data:', JSON.stringify(remoteMessage.data));
     const payload = parseIncomingCallPayload(remoteMessage.data as Record<string, string | undefined>);
+    console.log('[onNotificationOpenedApp] parsed payload:', payload ? payload.callId : 'NULL - parse failed');
     if (payload) {
       notifyIncomingCall(payload);
     }

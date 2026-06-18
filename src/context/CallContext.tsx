@@ -6,7 +6,7 @@ import { useAuth } from "./AuthContext";
 import { appTheme } from "../theme/appTheme";
 import { useCallSocket, type CallType, type IncomingCallData } from "../hooks/useCallSocket";
 import { getCommunicationAccess } from "../api/communication";
-import { subscribeIncomingCallPush } from "../services/notifications";
+import { subscribeIncomingCallPush, requeueIncomingCallPayload } from "../services/notifications";
 
 type CallStatus = "ringing" | "connected" | "ended" | "rejected";
 
@@ -182,9 +182,14 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const unsubscribePushIncoming = subscribeIncomingCallPush((payload) => {
-      if (!user?.id) return;
+      console.log('[CallContext] subscribeIncomingCallPush fired, user.id:', user?.id, 'role:', user?.role);
+      if (!user?.id) {
+        console.log('[CallContext] blocked: no user, requeueing payload');
+        requeueIncomingCallPayload(payload);
+        return;
+      }
       const isProfessional = user.role === "PROFESSIONAL" || user.role === "ANFITRIONA";
-      if (!isProfessional) return;
+      if (!isProfessional) { console.log('[CallContext] blocked: not professional'); return; }
       if (payload.receiverId !== user.id) {
         console.log("[CallContext] incoming push ignored by receiver mismatch", {
           callId: payload.callId,
