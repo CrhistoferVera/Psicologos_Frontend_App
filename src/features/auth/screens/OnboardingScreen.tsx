@@ -13,16 +13,28 @@ const slides = [
       image: require("../../../../assets/onboarding-1.jpeg"),
   },
   {
-    title: "Habla por chat de forma segura",
+    title: "Atención inmediata cuando lo necesitas",
     description:
-      "Inicia conversaciones privadas con un flujo simple y transparente.",
+      "Conecta con especialistas listos para acompañarte en los momentos difíciles.",
       image: require("../../../../assets/onboarding-2.jpeg"),
   },
   {
-    title: "Gestiona tu saldo con claridad",
+    title: "Especialistas que te acompañan",
     description:
-      "Visualiza tu saldo y pagos en una experiencia clara y sin friccin.",
+      "Profesionales clínicos con experiencia en ansiedad, duelo, depresión y más.",
       image: require("../../../../assets/onboarding-3.jpeg"),
+  },
+  {
+    title: "Terapia adaptada a ti",
+    description:
+      "Cada proceso es único: encuentra el enfoque que mejor se ajusta a tus necesidades.",
+      image: require("../../../../assets/onboarding-4.jpeg"),
+  },
+  {
+    title: "Tu bienestar es la prioridad",
+    description:
+      "Da el primer paso hacia una mejor salud mental, de forma segura y privada.",
+      image: require("../../../../assets/onboarding-5.jpeg"),
   },
 ];
 
