@@ -9,6 +9,7 @@ import AppButton from '../../../components/ui/AppButton';
 import { appTheme } from '../../../theme/appTheme';
 import {
   getMyBooking,
+  getBookingQrStatus,
   initBookingPayment,
   type Booking,
   type BookingPaymentInitResponse,
@@ -173,14 +174,24 @@ export default function BookingPaymentScreen() {
       pollingRef.current = null;
       return;
     }
-    pollingRef.current = setInterval(() => {
+    const qrId = paymentData?.paymentMethod === 'BANECO_QR' ? paymentData.providerReference : null;
+    pollingRef.current = setInterval(async () => {
+      if (qrId) {
+        try {
+          const qrStatus = await getBookingQrStatus(qrId);
+          if (qrStatus.status === 'PAID') {
+            await loadBookings({ silent: true });
+            return;
+          }
+        } catch { /* silent */ }
+      }
       void loadBookings({ silent: true });
     }, 4000);
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
       pollingRef.current = null;
     };
-  }, [pendingBooking?.id, isExpiredLocally]);
+  }, [pendingBooking?.id, isExpiredLocally, paymentData?.providerReference]);
 
   // Alerta de expiración
   useEffect(() => {

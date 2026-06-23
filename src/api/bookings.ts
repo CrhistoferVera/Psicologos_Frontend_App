@@ -221,6 +221,14 @@ export async function getMyBooking(bookingId: string) {
   return res.data;
 }
 
+export async function getBookingQrStatus(qrId: string): Promise<{
+  status: 'PENDING' | 'PAID' | 'CANCELED';
+  bookingId: string;
+}> {
+  const res = await apiClient.get(`/baneco-qr/booking-status/${qrId}`);
+  return res.data;
+}
+
 export async function getMyBookings(params?: {
   status?: BookingStatus;
   from?: string;

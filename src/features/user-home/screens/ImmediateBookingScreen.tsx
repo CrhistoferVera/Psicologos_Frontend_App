@@ -19,7 +19,7 @@ import {
   getProfessionalImmediateDetail,
   type ImmediateProfessional,
 } from '../../../api/immediateAvailability';
-import { getMyBooking, type BookingPaymentInitResponse } from '../../../api/bookings';
+import { getMyBooking, getBookingQrStatus, type BookingPaymentInitResponse } from '../../../api/bookings';
 import { useUserRegion } from '../../../hooks/useUserRegion';
 
 const NO_IMAGE = require('../../../../assets/no_image.jpg');
@@ -80,9 +80,19 @@ export default function ImmediateBookingScreen() {
     }
   }
 
-  function startPolling(bId: string) {
+  function startPolling(bId: string, qrId?: string) {
     pollRef.current = setInterval(async () => {
       try {
+        if (qrId) {
+          try {
+            const qrStatus = await getBookingQrStatus(qrId);
+            if (qrStatus.status === 'PAID') {
+              if (pollRef.current) clearInterval(pollRef.current);
+              setScreenState('confirmed');
+              return;
+            }
+          } catch { /* silent */ }
+        }
         const booking = await getMyBooking(bId);
         if (booking.status === 'CONFIRMED') {
           if (pollRef.current) clearInterval(pollRef.current);
@@ -107,7 +117,7 @@ export default function ImmediateBookingScreen() {
 
       if (result.paymentInit.paymentMethod === 'BANECO_QR') {
         setScreenState('qr');
-        startPolling(result.booking.id);
+        startPolling(result.booking.id, result.paymentInit.providerReference ?? undefined);
         return;
       }
 
