@@ -13,15 +13,17 @@ import { appTheme } from '../../../theme/appTheme';
 import ImmediateActiveCard from '../components/ImmediateActiveCard';
 import ImmediateActivateForm from '../components/ImmediateActivateForm';
 import DeactivateImmediateModal from '../components/DeactivateImmediateModal';
+import { useUserRegion } from '../../../hooks/useUserRegion';
 
 export default function ProfessionalImmediateCareScreen() {
   const router = useRouter();
+  const { isBolivian } = useUserRegion();
   const [availability, setAvailability] = useState<ImmediateAvailabilityStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showDeactivateModal, setShowDeactivateModal] = useState(false);
 
-  const [priceBob, setPriceBob] = useState('150');
+  const [price, setPrice] = useState(isBolivian ? '150' : '21');
   const [durationMinutes, setDurationMinutes] = useState('30');
   const [activeForMinutes, setActiveForMinutes] = useState(60);
   const [activeForMinutesCustom, setActiveForMinutesCustom] = useState('');
@@ -51,7 +53,7 @@ export default function ProfessionalImmediateCareScreen() {
       const data = await getMyImmediateAvailability();
       setAvailability(data);
       if (data.isActive) {
-        if (data.priceBob) setPriceBob(String(data.priceBob));
+        if (data.priceBob) setPrice(String(isBolivian ? data.priceBob : (data.priceUsd ?? data.priceBob)));
         if (data.durationMinutes) setDurationMinutes(String(data.durationMinutes));
         if (data.description) setDescription(data.description ?? '');
       }
@@ -63,20 +65,20 @@ export default function ProfessionalImmediateCareScreen() {
   }
 
   async function handleActivate() {
-    const price = parseFloat(priceBob);
+    const parsedPrice = parseFloat(price);
     const duration = parseInt(durationMinutes, 10);
     const resolvedActiveFor = isCustomTime
       ? parseInt(activeForMinutesCustom, 10)
       : activeForMinutes;
 
-    if (!price || price <= 0) return Alert.alert('Error', 'Ingresa un precio válido.');
+    if (!parsedPrice || parsedPrice <= 0) return Alert.alert('Error', 'Ingresa un precio válido.');
     if (!duration || duration <= 0) return Alert.alert('Error', 'Ingresa una duración válida.');
     if (!resolvedActiveFor || resolvedActiveFor <= 0) return Alert.alert('Error', 'Ingresa un tiempo activo válido.');
 
     setSaving(true);
     try {
       const result = await setImmediateAvailability({
-        priceBob: price,
+        ...(isBolivian ? { priceBob: parsedPrice } : { priceUsd: parsedPrice }),
         durationMinutes: duration,
         activeForMinutes: resolvedActiveFor,
         description: description.trim() || undefined,
@@ -151,14 +153,15 @@ export default function ProfessionalImmediateCareScreen() {
           />
         ) : (
           <ImmediateActivateForm
-            priceBob={priceBob}
+            priceBob={price}
+            isBolivian={isBolivian}
             durationMinutes={durationMinutes}
             activeForMinutes={activeForMinutes}
             activeForMinutesCustom={activeForMinutesCustom}
             isCustomTime={isCustomTime}
             description={description}
             saving={saving}
-            onChangePriceBob={setPriceBob}
+            onChangePriceBob={setPrice}
             onChangeDurationMinutes={setDurationMinutes}
             onSelectQuickTime={setActiveForMinutes}
             onChangeCustomTime={setActiveForMinutesCustom}

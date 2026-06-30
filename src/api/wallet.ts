@@ -15,6 +15,9 @@ export interface EarningsData {
   promotionalBalance?: number;
   realBalance?: number;
   withdrawableBalance?: number;
+  lockedBob?: number;
+  lockedUsd?: number;
+  withdrawableUsd?: number;
   withdrawalsEnabled?: boolean;
   today: number;
   todayUsd?: number;
@@ -62,11 +65,23 @@ export interface WithdrawalRequest {
   updatedAt?: string;
 }
 
-export const apiGetMyBalance = async (): Promise<{
+export type WalletBalance = {
+  // BOB
   balance: number;
-  balanceUsd: number;
   promotionalBalance: number;
-}> => {
+  lockedBob: number;
+  withdrawableBob: number;
+  // USD
+  balanceUsd: number;
+  lockedUsd: number;
+  withdrawableUsd: number;
+  // Estado
+  debtBob: number;
+  debtUsd: number;
+  isBlocked: boolean;
+};
+
+export const apiGetMyBalance = async (): Promise<WalletBalance> => {
   const response = await apiClient.get('/wallet/me/balance');
   return response.data;
 };
@@ -115,5 +130,47 @@ export const apiCreateWithdrawalRequest = async (data: {
 
 export const apiGetWithdrawalRequests = async (): Promise<WithdrawalRequest[]> => {
   const response = await apiClient.get('/wallet/me/withdrawal-requests');
+  return response.data;
+};
+
+export interface DebtQrPayment {
+  depositId: string;
+  qrId: string;
+  qrImage: string;
+  amountBob: number;
+  dueDate: string;
+}
+
+export const apiCreateDebtQr = async (): Promise<DebtQrPayment> => {
+  const response = await apiClient.post('/baneco-qr/pay-debt');
+  return response.data;
+};
+
+export interface DebtStripeIntent {
+  clientSecret: string;
+  ephemeralKey: string;
+  amountUsd: number;
+}
+
+export const apiCreateDebtStripeIntent = async (): Promise<DebtStripeIntent> => {
+  const response = await apiClient.post('/stripe/pay-debt');
+  return response.data;
+};
+
+export interface PenaltyTransaction {
+  id: string;
+  createdAt: string;
+  totalDeduction: number;
+  currency: 'BOB' | 'USD';
+  event: string;
+  earningReversal: number;
+  penaltyPercent: number | null;
+  penaltyAmount: number | null;
+  sessionTitle: string;
+  scheduledStartAt: string | null;
+}
+
+export const apiGetPenaltyTransactions = async (): Promise<PenaltyTransaction[]> => {
+  const response = await apiClient.get('/wallet/me/penalty-transactions');
   return response.data;
 };

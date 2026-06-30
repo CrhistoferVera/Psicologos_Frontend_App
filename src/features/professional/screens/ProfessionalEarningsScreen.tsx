@@ -6,7 +6,7 @@ import AppScreen from "../../../components/ui/AppScreen";
 import AppAlert from "../../../components/ui/AppAlert";
 import { appTheme } from "../../../theme/appTheme";
 import { apiGetConfig } from "../../../api/userClient";
-import type { Bank, BankAccount } from "../../../api/wallet";
+import { apiGetMyBalance, type Bank, type BankAccount, type WalletBalance } from "../../../api/wallet";
 import {
   addProfessionalBankAccount,
   getProfessionalBankAccounts,
@@ -28,6 +28,7 @@ export default function ProfessionalEarningsScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const [earnings, setEarnings] = useState<any>(null);
+  const [wallet, setWallet] = useState<WalletBalance | null>(null);
   const [banks, setBanks] = useState<Bank[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [withdrawalsEnabled, setWithdrawalsEnabled] = useState(true);
@@ -53,14 +54,16 @@ export default function ProfessionalEarningsScreen() {
     try {
       setLoading(true);
       setError(null);
-      const [earningsData, banksData, accountsData, configData] = await Promise.all([
+      const [earningsData, banksData, accountsData, configData, walletData] = await Promise.all([
         getProfessionalEarningsData(),
         getProfessionalBanks(),
         getProfessionalBankAccounts(),
         apiGetConfig(),
+        apiGetMyBalance().catch(() => null),
       ]);
 
       setEarnings(earningsData);
+      setWallet(walletData);
       setBanks(banksData);
       setBankAccounts(accountsData);
       setWithdrawalsEnabled(Boolean(earningsData?.withdrawalsEnabled ?? configData.withdrawalsEnabled ?? true));
@@ -103,9 +106,12 @@ export default function ProfessionalEarningsScreen() {
 
   const totalBalance = Number(earnings?.balance ?? earnings?.total ?? 0);
   const totalBalanceUsd = Number(earnings?.balanceUsd ?? 0);
+  const lockedBob = Number(earnings?.lockedBob ?? 0);
+  const lockedUsd = Number(earnings?.lockedUsd ?? 0);
   const withdrawableBalance = Number(
-    earnings?.withdrawableBalance ?? earnings?.realBalance ?? Math.max(totalBalance - Number(earnings?.promotionalBalance ?? 0), 0),
+    earnings?.withdrawableBalance ?? earnings?.realBalance ?? Math.max(totalBalance - Number(earnings?.promotionalBalance ?? 0) - lockedBob, 0),
   );
+  const withdrawableUsd = Number(earnings?.withdrawableUsd ?? Math.max(totalBalanceUsd - lockedUsd, 0));
   const thisWeek = Number(earnings?.thisWeek ?? 0);
   const thisWeekUsd = Number(earnings?.thisWeekUsd ?? 0);
   const today = Number(earnings?.today ?? 0);
@@ -162,9 +168,13 @@ export default function ProfessionalEarningsScreen() {
       return;
     }
 
-    const available = withdrawCurrency === "USD" ? totalBalanceUsd : withdrawableBalance;
+    const available = withdrawCurrency === "USD" ? withdrawableUsd : withdrawableBalance;
+    if (available <= 0) {
+      showAlert("warning", "Sin saldo disponible", "Tus ganancias se liberan 24h después de cada sesión.");
+      return;
+    }
     if (amount > available) {
-      showAlert("warning", "Saldo insuficiente", `Saldo disponible: ${available.toFixed(2)}.`);
+      showAlert("warning", "Saldo insuficiente", `Disponible ahora: ${available.toFixed(2)} ${withdrawCurrency}.`);
       return;
     }
 
@@ -249,7 +259,13 @@ export default function ProfessionalEarningsScreen() {
             <ResumenTab
               withdrawableBalance={withdrawableBalance}
               totalBalance={totalBalance}
+              lockedBob={lockedBob}
               totalBalanceUsd={totalBalanceUsd}
+              lockedUsd={lockedUsd}
+              withdrawableUsd={withdrawableUsd}
+              debtBob={Number(wallet?.debtBob ?? 0)}
+              debtUsd={Number(wallet?.debtUsd ?? 0)}
+              isBlocked={Boolean(wallet?.isBlocked)}
               today={today}
               todayUsd={todayUsd}
               thisWeek={thisWeek}

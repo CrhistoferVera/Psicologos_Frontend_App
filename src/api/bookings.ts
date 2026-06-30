@@ -9,6 +9,13 @@ export type BookingStatus =
   | 'NO_SHOW'
   | 'EXPIRED';
 
+export type NoShowType = 'PROFESSIONAL' | 'CLIENT' | 'BOTH';
+
+export type NoShowReportResult = {
+  noShowType: NoShowType;
+  refundWindowExpiresAt?: string | null;
+};
+
 export type BookingPaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED' | 'EXPIRED';
 export type BookingPaymentMethod = 'BANECO_QR' | 'STRIPE' | 'WALLET';
 export type BookingRescheduleRequestStatus =
@@ -92,6 +99,8 @@ export type Booking = {
   priceBob: number;
   priceUsd: number;
   expiresAt?: string | null;
+  noShowType?: NoShowType | null;
+  refundWindowExpiresAt?: string | null;
   createdAt: string;
   updatedAt: string;
   sessionOffering?: {
@@ -289,6 +298,35 @@ export async function rejectBookingRescheduleRequest(requestId: string, payload?
 
 export async function cancelBookingRescheduleRequest(requestId: string) {
   const res = await apiClient.patch<BookingRescheduleRequest>(`/bookings/reschedule-requests/${requestId}/cancel`);
+  return res.data;
+}
+
+export async function apiMarkBookingJoined(bookingId: string): Promise<void> {
+  await apiClient.post(`/bookings/${bookingId}/join`);
+}
+
+export async function reportNoShow(bookingId: string): Promise<NoShowReportResult> {
+  const res = await apiClient.post<NoShowReportResult>(`/bookings/${bookingId}/report-no-show`, {});
+  return res.data;
+}
+
+export type RefundRequestResult = {
+  id: string;
+  bookingId: string;
+  amountBob: number;
+  amountUsd: number;
+  percentage: number;
+  status: 'PENDING';
+  requestedAt: string;
+};
+
+export async function requestRefund(
+  bookingId: string,
+  clientPayoutAccountId: string,
+): Promise<RefundRequestResult> {
+  const res = await apiClient.post<RefundRequestResult>(`/bookings/${bookingId}/request-refund`, {
+    clientPayoutAccountId,
+  });
   return res.data;
 }
 

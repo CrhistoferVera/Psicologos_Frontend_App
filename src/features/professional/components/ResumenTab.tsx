@@ -9,7 +9,13 @@ import type { BankAccount } from "../../../api/wallet";
 interface Props {
   withdrawableBalance: number;
   totalBalance: number;
+  lockedBob: number;
   totalBalanceUsd: number;
+  lockedUsd: number;
+  withdrawableUsd: number;
+  debtBob: number;
+  debtUsd: number;
+  isBlocked: boolean;
   today: number;
   todayUsd: number;
   thisWeek: number;
@@ -35,7 +41,13 @@ interface Props {
 export default function ResumenTab({
   withdrawableBalance,
   totalBalance,
+  lockedBob,
   totalBalanceUsd,
+  lockedUsd,
+  withdrawableUsd,
+  debtBob,
+  debtUsd,
+  isBlocked,
   today,
   todayUsd,
   thisWeek,
@@ -61,6 +73,11 @@ export default function ResumenTab({
       <View style={styles.heroCard}>
         <Text style={styles.heroLabel}>Cartera Bolivianos (Bs)</Text>
         <Text style={styles.heroValue}>{formatBob(withdrawableBalance)}</Text>
+        <Text style={styles.heroBreakdownMeta}>
+          {lockedBob > 0
+            ? `Total: ${formatBob(totalBalance)}  ·  Bloqueado: ${formatBob(lockedBob)}`
+            : `Total: ${formatBob(totalBalance)}`}
+        </Text>
         <View style={styles.heroMetaRow}>
           <Text style={styles.heroMeta}>Hoy: {formatBob(today)}</Text>
           <Text style={styles.heroMeta}>Semana: {formatBob(thisWeek)}</Text>
@@ -72,23 +89,37 @@ export default function ResumenTab({
 
       <View style={[styles.heroCard, styles.heroCardUsd]}>
         <Text style={styles.heroLabel}>Cartera Dólares (USD)</Text>
-        <Text style={styles.heroValue}>{formatUsd(totalBalanceUsd)}</Text>
+        <Text style={styles.heroValue}>{formatUsd(withdrawableUsd)}</Text>
+        <Text style={styles.heroBreakdownMeta}>
+          {lockedUsd > 0
+            ? `Total: ${formatUsd(totalBalanceUsd)}  ·  Bloqueado: ${formatUsd(lockedUsd)}`
+            : `Total: ${formatUsd(totalBalanceUsd)}`}
+        </Text>
         <View style={styles.heroMetaRow}>
           <Text style={styles.heroMeta}>Hoy: {formatUsd(todayUsd)}</Text>
           <Text style={styles.heroMeta}>Semana: {formatUsd(thisWeekUsd)}</Text>
         </View>
       </View>
 
-      <View style={styles.kpisRow}>
-        <AppCard style={styles.kpiCard}>
-          <Text style={styles.kpiValue}>{formatBob(grossBob)}</Text>
-          <Text style={styles.kpiLabel}>Ingresos históricos Bs</Text>
-        </AppCard>
-        <AppCard style={styles.kpiCard}>
-          <Text style={styles.kpiValue}>{formatBob(totalBalance)}</Text>
-          <Text style={styles.kpiLabel}>Saldo actual</Text>
-        </AppCard>
-      </View>
+      {(debtBob > 0 || debtUsd > 0) && (
+        <View style={styles.debtBanner}>
+          <View style={styles.debtBannerHeader}>
+            <Ionicons name="warning" size={18} color="#92400E" />
+            <Text style={styles.debtBannerTitle}>Deuda pendiente por no-show</Text>
+          </View>
+          {debtBob > 0 && (
+            <Text style={styles.debtBannerAmount}>- {formatBob(debtBob)}</Text>
+          )}
+          {debtUsd > 0 && (
+            <Text style={styles.debtBannerAmount}>- {formatUsd(debtUsd)}</Text>
+          )}
+          {isBlocked && (
+            <Text style={styles.debtBannerNote}>
+              Tu cuenta está bloqueada. La deuda se descuenta automáticamente cuando recibas ganancias de nuevas sesiones.
+            </Text>
+          )}
+        </View>
+      )}
 
       <View style={styles.actionsRow}>
         <Pressable style={styles.actionBtnHistory} onPress={onHistoryPress}>
@@ -122,7 +153,7 @@ export default function ResumenTab({
         withdrawAmount={withdrawAmount}
         onWithdrawAmountChange={onWithdrawAmountChange}
         withdrawableBalance={withdrawableBalance}
-        totalBalanceUsd={totalBalanceUsd}
+        withdrawableUsd={withdrawableUsd}
         withdrawalsEnabled={withdrawalsEnabled}
         isLoading={isLoading}
         onSubmit={onSubmit}
@@ -154,6 +185,12 @@ const styles = StyleSheet.create({
     fontSize: 38,
     lineHeight: 42,
     fontWeight: "700",
+  },
+  heroBreakdownMeta: {
+    color: "#D7EFE3",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    opacity: 0.8,
   },
   heroMetaRow: { gap: 2 },
   heroMeta: {
@@ -265,5 +302,37 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.heading,
     fontSize: 15,
     fontWeight: "700",
+  },
+  debtBanner: {
+    backgroundColor: "#FEF3C7",
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 6,
+  },
+  debtBannerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  debtBannerTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#92400E",
+    flex: 1,
+  },
+  debtBannerAmount: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#DC2626",
+    fontFamily: appTheme.fonts.heading,
+  },
+  debtBannerNote: {
+    fontSize: 12,
+    color: "#92400E",
+    lineHeight: 17,
+    marginTop: 2,
   },
 });

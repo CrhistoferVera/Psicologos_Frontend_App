@@ -8,14 +8,12 @@ import AppScreen from "../../../components/ui/AppScreen";
 import { appTheme } from "../../../theme/appTheme";
 import { getProfessionalDashboardSnapshot, updateMyProfessionalProfile } from "../api/professionalApi";
 import { getProfessionalBookings, type ProfessionalBooking } from "../../../api/sessionOfferings";
-import { formatBob, formatUsd } from "../../../utils/money";
+import { apiGetMyBalance, type WalletBalance } from "../../../api/wallet";
+import { DebtWarningBanner } from "../components/DebtWarningBanner";
+import EarningsSummaryTab from "../components/EarningsSummaryTab";
 
 function isSameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-}
-
-function formatMoney(value: number, currency: "BOB" | "USD" = "BOB") {
-  return currency === "USD" ? formatUsd(value) : formatBob(value);
 }
 
 function formatBookingDate(iso?: string) {
@@ -41,6 +39,7 @@ export default function ProfessionalDashboardScreen() {
   const [chats, setChats] = useState<any[]>([]);
   const [bookings, setBookings] = useState<ProfessionalBooking[]>([]);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [wallet, setWallet] = useState<WalletBalance | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -52,10 +51,12 @@ export default function ProfessionalDashboardScreen() {
     try {
       setLoading(true);
       setError(null);
-      const [data, bookingRows] = await Promise.all([
+      const [data, bookingRows, walletData] = await Promise.all([
         getProfessionalDashboardSnapshot(),
         getProfessionalBookings().catch(() => [] as ProfessionalBooking[]),
+        apiGetMyBalance().catch(() => null),
       ]);
+      setWallet(walletData);
       setProfile(data.profile);
       setSummary(data.summary);
       setEarnings(data.earnings);
@@ -86,11 +87,6 @@ export default function ProfessionalDashboardScreen() {
     const full = `${profile?.firstName ?? ""} ${profile?.lastName ?? ""}`.trim();
     return full || "Professional";
   }, [profile?.firstName, profile?.lastName]);
-
-  const bobBalance = Number(
-    earnings?.withdrawableBalance ?? earnings?.realBalance ?? summary?.totalBalance ?? earnings?.total ?? 0,
-  );
-  const usdBalance = Number(earnings?.balanceUsd ?? 0);
 
   const confirmedToday = useMemo(() => {
     const now = new Date();
@@ -148,6 +144,9 @@ export default function ProfessionalDashboardScreen() {
 
   return (
     <AppScreen scroll contentPadding={0}>
+      {wallet?.isBlocked ? (
+        <DebtWarningBanner debtBob={wallet.debtBob} debtUsd={wallet.debtUsd} />
+      ) : null}
       <View style={styles.page}>
         <View style={styles.headerCard}>
           <View style={styles.headerLeft}>
@@ -177,21 +176,22 @@ export default function ProfessionalDashboardScreen() {
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {loading ? <Text style={styles.loading}>Cargando dashboard...</Text> : null}
 
-        <View style={styles.earningsCard}>
-          <Text style={styles.earningsLabel}>Saldo disponible (BOB)</Text>
-          <Text style={styles.earningsValue}>{formatMoney(bobBalance, "BOB")}</Text>
-          <Text style={styles.earningsHint}>Cartera USD: {formatMoney(usdBalance, "USD")}</Text>
-
-          <View style={styles.earningsActions}>
-            <Pressable style={styles.earningsBtnPrimary} onPress={() => router.push("/(professional)/earnings") as any}>
-              <Text style={styles.earningsBtnPrimaryText}>Ver ganancias</Text>
-            </Pressable>
-
-            <Pressable style={styles.earningsBtnSuccess} onPress={() => router.push("/(professional)/earnings") as any}>
-              <Text style={styles.earningsBtnSuccessText}>Solicitar retiro</Text>
-            </Pressable>
-          </View>
-        </View>
+        <EarningsSummaryTab
+          balance={Number(earnings?.balance ?? 0)}
+          withdrawableBalance={Number(earnings?.withdrawableBalance ?? earnings?.realBalance ?? 0)}
+          lockedBob={Number(earnings?.lockedBob ?? 0)}
+          balanceUsd={Number(earnings?.balanceUsd ?? 0)}
+          withdrawableUsd={Number(earnings?.withdrawableUsd ?? 0)}
+          lockedUsd={Number(earnings?.lockedUsd ?? 0)}
+          today={Number(earnings?.today ?? 0)}
+          todayUsd={Number(earnings?.todayUsd ?? 0)}
+          thisWeek={Number(earnings?.thisWeek ?? 0)}
+          thisWeekUsd={Number(earnings?.thisWeekUsd ?? 0)}
+          grossBob={Number(earnings?.total ?? 0)}
+          withdrawalsEnabled={Boolean(earnings?.withdrawalsEnabled)}
+          onViewEarnings={() => router.push("/(professional)/earnings" as any)}
+          onWithdraw={() => router.push("/(professional)/earnings" as any)}
+        />
 
         <View style={styles.statsRow}>
           {statCards.map((item) => (
@@ -361,69 +361,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: "center",
     marginTop: -2,
-  },
-  earningsCard: {
-    borderRadius: 22,
-    backgroundColor: "#3F638F",
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-    gap: 10,
-  },
-  earningsLabel: {
-    color: "#D9E8F7",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  earningsValue: {
-    color: "#FFFFFF",
-    fontFamily: appTheme.fonts.heading,
-    fontSize: 38,
-    fontWeight: "700",
-    lineHeight: 42,
-  },
-  earningsHint: {
-    color: "#D3E4F8",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  earningsActions: {
-    flexDirection: "row",
-    gap: 8,
-    marginTop: 4,
-  },
-  earningsBtnPrimary: {
-    flex: 1,
-    minHeight: 38,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.25)",
-    backgroundColor: "rgba(255,255,255,0.10)",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 8,
-  },
-  earningsBtnPrimaryText: {
-    color: "#FFFFFF",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  earningsBtnSuccess: {
-    flex: 1,
-    minHeight: 38,
-    borderRadius: 18,
-    backgroundColor: "#69B98A",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 8,
-  },
-  earningsBtnSuccessText: {
-    color: "#FFFFFF",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 14,
-    fontWeight: "700",
   },
   statsRow: {
     flexDirection: "row",

@@ -19,7 +19,7 @@ interface Props {
   withdrawAmount: string;
   onWithdrawAmountChange: (amount: string) => void;
   withdrawableBalance: number;
-  totalBalanceUsd: number;
+  withdrawableUsd: number;
   withdrawalsEnabled: boolean;
   isLoading: boolean;
   onSubmit: () => void;
@@ -36,13 +36,13 @@ export default function WithdrawalFormTab({
   withdrawAmount,
   onWithdrawAmountChange,
   withdrawableBalance,
-  totalBalanceUsd,
+  withdrawableUsd,
   withdrawalsEnabled,
   isLoading,
   onSubmit,
 }: Props) {
   const [modalVisible, setModalVisible] = useState(false);
-  const available = withdrawCurrency === "USD" ? totalBalanceUsd : withdrawableBalance;
+  const available = withdrawCurrency === "USD" ? withdrawableUsd : withdrawableBalance;
   const isDisabled =
     !withdrawalsEnabled ||
     isLoading ||

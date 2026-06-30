@@ -6,6 +6,7 @@ import AppCard from '../../../components/ui/AppCard';
 import AppScreen from '../../../components/ui/AppScreen';
 import { appTheme } from '../../../theme/appTheme';
 import { formatBob, formatUsd } from '../../../utils/money';
+import { useUserRegion } from '../../../hooks/useUserRegion';
 import {
   createSessionOffering,
   getMySessionOfferings,
@@ -16,6 +17,7 @@ import {
 
 export default function ProfessionalSessionOfferingsScreen() {
   const router = useRouter();
+  const { isBolivian } = useUserRegion();
   const [items, setItems] = useState<SessionOffering[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -25,7 +27,7 @@ export default function ProfessionalSessionOfferingsScreen() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [durationMinutes, setDurationMinutes] = useState('45');
-  const [priceBob, setPriceBob] = useState('200');
+  const [price, setPrice] = useState(isBolivian ? '200' : '28');
 
   async function load(isRefresh = false) {
     if (isRefresh) setRefreshing(true);
@@ -51,7 +53,7 @@ export default function ProfessionalSessionOfferingsScreen() {
     setTitle('');
     setDescription('');
     setDurationMinutes('45');
-    setPriceBob('200');
+    setPrice(isBolivian ? '200' : '28');
   }
 
   function startEdit(item: SessionOffering) {
@@ -59,14 +61,14 @@ export default function ProfessionalSessionOfferingsScreen() {
     setTitle(item.title ?? '');
     setDescription(item.description ?? '');
     setDurationMinutes(String(item.durationMinutes ?? ''));
-    setPriceBob(String(item.priceBob ?? ''));
+    setPrice(String(isBolivian ? (item.priceBob ?? '') : (item.priceUsd ?? '')));
   }
 
   async function handleSubmit() {
     const normalizedTitle = title.trim();
     const normalizedDescription = description.trim();
     const duration = Number(durationMinutes);
-    const price = Number(priceBob);
+    const parsedPrice = Number(price);
 
     if (!normalizedTitle) {
       Alert.alert('Validación', 'Ingresa un título.');
@@ -78,8 +80,8 @@ export default function ProfessionalSessionOfferingsScreen() {
       return;
     }
 
-    if (!Number.isFinite(price) || price <= 0) {
-      Alert.alert('Validación', 'El precio en Bs debe ser mayor a 0.');
+    if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
+      Alert.alert('Validación', `El precio en ${isBolivian ? 'Bs' : 'USD'} debe ser mayor a 0.`);
       return;
     }
 
@@ -89,7 +91,7 @@ export default function ProfessionalSessionOfferingsScreen() {
         title: normalizedTitle,
         description: normalizedDescription || undefined,
         durationMinutes: duration,
-        priceBob: price,
+        ...(isBolivian ? { priceBob: parsedPrice } : { priceUsd: parsedPrice }),
       };
 
       if (editingId) {
@@ -169,10 +171,10 @@ export default function ProfessionalSessionOfferingsScreen() {
               />
             </View>
             <View style={styles.col}>
-              <Text style={styles.label}>Precio Bs</Text>
+              <Text style={styles.label}>{isBolivian ? 'Precio Bs' : 'Precio USD'}</Text>
               <TextInput
-                value={priceBob}
-                onChangeText={setPriceBob}
+                value={price}
+                onChangeText={setPrice}
                 keyboardType='numeric'
                 style={styles.input}
               />

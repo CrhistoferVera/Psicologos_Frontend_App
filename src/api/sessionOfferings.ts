@@ -16,7 +16,8 @@ export type SessionOfferingInput = {
   title: string;
   description?: string;
   durationMinutes: number;
-  priceBob: number;
+  priceBob?: number;
+  priceUsd?: number;
 };
 
 export type WeekDay =

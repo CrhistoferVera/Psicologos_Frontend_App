@@ -19,6 +19,7 @@ import { useAuth } from "../../../context/AuthContext";
 import { appTheme } from "../../../theme/appTheme";
 import { getMessages, markConversationAsRead, sendMessageToUser, type Message } from "../../../api/messages";
 import { getCommunicationAccess, type CommunicationAccess } from "../../../api/communication";
+import { apiMarkBookingJoined } from "../../../api/bookings";
 import { useSocket } from "../../../hooks/useSocket";
 import { useSessionRemaining } from "../../../hooks/useSessionRemaining";
 import { formatRemainingMinText } from "../../../utils/sessionTime";
@@ -79,6 +80,7 @@ export default function ProfessionalMessageDetailScreen() {
   const [inputHeight, setInputHeight] = useState(44);
   const [communicationAccess, setCommunicationAccess] = useState<CommunicationAccess | null>(null);
   const [communicationLoading, setCommunicationLoading] = useState(true);
+  const joinedRef = useRef(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -115,6 +117,10 @@ export default function ProfessionalMessageDetailScreen() {
             sessionEndsAt: null,
             reason: "UNKNOWN",
             message: "No se pudo validar el acceso de comunicacion.",
+            clientJoinedAt: null,
+            professionalJoinedAt: null,
+            noShowType: null,
+            refundWindowExpiresAt: null,
           });
         }
       } finally {
@@ -132,6 +138,12 @@ export default function ProfessionalMessageDetailScreen() {
       clearInterval(timer);
     };
   }, [clientId]);
+
+  useEffect(() => {
+    if (!communicationAccess?.bookingId || !communicationAccess.allowed || joinedRef.current) return;
+    joinedRef.current = true;
+    void apiMarkBookingJoined(communicationAccess.bookingId).catch(() => {});
+  }, [communicationAccess?.bookingId, communicationAccess?.allowed]);
 
   useEffect(() => {
     if (!conversationId || !user?.id) {
@@ -237,6 +249,10 @@ export default function ProfessionalMessageDetailScreen() {
           sessionEndsAt: prev?.sessionEndsAt ?? null,
           reason: prev?.reason ?? "UNKNOWN",
           message,
+          clientJoinedAt: prev?.clientJoinedAt ?? null,
+          professionalJoinedAt: prev?.professionalJoinedAt ?? null,
+          noShowType: prev?.noShowType ?? null,
+          refundWindowExpiresAt: prev?.refundWindowExpiresAt ?? null,
         }));
       }
     } finally {

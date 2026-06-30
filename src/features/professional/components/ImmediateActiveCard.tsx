@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AppButton from '../../../components/ui/AppButton';
 import { type ImmediateAvailabilityStatus } from '../../../api/immediateAvailability';
 import { appTheme } from '../../../theme/appTheme';
+import { useUserRegion } from '../../../hooks/useUserRegion';
 
 type Props = {
   availability: ImmediateAvailabilityStatus;
@@ -33,6 +34,7 @@ function formatCountdownLabel(expiresAt: string, nowMs: number): string {
 }
 
 export default function ImmediateActiveCard({ availability, nowMs, saving, onDeactivate }: Props) {
+  const { isBolivian } = useUserRegion();
   const countdown = availability.expiresAt ? formatCountdown(availability.expiresAt, nowMs) : '00:00';
   const countdownLabel = availability.expiresAt ? formatCountdownLabel(availability.expiresAt, nowMs) : '';
 
@@ -67,7 +69,9 @@ export default function ImmediateActiveCard({ availability, nowMs, saving, onDea
           <View style={styles.detailIconWrap}>
             <Ionicons name="cash-outline" size={16} color={appTheme.colors.primary} />
           </View>
-          <Text style={styles.detailValue}>Bs. {availability.priceBob}</Text>
+          <Text style={styles.detailValue}>
+            {isBolivian ? `Bs. ${availability.priceBob}` : `$ ${availability.priceUsd}`}
+          </Text>
           <Text style={styles.detailLabel}>por sesión</Text>
         </View>
 

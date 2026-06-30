@@ -13,7 +13,9 @@ import {
   initBookingPayment,
   type Booking,
   type BookingPaymentInitResponse,
+  type RefundRequestResult,
 } from '../../../api/bookings';
+import { RefundRequestBanner } from '../../bookings/components/RefundRequestBanner';
 import { formatBob, formatMoneyByCurrency, formatUsd } from '../../../utils/money';
 import { safeBack } from '../../../utils/navigation';
 import { pendingPaymentStore } from '../stores/pendingPaymentStore';
@@ -80,6 +82,7 @@ export default function BookingPaymentScreen() {
 
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refundDone, setRefundDone] = useState(false);
   const [initiating, setInitiating] = useState(false);  // generando QR / creando Stripe intent
   const [paying, setPaying] = useState(false);           // sheet de Stripe abierto
   const [paymentData, setPaymentData] = useState<BookingPaymentInitResponse | null>(null);
@@ -310,8 +313,26 @@ export default function BookingPaymentScreen() {
   const pendingIdx = pendingBooking ? bookings.findIndex((b) => b.id === pendingBooking.id) + 1 : 0;
   const isBatchPending = totalSessions > 1;
 
+  const noShowBooking = bookings.find((b) => b.status === 'NO_SHOW') ?? null;
+  const refundEligible =
+    noShowBooking != null &&
+    (noShowBooking.noShowType === 'PROFESSIONAL' || noShowBooking.noShowType === 'BOTH');
+
+  const hasRefundAvailable =
+    !refundDone &&
+    refundEligible &&
+    !!noShowBooking?.refundWindowExpiresAt &&
+    new Date(noShowBooking.refundWindowExpiresAt) > new Date();
+
+  const refundExpired =
+    !refundDone &&
+    refundEligible &&
+    !!noShowBooking?.refundWindowExpiresAt &&
+    new Date(noShowBooking.refundWindowExpiresAt) <= new Date();
+
   const headerTitle = allConfirmed
     ? bookings.length > 1 ? 'Reservas confirmadas' : 'Reserva confirmada'
+    : noShowBooking ? 'Detalle de sesión'
     : 'Pago de reserva';
 
   return (
@@ -379,6 +400,58 @@ export default function BookingPaymentScreen() {
               title="Ver mis reservas"
               onPress={() => router.replace('/(user)/bookings' as any)}
             />
+          </>
+        )}
+
+        {/* ── NO SHOW ───────────────────────────────────────────────────── */}
+        {noShowBooking && (
+          <>
+            <AppCard>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <Ionicons name="alert-circle-outline" size={20} color="#DC2626" />
+                <Text style={[styles.blockTitle, { color: '#DC2626' }]}>Sesión no realizada</Text>
+              </View>
+              <Text style={styles.meta}>{noShowBooking.sessionOffering?.title ?? 'Sesión'}</Text>
+              <Text style={styles.meta}>{formatDateTime(noShowBooking.scheduledStartAt)}</Text>
+              <Text style={styles.meta}>
+                {formatMoneyByCurrency(
+                  noShowBooking.currency === 'USD' ? noShowBooking.priceUsd : noShowBooking.priceBob,
+                  noShowBooking.currency,
+                  true,
+                )}
+              </Text>
+            </AppCard>
+
+            {hasRefundAvailable && (
+              <RefundRequestBanner
+                bookingId={noShowBooking.id}
+                scheduledStartAt={noShowBooking.scheduledStartAt}
+                refundWindowExpiresAt={noShowBooking.refundWindowExpiresAt!}
+                onSuccess={(_result: RefundRequestResult) => setRefundDone(true)}
+              />
+            )}
+
+            {refundExpired && (
+              <AppCard>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Ionicons name="time-outline" size={18} color="#92400E" />
+                  <Text style={[styles.meta, { color: '#92400E', fontWeight: '700', flex: 1 }]}>
+                    El tiempo para solicitar reembolso ha expirado.
+                  </Text>
+                </View>
+              </AppCard>
+            )}
+
+            {refundDone && (
+              <AppCard>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Ionicons name="checkmark-circle" size={18} color="#15803D" />
+                  <Text style={[styles.meta, { color: '#15803D', fontWeight: '700', flex: 1 }]}>
+                    Solicitud de reembolso enviada. Te avisaremos cuando se procese.
+                  </Text>
+                </View>
+              </AppCard>
+            )}
           </>
         )}
 

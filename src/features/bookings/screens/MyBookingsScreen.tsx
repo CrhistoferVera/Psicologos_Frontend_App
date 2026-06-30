@@ -15,7 +15,9 @@ import {
   type Booking,
   type BookingRescheduleRequest,
   type BookingRescheduleRequestStatus,
+  type RefundRequestResult,
 } from '../../../api/bookings';
+import { RefundRequestBanner } from '../components/RefundRequestBanner';
 import { useAuth } from '../../../context/AuthContext';
 import { appTheme } from '../../../theme/appTheme';
 import { formatMoneyByCurrency } from '../../../utils/money';
@@ -96,6 +98,7 @@ export default function MyBookingsScreen() {
   const [modalReason, setModalReason] = useState('');
   const [creatingRequest, setCreatingRequest] = useState(false);
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
+  const [refundedBookingIds, setRefundedBookingIds] = useState<Set<string>>(new Set());
 
   async function load(isRefresh = false) {
     if (isRefresh) setRefreshing(true);
@@ -321,6 +324,41 @@ export default function MyBookingsScreen() {
                   <Ionicons name="chevron-forward" size={14} color={appTheme.colors.primary} />
                 </View>
 
+                {booking.status === 'NO_SHOW' &&
+                  (booking.noShowType === 'PROFESSIONAL' || booking.noShowType === 'BOTH') && (() => {
+                    const windowActive =
+                      !!booking.refundWindowExpiresAt &&
+                      new Date(booking.refundWindowExpiresAt) > new Date();
+                    const windowExpired =
+                      !!booking.refundWindowExpiresAt &&
+                      new Date(booking.refundWindowExpiresAt) <= new Date();
+                    const done = refundedBookingIds.has(booking.id);
+
+                    if (!done && windowActive) {
+                      return (
+                        <RefundRequestBanner
+                          bookingId={booking.id}
+                          scheduledStartAt={booking.scheduledStartAt}
+                          refundWindowExpiresAt={booking.refundWindowExpiresAt!}
+                          onSuccess={(_result: RefundRequestResult) =>
+                            setRefundedBookingIds((prev) => new Set(prev).add(booking.id))
+                          }
+                        />
+                      );
+                    }
+                    if (!done && windowExpired) {
+                      return (
+                        <View style={styles.refundExpiredRow}>
+                          <Ionicons name="time-outline" size={14} color="#92400E" />
+                          <Text style={styles.refundExpiredText}>
+                            El tiempo para solicitar reembolso ha expirado.
+                          </Text>
+                        </View>
+                      );
+                    }
+                    return null;
+                  })()}
+
                 <View style={styles.rescheduleWrap}>
                   <Text style={styles.rescheduleTitle}>Reprogramar cita</Text>
                   <Text style={styles.rescheduleNotice}>
@@ -533,5 +571,17 @@ const styles = StyleSheet.create({
   },
   rowActions: {
     gap: 8,
+  },
+  refundExpiredRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+  },
+  refundExpiredText: {
+    fontSize: 12,
+    color: '#92400E',
+    fontFamily: appTheme.fonts.body,
+    flex: 1,
   },
 });

@@ -12,6 +12,7 @@ const QUICK_OPTIONS = [
 
 type Props = {
   priceBob: string;
+  isBolivian: boolean;
   durationMinutes: string;
   activeForMinutes: number;
   activeForMinutesCustom: string;
@@ -29,6 +30,7 @@ type Props = {
 
 export default function ImmediateActivateForm({
   priceBob,
+  isBolivian,
   durationMinutes,
   activeForMinutes,
   activeForMinutesCustom,
@@ -71,10 +73,10 @@ export default function ImmediateActivateForm({
         <View style={styles.row}>
           {/* Precio */}
           <View style={styles.col}>
-            <Text style={styles.label}>Precio</Text>
+            <Text style={styles.label}>{isBolivian ? 'Precio Bs.' : 'Precio USD'}</Text>
             <View style={styles.inputWrap}>
               <View style={styles.inputBadge}>
-                <Text style={styles.inputBadgeText}>Bs.</Text>
+                <Text style={styles.inputBadgeText}>{isBolivian ? 'Bs.' : '$'}</Text>
               </View>
               <TextInput
                 value={priceBob}

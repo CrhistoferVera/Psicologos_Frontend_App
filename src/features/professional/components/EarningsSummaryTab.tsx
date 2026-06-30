@@ -1,63 +1,100 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import AppCard from "../../../components/ui/AppCard";
 import { appTheme } from "../../../theme/appTheme";
 import { formatBob, formatUsd } from "../../../utils/money";
 
 interface Props {
+  balance: number;
   withdrawableBalance: number;
-  totalBalance: number;
-  totalBalanceUsd: number;
+  lockedBob: number;
+  balanceUsd: number;
+  withdrawableUsd: number;
+  lockedUsd: number;
   today: number;
   todayUsd: number;
   thisWeek: number;
   thisWeekUsd: number;
   grossBob: number;
   withdrawalsEnabled: boolean;
+  onViewEarnings?: () => void;
+  onWithdraw?: () => void;
 }
 
 export default function EarningsSummaryTab({
+  balance,
   withdrawableBalance,
-  totalBalance,
-  totalBalanceUsd,
+  lockedBob,
+  balanceUsd,
+  withdrawableUsd,
+  lockedUsd,
   today,
   todayUsd,
   thisWeek,
   thisWeekUsd,
   grossBob,
   withdrawalsEnabled,
+  onViewEarnings,
+  onWithdraw,
 }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.heroCard}>
         <Text style={styles.heroLabel}>Cartera Bolivianos (Bs)</Text>
-        <Text style={styles.heroValue}>{formatBob(withdrawableBalance)}</Text>
+        <Text style={styles.heroValue}>{formatBob(balance)}</Text>
+
+        <View style={styles.breakdownRow}>
+          <View style={styles.breakdownItem}>
+            <Ionicons name="lock-closed-outline" size={13} color="#A7D9BC" />
+            <Text style={styles.breakdownText}>{formatBob(lockedBob)} bloqueado</Text>
+          </View>
+          <View style={styles.breakdownItem}>
+            <Ionicons name="checkmark-circle-outline" size={13} color="#A7D9BC" />
+            <Text style={styles.breakdownText}>{formatBob(withdrawableBalance)} disponible</Text>
+          </View>
+        </View>
+
         <View style={styles.heroMetaRow}>
           <Text style={styles.heroMeta}>Hoy: {formatBob(today)}</Text>
           <Text style={styles.heroMeta}>Semana: {formatBob(thisWeek)}</Text>
         </View>
+
         {!withdrawalsEnabled ? (
-          <Text style={styles.blockedText}>Retiros deshabilitados por configuración del sistema.</Text>
+          <Text style={styles.blockedText}>Retiros deshabilitados por el sistema.</Text>
         ) : null}
       </View>
 
       <View style={[styles.heroCard, styles.heroCardUsd]}>
         <Text style={styles.heroLabel}>Cartera Dólares (USD)</Text>
-        <Text style={styles.heroValue}>{formatUsd(totalBalanceUsd)}</Text>
+        <Text style={styles.heroValue}>{formatUsd(balanceUsd)}</Text>
+
+        <View style={styles.breakdownRow}>
+          <View style={styles.breakdownItem}>
+            <Ionicons name="lock-closed-outline" size={13} color="#93C5FD" />
+            <Text style={styles.breakdownText}>{formatUsd(lockedUsd)} bloqueado</Text>
+          </View>
+          <View style={styles.breakdownItem}>
+            <Ionicons name="checkmark-circle-outline" size={13} color="#93C5FD" />
+            <Text style={styles.breakdownText}>{formatUsd(withdrawableUsd)} disponible</Text>
+          </View>
+        </View>
+
         <View style={styles.heroMetaRow}>
           <Text style={styles.heroMeta}>Hoy: {formatUsd(todayUsd)}</Text>
           <Text style={styles.heroMeta}>Semana: {formatUsd(thisWeekUsd)}</Text>
         </View>
       </View>
 
-      <View style={styles.kpisRow}>
-        <AppCard style={styles.kpiCard}>
-          <Text style={styles.kpiValue}>{formatBob(grossBob)}</Text>
-          <Text style={styles.kpiLabel}>Ingresos históricos Bs</Text>
-        </AppCard>
-        <AppCard style={styles.kpiCard}>
-          <Text style={styles.kpiValue}>{formatBob(totalBalance)}</Text>
-          <Text style={styles.kpiLabel}>Saldo actual</Text>
-        </AppCard>
+      <View style={styles.actionsRow}>
+        <Pressable style={styles.btnOutline} onPress={onViewEarnings}>
+          <Text style={styles.btnOutlineText}>Ver ganancias</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.btnSuccess, !withdrawalsEnabled && styles.btnDisabled]}
+          onPress={withdrawalsEnabled ? onWithdraw : undefined}
+        >
+          <Text style={styles.btnSuccessText}>Solicitar retiro</Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -86,7 +123,25 @@ const styles = StyleSheet.create({
     lineHeight: 42,
     fontWeight: "700",
   },
-  heroMetaRow: { gap: 2 },
+  breakdownRow: {
+    flexDirection: "row",
+    gap: 16,
+    flexWrap: "wrap",
+  },
+  breakdownItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  breakdownText: {
+    color: "#D7EFE3",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+  },
+  heroMetaRow: {
+    flexDirection: "row",
+    gap: 16,
+  },
   heroMeta: {
     color: "#D7EFE3",
     fontFamily: appTheme.fonts.body,
@@ -113,11 +168,51 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.heading,
     fontSize: 15,
     fontWeight: "700",
+    textAlign: "center",
   },
   kpiLabel: {
     marginTop: 4,
     color: appTheme.colors.textMuted,
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
+    textAlign: "center",
+  },
+  actionsRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  btnOutline: {
+    flex: 1,
+    minHeight: 40,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: appTheme.colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 8,
+  },
+  btnOutlineText: {
+    color: appTheme.colors.primary,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  btnSuccess: {
+    flex: 1,
+    minHeight: 40,
+    borderRadius: 18,
+    backgroundColor: "#3E7F61",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 8,
+  },
+  btnSuccessText: {
+    color: "#FFFFFF",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  btnDisabled: {
+    opacity: 0.45,
   },
 });

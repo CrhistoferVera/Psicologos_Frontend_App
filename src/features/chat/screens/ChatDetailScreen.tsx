@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import {
   ActivityIndicator,
@@ -26,6 +27,11 @@ import { useSessionRemaining } from "../../../hooks/useSessionRemaining";
 import { formatRemainingMinText } from "../../../utils/sessionTime";
 import { activeChatRef, professionalChatScreenRef } from "../../../services/notifications";
 import { getHomeRouteByRole, safeBack } from "../../../utils/navigation";
+import { NoShowBanner } from "../../bookings/components/NoShowBanner";
+import { RefundRequestBanner } from "../../bookings/components/RefundRequestBanner";
+import type { NoShowType, RefundRequestResult } from "../../../api/bookings";
+import { apiMarkBookingJoined } from "../../../api/bookings";
+import { apiGetConfig } from "../../../api/userClient";
 
 type MessageUI = {
   id: string;
@@ -78,6 +84,13 @@ export default function ChatDetailScreen() {
   const [requestingCall, setRequestingCall] = useState(false);
   const [communicationAccess, setCommunicationAccess] = useState<CommunicationAccess | null>(null);
   const [communicationLoading, setCommunicationLoading] = useState(true);
+  const [noShowType, setNoShowType] = useState<NoShowType | null>(null);
+  const [noShowBookingId, setNoShowBookingId] = useState<string | null>(null);
+  const [noShowSessionStartsAt, setNoShowSessionStartsAt] = useState<string | null>(null);
+  const [refundWindowExpiresAt, setRefundWindowExpiresAt] = useState<string | null>(null);
+  const [refundRequested, setRefundRequested] = useState(false);
+  const [graceMinutes, setGraceMinutes] = useState(15);
+  const joinedRef = useRef(false);
 
   const rawId = Array.isArray(params.id) ? params.id[0] : params.id ?? "";
   const rawConversationId = Array.isArray(params.conversationId) ? params.conversationId[0] : params.conversationId;
@@ -99,6 +112,38 @@ export default function ChatDetailScreen() {
   useEffect(() => {
     setConversationId(resolvedConversationId);
   }, [resolvedConversationId]);
+
+  useEffect(() => {
+    apiGetConfig().then((cfg) => setGraceMinutes(cfg.noShowGraceMinutes));
+  }, []);
+
+  useEffect(() => {
+    if (!communicationAccess?.bookingId || !communicationAccess.allowed || joinedRef.current) return;
+    joinedRef.current = true;
+    void apiMarkBookingJoined(communicationAccess.bookingId).catch(() => {});
+  }, [communicationAccess?.bookingId, communicationAccess?.allowed]);
+
+  // Restore no-show result state across navigations so the refund banner reappears
+  useEffect(() => {
+    if (!professionalId) return;
+    void AsyncStorage.getItem(`no_show_result_${professionalId}`).then((raw) => {
+      if (!raw) return;
+      const saved = JSON.parse(raw) as {
+        bookingId: string;
+        sessionStartsAt: string;
+        noShowType: NoShowType;
+        refundWindowExpiresAt: string | null;
+      };
+      if (saved.refundWindowExpiresAt && new Date(saved.refundWindowExpiresAt).getTime() > Date.now()) {
+        setNoShowBookingId(saved.bookingId);
+        setNoShowSessionStartsAt(saved.sessionStartsAt);
+        setNoShowType(saved.noShowType);
+        setRefundWindowExpiresAt(saved.refundWindowExpiresAt);
+      } else {
+        void AsyncStorage.removeItem(`no_show_result_${professionalId}`);
+      }
+    });
+  }, [professionalId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -134,6 +179,10 @@ export default function ChatDetailScreen() {
             sessionEndsAt: null,
             reason: "UNKNOWN",
             message: "No se pudo validar el acceso de comunicacion.",
+            clientJoinedAt: null,
+            professionalJoinedAt: null,
+            noShowType: null,
+            refundWindowExpiresAt: null,
           });
         }
       } finally {
@@ -267,6 +316,10 @@ export default function ChatDetailScreen() {
           sessionEndsAt: prev?.sessionEndsAt ?? null,
           reason: prev?.reason ?? "UNKNOWN",
           message,
+          clientJoinedAt: prev?.clientJoinedAt ?? null,
+          professionalJoinedAt: prev?.professionalJoinedAt ?? null,
+          noShowType: prev?.noShowType ?? null,
+          refundWindowExpiresAt: prev?.refundWindowExpiresAt ?? null,
         }));
       }
     } finally {
@@ -381,6 +434,83 @@ export default function ChatDetailScreen() {
           </Pressable>
         </View>
       ) : null}
+
+      {hasActiveSessionNow &&
+        communicationAccess?.bookingId &&
+        communicationAccess?.sessionStartsAt &&
+        noShowType === null &&
+        (user?.role === "PROFESSIONAL" || user?.role === "ANFITRIONA"
+          ? communicationAccess.clientJoinedAt === null
+          : communicationAccess.professionalJoinedAt === null) ? (
+        <NoShowBanner
+          bookingId={communicationAccess.bookingId}
+          scheduledStartAt={communicationAccess.sessionStartsAt}
+          graceMinutes={graceMinutes}
+          isProfessional={user?.role === "PROFESSIONAL" || user?.role === "ANFITRIONA"}
+          onReported={(result) => {
+            const bId = communicationAccess?.bookingId ?? "";
+            const sAt = communicationAccess?.sessionStartsAt ?? "";
+            setNoShowBookingId(bId);
+            setNoShowSessionStartsAt(sAt);
+            setNoShowType(result.noShowType);
+            if (result.refundWindowExpiresAt) {
+              setRefundWindowExpiresAt(result.refundWindowExpiresAt);
+            }
+            if (bId && (result.noShowType === "PROFESSIONAL" || result.noShowType === "BOTH")) {
+              void AsyncStorage.setItem(
+                `no_show_result_${professionalId}`,
+                JSON.stringify({
+                  bookingId: bId,
+                  sessionStartsAt: sAt,
+                  noShowType: result.noShowType,
+                  refundWindowExpiresAt: result.refundWindowExpiresAt ?? null,
+                }),
+              );
+            }
+          }}
+        />
+      ) : null}
+
+      {user?.role === "USER" &&
+        !refundRequested &&
+        (() => {
+          // Prioridad: datos del servidor (cron auto-detectó no-show)
+          const serverNoShow =
+            (communicationAccess?.noShowType === "PROFESSIONAL" || communicationAccess?.noShowType === "BOTH") &&
+            communicationAccess?.refundWindowExpiresAt &&
+            new Date(communicationAccess.refundWindowExpiresAt) > new Date();
+          const localNoShow =
+            (noShowType === "PROFESSIONAL" || noShowType === "BOTH") &&
+            noShowBookingId &&
+            noShowSessionStartsAt &&
+            refundWindowExpiresAt;
+
+          if (serverNoShow && communicationAccess?.bookingId && communicationAccess?.sessionStartsAt) {
+            return (
+              <RefundRequestBanner
+                bookingId={communicationAccess.bookingId}
+                scheduledStartAt={communicationAccess.sessionStartsAt}
+                refundWindowExpiresAt={communicationAccess.refundWindowExpiresAt!}
+                onSuccess={(_result: RefundRequestResult) => setRefundRequested(true)}
+              />
+            );
+          }
+          if (localNoShow) {
+            return (
+              <RefundRequestBanner
+                bookingId={noShowBookingId!}
+                scheduledStartAt={noShowSessionStartsAt!}
+                refundWindowExpiresAt={refundWindowExpiresAt!}
+                onSuccess={(_result: RefundRequestResult) => {
+                  setRefundRequested(true);
+                  void AsyncStorage.removeItem(`no_show_result_${professionalId}`);
+                }}
+              />
+            );
+          }
+          return null;
+        })()
+      }
 
       <KeyboardAvoidingView
         style={styles.chatBody}

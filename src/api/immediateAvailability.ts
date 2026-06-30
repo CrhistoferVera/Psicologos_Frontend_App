@@ -22,13 +22,15 @@ export type ImmediateAvailabilityStatus = {
   isActive: boolean;
   durationMinutes?: number;
   priceBob?: number;
+  priceUsd?: number;
   description?: string | null;
   expiresAt?: string | null;
 };
 
 export type SetImmediateAvailabilityPayload = {
   durationMinutes: number;
-  priceBob: number;
+  priceBob?: number;
+  priceUsd?: number;
   activeForMinutes: number;
   description?: string;
 };

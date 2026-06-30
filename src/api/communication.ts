@@ -15,6 +15,10 @@ export type CommunicationAccess = {
   reason: CommunicationAccessReason | null;
   message: string | null;
   hasReview?: boolean;
+  clientJoinedAt: string | null;
+  professionalJoinedAt: string | null;
+  noShowType: string | null;
+  refundWindowExpiresAt: string | null;
 };
 
 export function getCommunicationAccess(otherUserId: string) {
