@@ -1,50 +1,27 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import * as Google from "expo-auth-session/providers/google";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { GoogleSignin, isErrorWithCode, statusCodes } from "@react-native-google-signin/google-signin";
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import AppScreen from "../../../components/ui/AppScreen";
 import { useAuth } from "../../../context/AuthContext";
 import { COUNTRIES_LATAM, CountryLatam } from "../../../constants/countriesLatam";
-import { GOOGLE_ANDROID_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from "../../../config";
-import { loginWithEmail, sendOtp } from "../../../services/auth";
+import { GOOGLE_WEB_CLIENT_ID } from "../../../config";
+import { loginWithEmail, loginWithGoogle, sendOtp } from "../../../services/auth";
 import { appTheme } from "../../../theme/appTheme";
-import { GOOGLE_AUTH_STORAGE_KEY } from "../../../../app/oauthredirect";
 
-type GooglePkce = { redirectUri: string; codeVerifier?: string | null };
+GoogleSignin.configure({
+  webClientId: GOOGLE_WEB_CLIENT_ID || undefined,
+  scopes: ["profile", "email"],
+  offlineAccess: false,
+});
 
-// Isolated so the hook is never called when androidClientId is missing,
-// which would cause an invariant crash before any user interaction.
-function GoogleButton({ loading, onAuthReady }: {
-  loading: boolean;
-  onAuthReady: (prompt: () => Promise<void>, pkce: GooglePkce | null) => void;
-}) {
-  const [googleRequest, , promptGoogleAuth] = Google.useAuthRequest({
-    androidClientId: GOOGLE_ANDROID_CLIENT_ID || undefined,
-    webClientId: GOOGLE_WEB_CLIENT_ID || undefined,
-    scopes: ["openid", "profile", "email"],
-    selectAccount: true,
-  });
-
-  const disabled = loading || !googleRequest;
-
-  async function handlePress() {
-    if (!googleRequest) {
-      Alert.alert("Google no disponible", "La configuración de Google aún no está lista.");
-      return;
-    }
-    await onAuthReady(
-      async () => { await promptGoogleAuth(); },
-      { redirectUri: googleRequest.redirectUri, codeVerifier: googleRequest.codeVerifier },
-    );
-  }
-
+function GoogleButton({ loading, onPress }: { loading: boolean; onPress: () => Promise<void> }) {
   return (
     <Pressable
-      style={[styles.googleBtn, disabled && styles.primaryBtnDisabled]}
-      onPress={handlePress}
-      disabled={disabled}
+      style={[styles.googleBtn, loading && styles.primaryBtnDisabled]}
+      onPress={onPress}
+      disabled={loading}
     >
       <View style={styles.googleDot} />
       <Text style={styles.googleText}>{loading ? "Conectando..." : "Continuar con Google"}</Text>
@@ -141,35 +118,32 @@ export default function AuthScreen() {
     }
   }
 
-  async function handleGoogleAuth(
-    prompt: () => Promise<void>,
-    pkce: GooglePkce | null,
-  ) {
-    if (!GOOGLE_ANDROID_CLIENT_ID) {
-      Alert.alert(
-        "Falta configuración",
-        "Configura EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID en variables de entorno.",
-      );
-      return;
-    }
+  async function handleGoogleAuth() {
     try {
       setLoading(true);
       setErrorMessage(null);
-
-      if (pkce) {
-        await AsyncStorage.setItem(
-          GOOGLE_AUTH_STORAGE_KEY,
-          JSON.stringify({
-            clientId: GOOGLE_ANDROID_CLIENT_ID,
-            redirectUri: pkce.redirectUri,
-            codeVerifier: pkce.codeVerifier ?? null,
-          }),
-        );
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const response = await GoogleSignin.signIn();
+      if (response.type === "cancelled") return;
+      const idToken = response.data?.idToken;
+      if (!idToken) throw new Error("Google no devolvió id_token.");
+      const result = await loginWithGoogle(idToken);
+      if (result.user.role === "ADMIN") {
+        await logout();
+        navigateByRole(result.user.role);
+        return;
       }
-
-      await prompt();
+      await setSession(result.access_token, result.user);
+      navigateByRole(result.user.role);
     } catch (error: any) {
-      console.log("[GoogleAuth] promptAsync error:", error?.message ?? error);
+      if (isErrorWithCode(error)) {
+        if (error.code === statusCodes.SIGN_IN_CANCELLED) return;
+        if (error.code === statusCodes.IN_PROGRESS) return;
+        if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+          Alert.alert("Error", "Google Play Services no disponible en este dispositivo.");
+          return;
+        }
+      }
       const message = error?.message ?? "No se pudo iniciar sesión con Google.";
       setErrorMessage(message);
       Alert.alert("Google Login falló", message);
@@ -267,8 +241,8 @@ export default function AuthScreen() {
                 <Text style={styles.dividerText}>o</Text>
                 <View style={styles.dividerLine} />
               </View>
-              {GOOGLE_ANDROID_CLIENT_ID ? (
-                <GoogleButton loading={loading} onAuthReady={handleGoogleAuth} />
+              {GOOGLE_WEB_CLIENT_ID ? (
+                <GoogleButton loading={loading} onPress={handleGoogleAuth} />
               ) : null}
             </>
           ) : (
