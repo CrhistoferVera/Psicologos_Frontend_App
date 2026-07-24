@@ -6,14 +6,13 @@ import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View 
 import AppScreen from "../../../components/ui/AppScreen";
 import { useAuth } from "../../../context/AuthContext";
 import { COUNTRIES_LATAM, CountryLatam } from "../../../constants/countriesLatam";
-import { GOOGLE_WEB_CLIENT_ID } from "../../../config";
+import { GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from "../../../config";
 import { loginWithEmail, loginWithGoogle, sendOtp } from "../../../services/auth";
 import { appTheme } from "../../../theme/appTheme";
 
 GoogleSignin.configure({
   webClientId: GOOGLE_WEB_CLIENT_ID || undefined,
-  scopes: ["profile", "email"],
-  offlineAccess: false,
+  iosClientId: GOOGLE_IOS_CLIENT_ID || undefined,
 });
 
 function GoogleButton({ loading, onPress }: { loading: boolean; onPress: () => Promise<void> }) {
@@ -123,6 +122,7 @@ export default function AuthScreen() {
       setLoading(true);
       setErrorMessage(null);
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      await GoogleSignin.signOut();
       const response = await GoogleSignin.signIn();
       if (response.type === "cancelled") return;
       const idToken = response.data?.idToken;
