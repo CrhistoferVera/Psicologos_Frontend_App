@@ -43,6 +43,11 @@ export const apiUpdateMyProfileUser = async (payload: {
     return response.data;
 };
 
+export const apiSetMyCountry = async (country: string): Promise<{ id: string; country: string | null }> => {
+    const response = await apiClient.patch('/users/me/country', { country });
+    return response.data;
+};
+
 // ACTUALIZAR FCM TOKEN
 //para actualizar el token de FCM en el backend cada vez que se registre o se refresque el token en el dispositivo del usuario
 export const apiUpdateFcmToken = async (fcmToken: string): Promise<void> => {

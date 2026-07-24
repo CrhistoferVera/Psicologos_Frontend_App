@@ -55,6 +55,8 @@ export default function ProfessionalRegisterScreen() {
   const [lastName, setLastName] = useState("");
   const [countryIso, setCountryIso] = useState("BO");
   const [showCountryPicker, setShowCountryPicker] = useState(false);
+  const [professionalCountry, setProfessionalCountry] = useState("BO");
+  const [showProfessionalCountryPicker, setShowProfessionalCountryPicker] = useState(false);
   const [phone, setPhone] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
 
@@ -316,6 +318,7 @@ export default function ProfessionalRegisterScreen() {
         bio: bio.trim() || undefined,
         dateOfBirth: dateOfBirth.trim(),
         cedula: cedula.trim(),
+        country: professionalCountry,
         referralCode: referralCode.trim() || undefined,
         idDoc: idDoc ?? undefined,
         kycVideo: kycVideo ?? undefined,
@@ -459,6 +462,16 @@ export default function ProfessionalRegisterScreen() {
               onChangeText={setBio}
               placeholder="Psicóloga clínica con enfoque cognitivo-conductual"
             />
+            <Text style={styles.fieldLabel}>País de residencia profesional</Text>
+            <Text style={[styles.hint, { marginTop: -8 }]}>Selecciona el país donde actualmente ejerces tu carrera profesional.</Text>
+            <Pressable style={styles.countryCodeBtn} onPress={() => setShowProfessionalCountryPicker(true)}>
+              <Text style={styles.countryCodeText}>
+                {COUNTRY_CODES.find((c) => c.flag === professionalCountry)?.flag ?? "BO"}{" "}
+                {COUNTRY_CODES.find((c) => c.flag === professionalCountry)?.country ?? "Bolivia"}
+              </Text>
+              <Ionicons name="chevron-down" size={14} color={appTheme.colors.textMuted} />
+            </Pressable>
+
             <AppInput
               label="Código de referido (opcional)"
               value={referralCode}
@@ -574,6 +587,36 @@ export default function ProfessionalRegisterScreen() {
           <Text style={styles.loginLink}>Ya tengo una cuenta, iniciar sesión</Text>
         </Pressable>
       </View>
+
+      {/* ── Modal selector de país de residencia profesional ── */}
+      <Modal
+        visible={showProfessionalCountryPicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowProfessionalCountryPicker(false)}
+      >
+        <Pressable style={styles.pickerBackdrop} onPress={() => setShowProfessionalCountryPicker(false)}>
+          <Pressable style={styles.pickerBox} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.pickerTitle}>País de residencia</Text>
+            <FlatList
+              data={COUNTRY_CODES}
+              keyExtractor={(item) => `prof-${item.flag}-${item.code}`}
+              renderItem={({ item }) => (
+                <Pressable
+                  style={[styles.pickerItem, item.flag === professionalCountry && styles.pickerItemActive]}
+                  onPress={() => {
+                    setProfessionalCountry(item.flag);
+                    setShowProfessionalCountryPicker(false);
+                  }}
+                >
+                  <Text style={styles.pickerItemText}>{item.flag}  {item.country}</Text>
+                  <Text style={styles.pickerItemCode}>{item.code}</Text>
+                </Pressable>
+              )}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* ── Modal selector de código de país ── */}
       <Modal

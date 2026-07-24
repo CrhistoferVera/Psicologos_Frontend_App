@@ -6,16 +6,20 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Modal,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { appTheme } from "../../../theme/appTheme";
 import { useAuth } from "../../../context/AuthContext";
+import { apiSetMyCountry } from "../../../api/userProfile";
 import { getMyChats } from "../../../api/messages";
 import { getCommunicationAccess, type CommunicationAccess } from "../../../api/communication";
 import { getProfessionals } from "../../professionals/api/professionalsApi";
@@ -26,13 +30,59 @@ import ProfessionalFeedCard from "../components/ProfessionalFeedCard";
 const PAGE_SIZE = 10;
 const FEED_REFRESH_TTL_MS = 60 * 1000;
 
+const RESIDENCE_COUNTRIES = [
+  { iso: "BO", name: "Bolivia", flag: "🇧🇴" },
+  { iso: "AR", name: "Argentina", flag: "🇦🇷" },
+  { iso: "BR", name: "Brasil", flag: "🇧🇷" },
+  { iso: "CL", name: "Chile", flag: "🇨🇱" },
+  { iso: "CO", name: "Colombia", flag: "🇨🇴" },
+  { iso: "EC", name: "Ecuador", flag: "🇪🇨" },
+  { iso: "PY", name: "Paraguay", flag: "🇵🇾" },
+  { iso: "PE", name: "Peru", flag: "🇵🇪" },
+  { iso: "UY", name: "Uruguay", flag: "🇺🇾" },
+  { iso: "VE", name: "Venezuela", flag: "🇻🇪" },
+  { iso: "MX", name: "Mexico", flag: "🇲🇽" },
+  { iso: "US", name: "Estados Unidos", flag: "🇺🇸" },
+  { iso: "CA", name: "Canada", flag: "🇨🇦" },
+  { iso: "ES", name: "España", flag: "🇪🇸" },
+];
+
 type CommunicationAccessByProfessional = Record<string, CommunicationAccess>;
 type CommunicationAccessLoadingByProfessional = Record<string, boolean>;
 
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
+  const { user, accessToken, setSession } = useAuth();
+
+  const [showCountryModal, setShowCountryModal] = useState(false);
+  const [pendingCountry, setPendingCountry] = useState("BO");
+  const [savingCountry, setSavingCountry] = useState(false);
+  const [countrySearch, setCountrySearch] = useState("");
+
+  useEffect(() => {
+    if (user && !user.country) {
+      setShowCountryModal(true);
+    }
+  }, [user?.id, user?.country]);
+
+  async function handleSaveCountry() {
+    if (savingCountry) return;
+    setSavingCountry(true);
+    try {
+      await apiSetMyCountry(pendingCountry);
+      if (accessToken && user) {
+        await setSession(accessToken, { ...user, country: pendingCountry });
+      }
+      setShowCountryModal(false);
+      lastLoadedAtRef.current = 0;
+      void loadFeed(1, true);
+    } catch {
+      Alert.alert("Error", "No se pudo guardar tu país. Intenta de nuevo.");
+    } finally {
+      setSavingCountry(false);
+    }
+  }
 
   const [activeTab, setActiveTab] = useState<'disponibles' | 'inmediata'>('disponibles');
   const [professionals, setProfessionals] = useState<Professional[]>([]);
@@ -429,6 +479,68 @@ export default function HomeScreen() {
           )
         )}
       </View>
+
+      <Modal visible={showCountryModal} transparent animationType="fade" statusBarTranslucent onRequestClose={() => {}}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>¿En qué país estás?</Text>
+            <Text style={styles.modalSubtitle}>
+              Selecciona tu país para ver los psicólogos disponibles en tu región.
+            </Text>
+            <View style={styles.countrySearchWrap}>
+              <Ionicons name="search-outline" size={16} color="#9CA3AF" style={{ marginRight: 6 }} />
+              <TextInput
+                style={styles.countrySearchInput}
+                placeholder="Buscar país..."
+                placeholderTextColor="#9CA3AF"
+                value={countrySearch}
+                onChangeText={setCountrySearch}
+                autoCorrect={false}
+              />
+              {countrySearch.length > 0 && (
+                <Pressable onPress={() => setCountrySearch("")}>
+                  <Ionicons name="close-circle" size={16} color="#9CA3AF" />
+                </Pressable>
+              )}
+            </View>
+            <ScrollView style={styles.countryList} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              {RESIDENCE_COUNTRIES.filter((c) =>
+                c.name.toLowerCase().includes(countrySearch.trim().toLowerCase())
+              ).map((c) => {
+                const selected = pendingCountry === c.iso;
+                return (
+                  <Pressable
+                    key={c.iso}
+                    style={[styles.countryItem, selected && styles.countryItemSelected]}
+                    onPress={() => setPendingCountry(c.iso)}
+                  >
+                    <View style={styles.countryItemLeft}>
+                      <Text style={styles.countryFlag}>{c.flag}</Text>
+                      <Text style={[styles.countryItemText, selected && styles.countryItemTextSelected]}>
+                        {c.name}
+                      </Text>
+                    </View>
+                    {selected && (
+                      <Ionicons name="checkmark-circle" size={18} color={appTheme.colors.primary} />
+                    )}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+            <Pressable
+              style={[styles.modalBtn, savingCountry && { opacity: 0.6 }]}
+              onPress={handleSaveCountry}
+              disabled={savingCountry}
+            >
+              {savingCountry ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Text style={styles.modalBtnText}>Confirmar</Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -540,5 +652,98 @@ const styles = StyleSheet.create({
   },
   tabTextRed: {
     color: "#DC2626",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 24,
+  },
+  modalBox: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 24,
+    width: "100%",
+    maxHeight: "75%",
+  },
+  modalTitle: {
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 20,
+    fontWeight: "700",
+    color: appTheme.colors.text,
+    marginBottom: 6,
+  },
+  modalSubtitle: {
+    fontFamily: appTheme.fonts.body,
+    fontSize: 13,
+    color: appTheme.colors.textMuted,
+    lineHeight: 19,
+    marginBottom: 16,
+  },
+  countryList: {
+    maxHeight: 260,
+    marginBottom: 16,
+  },
+  countrySearchWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F3F4F6",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 12,
+  },
+  countrySearchInput: {
+    flex: 1,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 14,
+    color: appTheme.colors.text,
+    paddingVertical: 0,
+  },
+  countryItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    marginBottom: 4,
+    backgroundColor: "#F9FAFB",
+  },
+  countryItemSelected: {
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: appTheme.colors.primary,
+  },
+  countryItemLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  countryFlag: {
+    fontSize: 22,
+  },
+  countryItemText: {
+    fontFamily: appTheme.fonts.body,
+    fontSize: 15,
+    color: appTheme.colors.text,
+  },
+  countryItemTextSelected: {
+    fontWeight: "700",
+    color: appTheme.colors.primary,
+  },
+  modalBtn: {
+    backgroundColor: appTheme.colors.primary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalBtnText: {
+    fontFamily: appTheme.fonts.heading,
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
 });
