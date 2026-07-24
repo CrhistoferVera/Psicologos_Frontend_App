@@ -30,12 +30,6 @@ const slides = [
       "Cada proceso es único: encuentra el enfoque que mejor se ajusta a tus necesidades.",
       image: require("../../../../assets/onboarding-4.jpeg"),
   },
-  {
-    title: "Tu bienestar es la prioridad",
-    description:
-      "Da el primer paso hacia una mejor salud mental, de forma segura y privada.",
-      image: require("../../../../assets/onboarding-5.jpeg"),
-  },
 ];
 
 export default function OnboardingScreen() {
