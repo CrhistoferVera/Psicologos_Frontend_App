@@ -15,7 +15,7 @@ GoogleSignin.configure({
   scopes: ["profile", "email"],
   offlineAccess: false,
 });
-
+ 
 function GoogleButton({ loading, onPress }: { loading: boolean; onPress: () => Promise<void> }) {
   return (
     <Pressable
