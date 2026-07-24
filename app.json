@@ -3,7 +3,7 @@
     "name": "SanaMente",
     "slug": "sanamente",
     "scheme": "sanamente",
-    "version": "35.0",
+    "version": "36.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -30,12 +30,13 @@
         "android.permission.BLUETOOTH",
         "android.permission.READ_PHONE_STATE"
       ]
-    },
+    }, 
     "web": {
       "favicon": "./assets/icon.png"
     },
     "plugins": [
       "expo-dev-client",
+      "@react-native-google-signin/google-signin",
       "expo-router",
       [
         "expo-image-picker",
