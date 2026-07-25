@@ -37,8 +37,7 @@ export default function PackageCheckoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { isBolivian } = useUserRegion();
-  const canDetermineRegion = Boolean((user?.phoneDialCode ?? "").trim());
+  const { isBolivian, canDetermineRegion } = useUserRegion();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
   const [payStatus, setPayStatus] = useState<PayStatus>("NONE");

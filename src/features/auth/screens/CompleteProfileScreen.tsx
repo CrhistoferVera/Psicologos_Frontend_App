@@ -38,14 +38,23 @@ export default function CompleteProfileScreen() {
   const { setSession } = useAuth();
   const router = useRouter();
 
-  const isFormInvalid =
-    !firstName.trim() ||
-    !lastName.trim() ||
-    !email.trim() ||
-    !password ||
-    !confirmPassword ||
-    password !== confirmPassword ||
-    !acceptedTerms;
+  const missingReason = (() => {
+    if (!firstName.trim() || !lastName.trim() || !email.trim() || !password || !confirmPassword) {
+      return "Completa todos los campos para continuar.";
+    }
+    if (password.length < 6) {
+      return "La contraseña debe tener al menos 6 caracteres.";
+    }
+    if (password !== confirmPassword) {
+      return "Las contraseñas no coinciden.";
+    }
+    if (!acceptedTerms) {
+      return "Marca la casilla para aceptar los Términos y Condiciones.";
+    }
+    return null;
+  })();
+
+  const isFormInvalid = missingReason !== null;
 
   function handleBack() {
     if (router.canGoBack()) {
@@ -107,8 +116,14 @@ export default function CompleteProfileScreen() {
         <AppInput label="Contraseña" value={password} onChangeText={setPassword} secureTextEntry />
         <AppInput label="Confirmar contraseña" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
 
-        <Pressable style={styles.termsRow} onPress={() => setAcceptedTerms((prev) => !prev)}>
-          <View style={[styles.checkbox, acceptedTerms && styles.checkboxActive]} />
+        <Pressable
+          style={styles.termsRow}
+          hitSlop={8}
+          onPress={() => setAcceptedTerms((prev) => !prev)}
+        >
+          <View style={[styles.checkbox, acceptedTerms && styles.checkboxActive]}>
+            {acceptedTerms ? <Ionicons name="checkmark" size={13} color="#FFFFFF" /> : null}
+          </View>
           <Text style={styles.termsText}>
             Acepto los{" "}
             <Text style={styles.termsLink} onPress={() => router.push("/terms" as any)}>
@@ -119,6 +134,8 @@ export default function CompleteProfileScreen() {
         </Pressable>
 
         <AppButton title="Crear cuenta" onPress={handleSubmit} loading={loading} disabled={isFormInvalid} />
+
+        {missingReason ? <Text style={styles.missingReason}>{missingReason}</Text> : null}
       </View>
     </AppScreen>
   );
@@ -178,6 +195,8 @@ const styles = StyleSheet.create({
     borderColor: appTheme.colors.border,
     marginTop: 1,
     backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   checkboxActive: {
@@ -196,5 +215,14 @@ const styles = StyleSheet.create({
   termsLink: {
     color: appTheme.colors.primary,
     fontWeight: "700",
+  },
+
+  missingReason: {
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: "center",
+    marginTop: 2,
   },
 });

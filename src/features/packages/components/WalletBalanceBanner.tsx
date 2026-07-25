@@ -17,10 +17,9 @@ type Balance = {
 
 export function WalletBalanceBanner() {
   const { user } = useAuth();
-  const { isBolivian } = useUserRegion();
+  const { isBolivian, canDetermineRegion } = useUserRegion();
   const [balance, setBalance] = useState<Balance | null>(null);
   const [loading, setLoading] = useState(true);
-  const canDetermineRegion = Boolean((user?.phoneDialCode ?? "").trim());
 
   useEffect(() => {
     apiGetMyBalance()

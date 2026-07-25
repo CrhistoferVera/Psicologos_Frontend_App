@@ -38,7 +38,7 @@ type TabKey = 'info' | 'reviews';
 export default function ProfessionalProfileScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const { isBolivian } = useUserRegion();
+  const { isBolivian, canDetermineRegion } = useUserRegion();
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const professionalId = Array.isArray(params.id) ? params.id[0] : params.id ?? '';
 
@@ -69,10 +69,6 @@ export default function ProfessionalProfileScreen() {
   const sessionWasActiveRef = useRef(false);
 
   const { startOutgoingCall } = useCallManager();
-  const canDetermineRegion = useMemo(
-    () => Boolean((user?.phoneDialCode ?? '').trim()),
-    [user?.phoneDialCode],
-  );
   const preferredCurrency = canDetermineRegion ? (isBolivian ? 'BOB' : 'USD') : null;
 
   useEffect(() => {

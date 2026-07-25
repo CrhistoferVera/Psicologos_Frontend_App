@@ -30,7 +30,7 @@ export default function SessionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuth();
-  const { isBolivian } = useUserRegion();
+  const { isBolivian, canDetermineRegion } = useUserRegion();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
   const [session, setSession] = useState<Session | null>(null);
@@ -41,7 +41,6 @@ export default function SessionDetailScreen() {
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const canDetermineRegion = Boolean((user?.phoneDialCode ?? "").trim());
   const currency = canDetermineRegion ? (isBolivian ? "BOB" : "USD") : null;
   const canUseQr = canDetermineRegion && isBolivian;
   const canUseStripe = canDetermineRegion && !isBolivian;

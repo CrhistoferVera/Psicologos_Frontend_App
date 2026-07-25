@@ -18,8 +18,7 @@ export default function PackagesScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
-  const { isBolivian } = useUserRegion();
-  const canDetermineRegion = Boolean((user?.phoneDialCode ?? "").trim());
+  const { isBolivian, canDetermineRegion } = useUserRegion();
 
   const [packages, setPackages] = useState<PackageData[]>([]);
   const [loading, setLoading] = useState(true);

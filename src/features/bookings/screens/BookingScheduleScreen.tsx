@@ -67,7 +67,7 @@ function formatTime(iso: string) {
 export default function BookingScheduleScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const { isBolivian } = useUserRegion();
+  const { isBolivian, canDetermineRegion } = useUserRegion();
   const params = useLocalSearchParams<{
     professionalId?: string | string[];
     professionalName?: string | string[];
@@ -109,10 +109,6 @@ export default function BookingScheduleScreen() {
   const [cart, setCart] = useState<CartSession[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const selectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/La_Paz';
-  const canDetermineRegion = useMemo(
-    () => Boolean((user?.phoneDialCode ?? '').trim()),
-    [user?.phoneDialCode],
-  );
   const currency = canDetermineRegion ? (isBolivian ? 'BOB' : 'USD') : null;
 
   useEffect(() => {

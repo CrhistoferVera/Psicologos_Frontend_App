@@ -62,7 +62,7 @@ function Specialties({ items }: { items?: string[] }) {
 export default function UserSessionsScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const { isBolivian } = useUserRegion();
+  const { isBolivian, canDetermineRegion } = useUserRegion();
   const [tabIndex, setTabIndex] = useState(0);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [myReservations, setMyReservations] = useState<MyReservation[]>([]);
@@ -71,7 +71,6 @@ export default function UserSessionsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const pagerRef = useRef<FlatList>(null);
 
-  const canDetermineRegion = Boolean((user?.phoneDialCode ?? "").trim());
   const currency = canDetermineRegion ? (isBolivian ? "BOB" : "USD") : null;
 
   async function load(isRefresh = false) {
