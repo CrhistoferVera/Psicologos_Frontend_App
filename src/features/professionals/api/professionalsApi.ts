@@ -57,6 +57,12 @@ function pickProfessionalBio(item: any): string {
   return "Perfil profesional disponible.";
 }
 
+function parseOptionalPrice(raw: any): number | null {
+  if (raw === null || raw === undefined) return null;
+  const value = Number(raw);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
 function mapRawProfessional(item: any): Professional {
   const basePrice = Number(item?.rateCredits ?? item?.credits ?? 0);
   const servicePrices = parsePricesFromServicePrices(item?.servicePrices);
@@ -80,6 +86,8 @@ function mapRawProfessional(item: any): Professional {
       call: servicePrices.call ?? null,
       video: servicePrices.video ?? null,
     },
+    lowestSessionPriceBob: parseOptionalPrice(item?.lowestSessionPriceBob),
+    lowestSessionPriceUsd: parseOptionalPrice(item?.lowestSessionPriceUsd),
     education: Array.isArray(item?.education) ? (item.education as EducationEntry[]) : [],
     languages: Array.isArray(item?.languages) ? (item.languages as string[]) : [],
     isVerified: Boolean(item?.isVerified ?? false),

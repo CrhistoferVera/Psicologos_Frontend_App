@@ -26,6 +26,8 @@ export type Professional = {
   rating?: number;
   reviewCount?: number;
   prices: ProfessionalPriceMap;
+  lowestSessionPriceBob?: number | null;
+  lowestSessionPriceUsd?: number | null;
   education?: EducationEntry[];
   languages?: string[];
   isVerified?: boolean;

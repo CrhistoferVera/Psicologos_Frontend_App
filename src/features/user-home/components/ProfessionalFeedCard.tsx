@@ -61,6 +61,14 @@ export default function ProfessionalFeedCard({
   const bio = professional.bio?.trim() || null;
   const canCommunicate = communicationAccess?.allowed === true;
 
+  const lowestSessionPrice =
+    (isBolivian ? professional.lowestSessionPriceBob : professional.lowestSessionPriceUsd) ?? null;
+
+  function formatPrice(value: number) {
+    const amount = Number.isInteger(value) ? String(value) : value.toFixed(2);
+    return isBolivian ? `Bs. ${amount}` : `${amount} USD`;
+  }
+
   const communicationHint = communicationAccessLoading
     ? "Validando acceso..."
     : canCommunicate
@@ -100,11 +108,22 @@ export default function ProfessionalFeedCard({
           <Text style={styles.immediateBadgeText}>Atención Inmediata</Text>
         </View>
       ) : (
-        <View style={[styles.onlineBadge, !professional.isOnline && styles.offlineBadge]}>
-          {professional.isOnline ? <View style={styles.onlineDot} /> : null}
-          <Text style={[styles.onlineText, !professional.isOnline && styles.offlineText]}>
-            {professional.isOnline ? "Disponible" : "No disponible"}
-          </Text>
+        <View style={styles.topRightStack}>
+          <View style={[styles.onlineBadge, !professional.isOnline && styles.offlineBadge]}>
+            {professional.isOnline ? <View style={styles.onlineDot} /> : null}
+            <Text style={[styles.onlineText, !professional.isOnline && styles.offlineText]}>
+              {professional.isOnline ? "Disponible" : "No disponible"}
+            </Text>
+          </View>
+
+          {lowestSessionPrice !== null ? (
+            <View style={styles.sessionPriceBadge}>
+              <Ionicons name="pricetag-outline" size={11} color="#D6EAFF" />
+              <Text style={styles.sessionPriceText}>
+                Sesiones desde {formatPrice(lowestSessionPrice)}
+              </Text>
+            </View>
+          ) : null}
         </View>
       )}
 
@@ -236,10 +255,31 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.15)",
   },
-  onlineBadge: {
+  topRightStack: {
     position: "absolute",
     top: 16,
     right: 16,
+    alignItems: "flex-end",
+    gap: 6,
+  },
+  sessionPriceBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(10,20,40,0.60)",
+    borderWidth: 1,
+    borderColor: "rgba(91,155,213,0.55)",
+    borderRadius: 99,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  sessionPriceText: {
+    color: "#D6EAFF",
+    fontSize: 12,
+    fontFamily: appTheme.fonts.body,
+    fontWeight: "700",
+  },
+  onlineBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
