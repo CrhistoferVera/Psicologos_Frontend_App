@@ -12,25 +12,14 @@ import { appTheme } from "../../../theme/appTheme";
 export default function CompleteProfileScreen() {
   const params = useLocalSearchParams<{
     tempToken?: string | string[];
-    phone?: string | string[];
-    phoneDialCode?: string | string[];
-    phoneNationalNumber?: string | string[];
-    phoneCountryIso?: string | string[];
-    phoneCountryName?: string | string[];
+    email?: string | string[];
+    country?: string | string[];
   }>();
   const tempToken = Array.isArray(params.tempToken) ? params.tempToken[0] : params.tempToken ?? "";
-  const phone = Array.isArray(params.phone) ? params.phone[0] : params.phone ?? "";
-  const phoneDialCode = Array.isArray(params.phoneDialCode) ? params.phoneDialCode[0] : params.phoneDialCode ?? "";
-  const phoneNationalNumber = Array.isArray(params.phoneNationalNumber)
-    ? params.phoneNationalNumber[0]
-    : params.phoneNationalNumber ?? "";
-  const phoneCountryIso = Array.isArray(params.phoneCountryIso) ? params.phoneCountryIso[0] : params.phoneCountryIso ?? "";
-  const phoneCountryName = Array.isArray(params.phoneCountryName)
-    ? params.phoneCountryName[0]
-    : params.phoneCountryName ?? "";
+  const email = Array.isArray(params.email) ? params.email[0] : params.email ?? "";
+  const country = Array.isArray(params.country) ? params.country[0] : params.country ?? "";
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -39,7 +28,7 @@ export default function CompleteProfileScreen() {
   const router = useRouter();
 
   const missingReason = (() => {
-    if (!firstName.trim() || !lastName.trim() || !email.trim() || !password || !confirmPassword) {
+    if (!firstName.trim() || !lastName.trim() || !password || !confirmPassword) {
       return "Completa todos los campos para continuar.";
     }
     if (password.length < 6) {
@@ -62,10 +51,10 @@ export default function CompleteProfileScreen() {
       return;
     }
 
-    if (phone) {
+    if (email) {
       router.replace({
         pathname: "/(public)/verify-otp",
-        params: { phone, phoneDialCode, phoneNationalNumber, phoneCountryIso, phoneCountryName },
+        params: { email, country },
       });
       return;
     }
@@ -85,7 +74,7 @@ export default function CompleteProfileScreen() {
         tempToken,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        email: email.trim(),
+        country,
         password,
         confirmPassword,
       });
@@ -110,9 +99,9 @@ export default function CompleteProfileScreen() {
         <Text style={styles.title}>Completa tu perfil</Text>
         <Text style={styles.subtitle}>Configura tu cuenta para empezar a usar la plataforma.</Text>
 
+        {email ? <Text style={styles.verifiedEmail}>Correo verificado: {email}</Text> : null}
         <AppInput label="Nombre" value={firstName} onChangeText={setFirstName} />
         <AppInput label="Apellido" value={lastName} onChangeText={setLastName} />
-        <AppInput label="Correo" value={email} onChangeText={setEmail} keyboardType="email-address" />
         <AppInput label="Contraseña" value={password} onChangeText={setPassword} secureTextEntry />
         <AppInput label="Confirmar contraseña" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
 
@@ -179,6 +168,13 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontFamily: appTheme.fonts.body,
     marginBottom: 6,
+  },
+
+  verifiedEmail: {
+    color: appTheme.colors.success,
+    fontSize: 13,
+    fontFamily: appTheme.fonts.body,
+    fontWeight: "600",
   },
 
   termsRow: {

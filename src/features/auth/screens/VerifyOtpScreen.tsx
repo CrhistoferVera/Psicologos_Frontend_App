@@ -11,21 +11,11 @@ import { appTheme } from "../../../theme/appTheme";
 
 export default function VerifyOtpScreen() {
   const params = useLocalSearchParams<{
-    phone?: string | string[];
-    phoneDialCode?: string | string[];
-    phoneNationalNumber?: string | string[];
-    phoneCountryIso?: string | string[];
-    phoneCountryName?: string | string[];
+    email?: string | string[];
+    country?: string | string[];
   }>();
-  const phone = Array.isArray(params.phone) ? params.phone[0] : params.phone ?? "";
-  const phoneDialCode = Array.isArray(params.phoneDialCode) ? params.phoneDialCode[0] : params.phoneDialCode ?? "";
-  const phoneNationalNumber = Array.isArray(params.phoneNationalNumber)
-    ? params.phoneNationalNumber[0]
-    : params.phoneNationalNumber ?? "";
-  const phoneCountryIso = Array.isArray(params.phoneCountryIso) ? params.phoneCountryIso[0] : params.phoneCountryIso ?? "";
-  const phoneCountryName = Array.isArray(params.phoneCountryName)
-    ? params.phoneCountryName[0]
-    : params.phoneCountryName ?? "";
+  const email = Array.isArray(params.email) ? params.email[0] : params.email ?? "";
+  const country = Array.isArray(params.country) ? params.country[0] : params.country ?? "";
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -43,15 +33,7 @@ export default function VerifyOtpScreen() {
   async function handleVerify() {
     try {
       setLoading(true);
-      const response = await verifyOtp(
-        {
-          phoneDialCode,
-          phoneNationalNumber,
-          phoneCountryIso,
-          phoneCountryName,
-        },
-        code.trim(),
-      );
+      const response = await verifyOtp(email, code.trim());
 
       if ("access_token" in response) {
         await setSession(response.access_token, response.user);
@@ -63,11 +45,8 @@ export default function VerifyOtpScreen() {
         pathname: "/(public)/complete-profile",
         params: {
           tempToken: response.tempToken,
-          phone,
-          phoneDialCode,
-          phoneNationalNumber,
-          phoneCountryIso,
-          phoneCountryName,
+          email,
+          country,
         },
       });
     } catch (error: any) {
@@ -87,7 +66,7 @@ export default function VerifyOtpScreen() {
 
         <Text style={styles.title}>Verifica tu código</Text>
         <Text style={styles.subtitle}>
-          Ingresa el código OTP enviado al número {phone}.
+          Ingresa el código OTP enviado a {email}.
         </Text>
 
         <AppInput
@@ -102,14 +81,7 @@ export default function VerifyOtpScreen() {
           title="Verificar"
           onPress={handleVerify}
           loading={loading}
-          disabled={
-            !phone ||
-            !phoneDialCode ||
-            !phoneNationalNumber ||
-            !phoneCountryIso ||
-            !phoneCountryName ||
-            code.trim().length < 4
-          }
+          disabled={!email || code.trim().length < 4}
         />
       </View>
     </AppScreen>

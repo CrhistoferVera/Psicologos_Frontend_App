@@ -4,7 +4,7 @@ type PaymentCurrency = "BOB" | "USD" | null;
 type PaymentRegionInput = {
   billingRegion?: string | null;
   preferredCurrency?: string | null;
-  phoneCountryIso?: string | null;
+  country?: string | null;
 };
 
 export type PaymentRegionResolution = {
@@ -21,10 +21,10 @@ function normalizeValue(value?: string | null): string {
 export function resolvePaymentRegion(input: PaymentRegionInput): PaymentRegionResolution {
   const billingRegion = normalizeValue(input.billingRegion);
   const preferredCurrency = normalizeValue(input.preferredCurrency);
-  const phoneCountryIso = normalizeValue(input.phoneCountryIso);
+  const country = normalizeValue(input.country);
 
   const isBolivia =
-    billingRegion === "BOLIVIA" || preferredCurrency === "BOB" || phoneCountryIso === "BO";
+    billingRegion === "BOLIVIA" || preferredCurrency === "BOB" || country === "BO";
 
   if (isBolivia) {
     return {
@@ -38,7 +38,7 @@ export function resolvePaymentRegion(input: PaymentRegionInput): PaymentRegionRe
   const isInternational =
     billingRegion === "INTERNATIONAL" ||
     preferredCurrency === "USD" ||
-    (phoneCountryIso.length > 0 && phoneCountryIso !== "BO");
+    (country.length > 0 && country !== "BO");
 
   if (isInternational) {
     return {

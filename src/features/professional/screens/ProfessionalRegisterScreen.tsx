@@ -3,10 +3,13 @@ import { useRouter } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import * as VideoThumbnails from "expo-video-thumbnails";
+import { GoogleSignin, isErrorWithCode, statusCodes } from "@react-native-google-signin/google-signin";
 import { Alert, FlatList, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from "../../../config";
 import AppButton from "../../../components/ui/AppButton";
 import AppChip from "../../../components/ui/AppChip";
+import GoogleButton from "../../../components/ui/GoogleButton";
 import AppInput from "../../../components/ui/AppInput";
 import AppScreen from "../../../components/ui/AppScreen";
 import { useAuth } from "../../../context/AuthContext";
@@ -17,8 +20,14 @@ import {
   getProfessionalSpecialtiesCatalog,
   sendProfessionalVerificationOtp,
   updateMyProfessionalSpecialties,
+  verifyProfessionalGoogle,
   verifyProfessionalOtp,
 } from "../api/professionalApi";
+
+GoogleSignin.configure({
+  webClientId: GOOGLE_WEB_CLIENT_ID || undefined,
+  iosClientId: GOOGLE_IOS_CLIENT_ID || undefined,
+});
 
 const totalSteps = 5;
 
@@ -53,11 +62,8 @@ export default function ProfessionalRegisterScreen() {
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [countryIso, setCountryIso] = useState("BO");
-  const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [professionalCountry, setProfessionalCountry] = useState("BO");
   const [showProfessionalCountryPicker, setShowProfessionalCountryPicker] = useState(false);
-  const [phone, setPhone] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
 
   const [otpSent, setOtpSent] = useState(false);
@@ -82,20 +88,6 @@ export default function ProfessionalRegisterScreen() {
   const [kycSelfie, setKycSelfie] = useState<FileAsset | null>(null);
   const [matricula, setMatricula] = useState<FileAsset | null>(null);
   const [tituloProfesional, setTituloProfesional] = useState<FileAsset | null>(null);
-
-  const selectedCountry = useMemo(
-    () => COUNTRY_CODES.find((item) => item.flag === countryIso) ?? COUNTRY_CODES[0],
-    [countryIso],
-  );
-  const phoneMetadata = useMemo(
-    () => ({
-      phoneDialCode: selectedCountry.code,
-      phoneNationalNumber: phone.trim(),
-      phoneCountryIso: selectedCountry.flag,
-      phoneCountryName: selectedCountry.country,
-    }),
-    [phone, selectedCountry.code, selectedCountry.country, selectedCountry.flag],
-  );
 
   useEffect(() => {
     if (step !== 3 || specialtiesCatalog.length > 0) return;
@@ -142,13 +134,12 @@ export default function ProfessionalRegisterScreen() {
     if (currentStep === 1) {
       if (!firstName.trim()) return "Completa tu nombre.";
       if (!lastName.trim()) return "Completa tu apellido.";
-      if (!phone.trim() || phone.trim().length < 6) return "Ingresa un número de teléfono válido.";
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth.trim())) return "Usa formato YYYY-MM-DD para la fecha de nacimiento.";
-      if (!tempToken) return "Verifica tu teléfono con el código OTP para continuar.";
-    }
-    if (currentStep === 2) {
       if (!email.trim()) return "Ingresa tu email.";
       if (!EMAIL_REGEX.test(email.trim())) return "El email no tiene un formato válido.";
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth.trim())) return "Usa formato YYYY-MM-DD para la fecha de nacimiento.";
+      if (!tempToken) return "Verifica tu correo con el código OTP para continuar.";
+    }
+    if (currentStep === 2) {
       if (!username.trim()) return "Ingresa un username profesional.";
       if (!cedula.trim()) return "Ingresa tu documento / carnet de identidad.";
       if (password.length < 6) return "La contraseña debe tener al menos 6 caracteres.";
@@ -161,16 +152,16 @@ export default function ProfessionalRegisterScreen() {
   }
 
   async function handleSendOtp() {
-    if (!phone.trim() || phone.trim().length < 6) {
-      setError("Ingresa un número de teléfono válido antes de enviar el OTP.");
+    if (!email.trim() || !EMAIL_REGEX.test(email.trim())) {
+      setError("Ingresa un email válido antes de enviar el OTP.");
       return;
     }
     try {
       setLoading(true);
       setError(null);
-      await sendProfessionalVerificationOtp(phoneMetadata);
+      await sendProfessionalVerificationOtp(email.trim().toLowerCase());
       setOtpSent(true);
-      Alert.alert("Código enviado", "Te enviamos un código OTP por WhatsApp.");
+      Alert.alert("Código enviado", "Te enviamos un código OTP a tu correo.");
     } catch (err: any) {
       setError(err?.message ?? "No pudimos enviar el código OTP.");
     } finally {
@@ -182,11 +173,47 @@ export default function ProfessionalRegisterScreen() {
     try {
       setLoading(true);
       setError(null);
-      const token = await verifyProfessionalOtp(phoneMetadata, otpCode.trim());
+      const token = await verifyProfessionalOtp(email.trim().toLowerCase(), otpCode.trim());
       setTempToken(token);
-      Alert.alert("Teléfono verificado", "Ya puedes continuar con el registro profesional.");
+      Alert.alert("Correo verificado", "Ya puedes continuar con el registro profesional.");
     } catch (err: any) {
       setError(err?.message ?? "No pudimos verificar el código.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleGoogleVerify() {
+    try {
+      setLoading(true);
+      setError(null);
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      await GoogleSignin.signOut();
+      const response = await GoogleSignin.signIn();
+      if (response.type === "cancelled") return;
+      const idToken = response.data?.idToken;
+      if (!idToken) throw new Error("Google no devolvió id_token.");
+
+      const token = await verifyProfessionalGoogle(idToken);
+
+      const googleUser = response.data?.user;
+      if (googleUser?.email) setEmail(googleUser.email);
+      if (googleUser?.givenName && !firstName.trim()) setFirstName(googleUser.givenName);
+      if (googleUser?.familyName && !lastName.trim()) setLastName(googleUser.familyName);
+
+      setOtpSent(false);
+      setOtpCode("");
+      setTempToken(token);
+      Alert.alert("Correo verificado con Google", "Ya puedes continuar con el registro profesional.");
+    } catch (err: any) {
+      if (isErrorWithCode(err)) {
+        if (err.code === statusCodes.SIGN_IN_CANCELLED || err.code === statusCodes.IN_PROGRESS) return;
+        if (err.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+          setError("Google Play Services no disponible en este dispositivo.");
+          return;
+        }
+      }
+      setError(err?.message ?? "No pudimos verificar con Google.");
     } finally {
       setLoading(false);
     }
@@ -356,29 +383,19 @@ export default function ProfessionalRegisterScreen() {
             <AppInput label="Nombre" value={firstName} onChangeText={setFirstName} placeholder="Camila" />
             <AppInput label="Apellido" value={lastName} onChangeText={setLastName} placeholder="Rojas" />
 
-            {/* Phone row with country code picker */}
-            <Text style={styles.fieldLabel}>Teléfono</Text>
-            <View style={styles.phoneRow}>
-              <Pressable style={styles.countryCodeBtn} onPress={() => setShowCountryPicker(true)}>
-                <Text style={styles.countryCodeText}>
-                  {selectedCountry.flag} {selectedCountry.code}
-                </Text>
-                <Ionicons name="chevron-down" size={14} color={appTheme.colors.textMuted} />
-              </Pressable>
-              <View style={styles.phoneInputWrap}>
-                <AppInput
-                  value={phone}
-                  onChangeText={(v) => {
-                    setPhone(v.replace(/\D/g, ""));
-                    setTempToken(null);
-                    setOtpSent(false);
-                    setOtpCode("");
-                  }}
-                  placeholder="70000000"
-                  keyboardType="phone-pad"
-                />
-              </View>
-            </View>
+            <AppInput
+              label="Email"
+              value={email}
+              onChangeText={(v) => {
+                setEmail(v);
+                setTempToken(null);
+                setOtpSent(false);
+                setOtpCode("");
+              }}
+              placeholder="profesional@email.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
 
             <AppInput
               label="Fecha de nacimiento"
@@ -417,19 +434,30 @@ export default function ProfessionalRegisterScreen() {
                 />
               </View>
             ) : null}
+
+            {GOOGLE_WEB_CLIENT_ID ? (
+              <>
+                <View style={styles.dividerRow}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>o</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+                <GoogleButton
+                  label="Verificar con Google"
+                  onPress={handleGoogleVerify}
+                  loading={loading}
+                />
+                <Text style={styles.hint}>
+                  Con Google verificamos tu correo al instante, sin código OTP.
+                </Text>
+              </>
+            ) : null}
           </View>
         ) : null}
 
         {/* ── PASO 2: Cuenta ── */}
         {step === 2 ? (
           <View style={styles.form}>
-            <AppInput
-              label="Email"
-              value={email}
-              onChangeText={setEmail}
-              placeholder="profesional@email.com"
-              keyboardType="email-address"
-            />
             <AppInput
               label="Username profesional"
               value={username}
@@ -618,40 +646,6 @@ export default function ProfessionalRegisterScreen() {
         </Pressable>
       </Modal>
 
-      {/* ── Modal selector de código de país ── */}
-      <Modal
-        visible={showCountryPicker}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowCountryPicker(false)}
-      >
-        <Pressable style={styles.pickerBackdrop} onPress={() => setShowCountryPicker(false)}>
-          <Pressable style={styles.pickerBox} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.pickerTitle}>Seleccionar país</Text>
-            <FlatList
-              data={COUNTRY_CODES}
-              keyExtractor={(item) => `${item.flag}-${item.code}`}
-              renderItem={({ item }) => (
-                <Pressable
-                  style={[styles.pickerItem, item.flag === countryIso && styles.pickerItemActive]}
-                  onPress={() => {
-                    setCountryIso(item.flag);
-                    setShowCountryPicker(false);
-                    setTempToken(null);
-                    setOtpSent(false);
-                    setOtpCode("");
-                  }}
-                >
-                  <Text style={styles.pickerItemText}>
-                    {item.flag}  {item.country}
-                  </Text>
-                  <Text style={styles.pickerItemCode}>{item.code}</Text>
-                </Pressable>
-              )}
-            />
-          </Pressable>
-        </Pressable>
-      </Modal>
     </AppScreen>
   );
 }
@@ -825,6 +819,23 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
     lineHeight: 18,
+  },
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginVertical: 2,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: appTheme.colors.border,
+  },
+  dividerText: {
+    color: appTheme.colors.textMuted,
+    fontFamily: appTheme.fonts.body,
+    fontSize: 14,
+    fontWeight: "600",
   },
   error: {
     color: appTheme.colors.danger,

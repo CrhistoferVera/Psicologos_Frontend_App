@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { GoogleSignin, isErrorWithCode, statusCodes } from "@react-native-google-signin/google-signin";
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import AppScreen from "../../../components/ui/AppScreen";
+import GoogleButton from "../../../components/ui/GoogleButton";
 import { useAuth } from "../../../context/AuthContext";
 import { COUNTRIES_LATAM, CountryLatam } from "../../../constants/countriesLatam";
 import { GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from "../../../config";
@@ -15,26 +16,13 @@ GoogleSignin.configure({
   iosClientId: GOOGLE_IOS_CLIENT_ID || undefined,
 });
  
-function GoogleButton({ loading, onPress }: { loading: boolean; onPress: () => Promise<void> }) {
-  return (
-    <Pressable
-      style={[styles.googleBtn, loading && styles.primaryBtnDisabled]}
-      onPress={onPress}
-      disabled={loading}
-    >
-      <View style={styles.googleDot} />
-      <Text style={styles.googleText}>{loading ? "Conectando..." : "Continuar con Google"}</Text>
-    </Pressable>
-  );
-}
-
 type Mode = "login" | "register";
 
 export default function AuthScreen() {
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [phone, setPhone] = useState("");
+  const [registerEmail, setRegisterEmail] = useState("");
   const [selectedCountry, setSelectedCountry] = useState<CountryLatam>(
     COUNTRIES_LATAM.find((item) => item.code === "BO") ?? COUNTRIES_LATAM[0],
   );
@@ -57,20 +45,8 @@ export default function AuthScreen() {
     }
   }
 
-  const fullPhone = useMemo(
-    () => `+${selectedCountry.dialCode}${phone.trim()}`,
-    [selectedCountry.dialCode, phone],
-  );
-
-  const phoneMetadata = useMemo(
-    () => ({
-      phoneDialCode: `+${selectedCountry.dialCode}`,
-      phoneNationalNumber: phone.trim(),
-      phoneCountryIso: selectedCountry.code,
-      phoneCountryName: selectedCountry.name,
-    }),
-    [phone, selectedCountry.code, selectedCountry.dialCode, selectedCountry.name],
-  );
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const normalizedRegisterEmail = registerEmail.trim().toLowerCase();
 
   async function handleLogin() {
     try {
@@ -97,19 +73,16 @@ export default function AuthScreen() {
     try {
       setLoading(true);
       setErrorMessage(null);
-      await sendOtp(phoneMetadata);
+      await sendOtp(normalizedRegisterEmail);
       router.push({
         pathname: "/(public)/verify-otp",
         params: {
-          phone: fullPhone,
-          phoneDialCode: phoneMetadata.phoneDialCode,
-          phoneNationalNumber: phoneMetadata.phoneNationalNumber,
-          phoneCountryIso: phoneMetadata.phoneCountryIso,
-          phoneCountryName: phoneMetadata.phoneCountryName,
+          email: normalizedRegisterEmail,
+          country: selectedCountry.code,
         },
       });
     } catch (error: any) {
-      const message = error?.message ?? "Revisa el número y vuelve a intentar.";
+      const message = error?.message ?? "Revisa el correo y vuelve a intentar.";
       setErrorMessage(message);
       Alert.alert("No se pudo continuar", message);
     } finally {
@@ -118,6 +91,11 @@ export default function AuthScreen() {
   }
 
   async function handleGoogleAuth() {
+    if (mode === "register" && !acceptedTerms) {
+      setErrorMessage("Marca la casilla para aceptar los Términos y Condiciones.");
+      Alert.alert("Falta aceptar los términos", "Debes aceptar los Términos y Condiciones para continuar.");
+      return;
+    }
     try {
       setLoading(true);
       setErrorMessage(null);
@@ -127,7 +105,7 @@ export default function AuthScreen() {
       if (response.type === "cancelled") return;
       const idToken = response.data?.idToken;
       if (!idToken) throw new Error("Google no devolvió id_token.");
-      const result = await loginWithGoogle(idToken);
+      const result = await loginWithGoogle(idToken, selectedCountry.code);
       if (result.user.role === "ADMIN") {
         await logout();
         navigateByRole(result.user.role);
@@ -153,7 +131,7 @@ export default function AuthScreen() {
   }
 
   const loginDisabled = !email.trim() || !password || loading;
-  const registerDisabled = phone.trim().length < 7 || loading || !acceptedTerms;
+  const registerDisabled = !emailRegex.test(normalizedRegisterEmail) || loading || !acceptedTerms;
 
   return (
     <AppScreen scroll contentPadding={0}>
@@ -248,28 +226,30 @@ export default function AuthScreen() {
           ) : (
             <>
               <View style={styles.fieldWrap}>
-                <Text style={styles.label}>Número de teléfono</Text>
-                <View style={styles.phoneRow}>
-                  <Pressable style={styles.countryBtn} onPress={() => setCountryModalVisible(true)}>
-                    <Text style={styles.countryBtnText}>
-                      {selectedCountry.code} +{selectedCountry.dialCode}
-                    </Text>
-                    <Ionicons name="chevron-down" size={16} color="#475569" />
-                  </Pressable>
+                <Text style={styles.label}>Correo electrónico</Text>
+                <TextInput
+                  value={registerEmail}
+                  onChangeText={setRegisterEmail}
+                  placeholder="ana@ejemplo.com"
+                  placeholderTextColor="#64748B"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  style={styles.input}
+                />
+              </View>
 
-                  <TextInput
-                    value={phone}
-                    onChangeText={(value) => setPhone(value.replace(/\D/g, ""))}
-                    placeholder="70000000"
-                    placeholderTextColor="#64748B"
-                    keyboardType="number-pad"
-                    style={styles.phoneInput}
-                  />
-                </View>
+              <View style={styles.fieldWrap}>
+                <Text style={styles.label}>País</Text>
+                <Pressable style={styles.countryFullBtn} onPress={() => setCountryModalVisible(true)}>
+                  <Text style={styles.countryBtnText}>
+                    {selectedCountry.name}
+                  </Text>
+                  <Ionicons name="chevron-down" size={16} color="#475569" />
+                </Pressable>
               </View>
 
               <Text style={styles.registerHelp}>
-                Te enviaremos un código OTP al {fullPhone} para validar tu cuenta.
+                Te enviaremos un código OTP a {normalizedRegisterEmail || "tu correo"} para validar tu cuenta.
               </Text>
 
               <Pressable style={styles.termsRow} onPress={() => setAcceptedTerms((prev) => !prev)}>
@@ -290,6 +270,15 @@ export default function AuthScreen() {
               >
                 <Text style={styles.primaryBtnText}>{loading ? "Enviando..." : "Continuar"}</Text>
               </Pressable>
+
+              <View style={styles.dividerRow}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>o</Text>
+                <View style={styles.dividerLine} />
+              </View>
+              {GOOGLE_WEB_CLIENT_ID ? (
+                <GoogleButton loading={loading} onPress={handleGoogleAuth} />
+              ) : null}
             </>
           )}
 
@@ -472,6 +461,18 @@ const styles = StyleSheet.create({
     fontFamily: appTheme.fonts.body,
     fontSize: 14,
     fontWeight: "700",
+  },
+
+  countryFullBtn: {
+    minHeight: 52,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+    backgroundColor: "#F8FAFC",
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
 
   phoneInput: {

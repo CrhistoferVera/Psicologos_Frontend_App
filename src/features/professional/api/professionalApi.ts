@@ -14,7 +14,7 @@ import {
 } from "../../../api/wallet";
 import { apiGetMyServicePrices, apiUpsertServicePrice, type ServicePrice } from "../../../api/servicePrices";
 import { getMyChats, type Chat } from "../../../api/messages";
-import { sendOtp, verifyOtp, type PhoneRegistrationInput } from "../../../services/auth";
+import { sendOtp, verifyOtp, verifyGoogleEmail } from "../../../services/auth";
 import type {
   EducationEntry,
   ProfessionalChatItem,
@@ -76,16 +76,24 @@ function toPriceInput(prices: ServicePrice[]): ProfessionalPriceInput {
 }
 
 
-export async function sendProfessionalVerificationOtp(input: PhoneRegistrationInput) {
-  return sendOtp(input);
+export async function sendProfessionalVerificationOtp(email: string) {
+  return sendOtp(email);
 }
 
-export async function verifyProfessionalOtp(input: PhoneRegistrationInput, code: string): Promise<string> {
-  const result = await verifyOtp(input, code);
+export async function verifyProfessionalOtp(email: string, code: string): Promise<string> {
+  const result = await verifyOtp(email, code);
   if ("needsProfile" in result && result.needsProfile && result.tempToken) {
     return result.tempToken;
   }
-  throw new Error("Este número ya tiene una cuenta activa. Inicia sesión.");
+  throw new Error("Este correo ya tiene una cuenta activa. Inicia sesión.");
+}
+
+export async function verifyProfessionalGoogle(idToken: string): Promise<string> {
+  const result = await verifyGoogleEmail(idToken);
+  if ("needsProfile" in result && result.needsProfile && result.tempToken) {
+    return result.tempToken;
+  }
+  throw new Error("Este correo ya tiene una cuenta activa. Inicia sesión.");
 }
 
 export async function completeProfessionalRegistration(payload: ProfessionalRegisterPayload) {
