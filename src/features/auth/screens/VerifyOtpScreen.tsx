@@ -12,10 +12,8 @@ import { appTheme } from "../../../theme/appTheme";
 export default function VerifyOtpScreen() {
   const params = useLocalSearchParams<{
     email?: string | string[];
-    country?: string | string[];
   }>();
   const email = Array.isArray(params.email) ? params.email[0] : params.email ?? "";
-  const country = Array.isArray(params.country) ? params.country[0] : params.country ?? "";
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -46,7 +44,6 @@ export default function VerifyOtpScreen() {
         params: {
           tempToken: response.tempToken,
           email,
-          country,
         },
       });
     } catch (error: any) {

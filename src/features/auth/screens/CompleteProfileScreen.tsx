@@ -5,19 +5,22 @@ import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import AppButton from "../../../components/ui/AppButton";
 import AppInput from "../../../components/ui/AppInput";
 import AppScreen from "../../../components/ui/AppScreen";
+import CountrySelect from "../../../components/ui/CountrySelect";
+import { COUNTRIES_LATAM, CountryLatam } from "../../../constants/countriesLatam";
 import { useAuth } from "../../../context/AuthContext";
 import { completeRegistration } from "../../../services/auth";
 import { appTheme } from "../../../theme/appTheme";
+
+const DEFAULT_COUNTRY = COUNTRIES_LATAM.find((item) => item.code === "BO") ?? COUNTRIES_LATAM[0];
 
 export default function CompleteProfileScreen() {
   const params = useLocalSearchParams<{
     tempToken?: string | string[];
     email?: string | string[];
-    country?: string | string[];
   }>();
   const tempToken = Array.isArray(params.tempToken) ? params.tempToken[0] : params.tempToken ?? "";
   const email = Array.isArray(params.email) ? params.email[0] : params.email ?? "";
-  const country = Array.isArray(params.country) ? params.country[0] : params.country ?? "";
+  const [country, setCountry] = useState<CountryLatam>(DEFAULT_COUNTRY);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [password, setPassword] = useState("");
@@ -54,7 +57,7 @@ export default function CompleteProfileScreen() {
     if (email) {
       router.replace({
         pathname: "/(public)/verify-otp",
-        params: { email, country },
+        params: { email },
       });
       return;
     }
@@ -74,7 +77,7 @@ export default function CompleteProfileScreen() {
         tempToken,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        country,
+        country: country.code,
         password,
         confirmPassword,
       });
@@ -100,6 +103,7 @@ export default function CompleteProfileScreen() {
         <Text style={styles.subtitle}>Configura tu cuenta para empezar a usar la plataforma.</Text>
 
         {email ? <Text style={styles.verifiedEmail}>Correo verificado: {email}</Text> : null}
+        <CountrySelect label="País" value={country} onChange={setCountry} />
         <AppInput label="Nombre" value={firstName} onChangeText={setFirstName} />
         <AppInput label="Apellido" value={lastName} onChangeText={setLastName} />
         <AppInput label="Contraseña" value={password} onChangeText={setPassword} secureTextEntry />

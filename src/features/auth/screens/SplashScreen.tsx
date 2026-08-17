@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useRouter } from "expo-router";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
 import { appTheme } from "../../../theme/appTheme";
 import { useAuth } from "../../../context/AuthContext";
 
@@ -30,9 +30,11 @@ export default function SplashScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.logoCircle}>
-        <Text style={styles.logoText}>SA</Text>
-      </View>
+      <Image
+        source={require("../../../../assets/icon.png")}
+        style={styles.logo}
+        resizeMode="contain"
+      />
 
       <Text style={styles.title}>SanaMente</Text>
       <Text style={styles.subtitle}>Conecta con profesionales verificados</Text>
@@ -51,23 +53,11 @@ const styles = StyleSheet.create({
     padding: 24,
   },
 
-  logoCircle: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: "#EAF2FB",
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
-    alignItems: "center",
-    justifyContent: "center",
+  logo: {
+    width: 120,
+    height: 120,
+    borderRadius: 24,
     marginBottom: 20,
-  },
-
-  logoText: {
-    color: appTheme.colors.primary,
-    fontSize: 28,
-    fontFamily: appTheme.fonts.heading,
-    fontWeight: "800",
   },
 
   title: {

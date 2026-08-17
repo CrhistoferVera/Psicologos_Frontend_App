@@ -1,9 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "expo-router";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
 import AppButton from "../../../components/ui/AppButton";
 import AppScreen from "../../../components/ui/AppScreen";
 import { appTheme } from "../../../theme/appTheme";
+
+const SLIDE_INTERVAL = 3500;
 
 const slides = [
   {
@@ -35,16 +37,18 @@ const slides = [
 export default function OnboardingScreen() {
   const [step, setStep] = useState(0);
   const router = useRouter();
-  const isLast = step === slides.length - 1;
   const current = useMemo(() => slides[step], [step]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setStep((prev) => (prev + 1) % slides.length);
+    }, SLIDE_INTERVAL);
+    return () => clearInterval(timer);
+  }, []);
 
   return (
     <AppScreen>
       <View style={styles.container}>
-        <Pressable onPress={() => router.replace("/(public)/auth")} style={styles.skipWrap}>
-          <Text style={styles.skipText}>Omitir</Text>
-        </Pressable>
-
         <View style={styles.imageContainer}>
           <Image source={current.image} style={styles.hero} resizeMode="contain" />
         </View>
@@ -61,14 +65,8 @@ export default function OnboardingScreen() {
         </View>
 
         <AppButton
-          title={isLast ? "Empezar" : "Continuar"}
-          onPress={() => {
-            if (isLast) {
-              router.replace("/(public)/auth");
-            } else {
-              setStep((prev) => prev + 1);
-            }
-          }}
+          title="Continuar"
+          onPress={() => router.replace("/(public)/auth")}
         />
       </View>
     </AppScreen>
@@ -80,17 +78,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     gap: 20,
-  },
-
-  skipWrap: {
-    alignSelf: "flex-end",
-  },
-
-  skipText: {
-    color: "#475569",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 14,
-    fontWeight: "600",
   },
 
   imageContainer: {

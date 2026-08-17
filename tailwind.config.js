@@ -9,7 +9,12 @@ module.exports = {
   ],
   presets: [require("nativewind/preset")],
   theme: {
-    extend: {},
+    extend: {
+      fontFamily: {
+        heading: ["PlusJakartaSans-Bold"],
+        body: ["Inter-Regular"],
+      },
+    },
   },
   plugins: [],
 };

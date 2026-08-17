@@ -2,20 +2,18 @@ import { useState } from "react";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { GoogleSignin, isErrorWithCode, statusCodes } from "@react-native-google-signin/google-signin";
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Image, Pressable, Text, TextInput, View } from "react-native";
 import AppScreen from "../../../components/ui/AppScreen";
 import GoogleButton from "../../../components/ui/GoogleButton";
 import { useAuth } from "../../../context/AuthContext";
-import { COUNTRIES_LATAM, CountryLatam } from "../../../constants/countriesLatam";
 import { GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from "../../../config";
 import { loginWithEmail, loginWithGoogle, sendOtp } from "../../../services/auth";
-import { appTheme } from "../../../theme/appTheme";
 
 GoogleSignin.configure({
   webClientId: GOOGLE_WEB_CLIENT_ID || undefined,
   iosClientId: GOOGLE_IOS_CLIENT_ID || undefined,
 });
- 
+
 type Mode = "login" | "register";
 
 export default function AuthScreen() {
@@ -23,14 +21,9 @@ export default function AuthScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [registerEmail, setRegisterEmail] = useState("");
-  const [selectedCountry, setSelectedCountry] = useState<CountryLatam>(
-    COUNTRIES_LATAM.find((item) => item.code === "BO") ?? COUNTRIES_LATAM[0],
-  );
-  const [countryModalVisible, setCountryModalVisible] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const router = useRouter();
   const { setSession, logout } = useAuth();
@@ -76,10 +69,7 @@ export default function AuthScreen() {
       await sendOtp(normalizedRegisterEmail);
       router.push({
         pathname: "/(public)/verify-otp",
-        params: {
-          email: normalizedRegisterEmail,
-          country: selectedCountry.code,
-        },
+        params: { email: normalizedRegisterEmail },
       });
     } catch (error: any) {
       const message = error?.message ?? "Revisa el correo y vuelve a intentar.";
@@ -91,11 +81,6 @@ export default function AuthScreen() {
   }
 
   async function handleGoogleAuth() {
-    if (mode === "register" && !acceptedTerms) {
-      setErrorMessage("Marca la casilla para aceptar los Términos y Condiciones.");
-      Alert.alert("Falta aceptar los términos", "Debes aceptar los Términos y Condiciones para continuar.");
-      return;
-    }
     try {
       setLoading(true);
       setErrorMessage(null);
@@ -105,7 +90,7 @@ export default function AuthScreen() {
       if (response.type === "cancelled") return;
       const idToken = response.data?.idToken;
       if (!idToken) throw new Error("Google no devolvió id_token.");
-      const result = await loginWithGoogle(idToken, selectedCountry.code);
+      const result = await loginWithGoogle(idToken);
       if (result.user.role === "ADMIN") {
         await logout();
         navigateByRole(result.user.role);
@@ -131,36 +116,55 @@ export default function AuthScreen() {
   }
 
   const loginDisabled = !email.trim() || !password || loading;
-  const registerDisabled = !emailRegex.test(normalizedRegisterEmail) || loading || !acceptedTerms;
+  const registerDisabled = !emailRegex.test(normalizedRegisterEmail) || loading;
+
+  const fieldLabel = "text-[#020617] font-body text-[15px] font-semibold";
+  const textInput = "min-h-[52px] rounded-2xl border border-[#CBD5E1] bg-[#F8FAFC] px-[14px] text-[#020617] font-body text-sm";
+  const primaryBtn = "min-h-[54px] rounded-[18px] bg-[#5B9BD5] items-center justify-center";
+  const primaryBtnText = "text-white font-heading text-[17px] font-bold";
+  const divider = (
+    <View className="flex-row items-center gap-2.5 -mt-0.5">
+      <View className="flex-1 h-px bg-[#CBD5E1]" />
+      <Text className="text-[#64748B] font-body text-sm font-semibold">o</Text>
+      <View className="flex-1 h-px bg-[#CBD5E1]" />
+    </View>
+  );
 
   return (
     <AppScreen scroll contentPadding={0}>
-      <View style={styles.page}>
-        <View style={styles.card}>
-          <View style={styles.iconWrap}>
-            <Ionicons name="shield-checkmark" size={21} color="#FFFFFF" />
+      <View className="flex-1 justify-center bg-[#F7FAFC] px-4 pt-2 pb-[18px]">
+        <View className="min-h-[620px] rounded-[20px] bg-white border border-[#CBD5E1] px-4 py-[18px] justify-between gap-3">
+          <View className="flex-row items-center gap-4">
+            <Image
+              source={require("../../../../assets/icon.png")}
+              className="w-20 h-20 rounded-2xl"
+              resizeMode="contain"
+            />
+            <View className="flex-1">
+              <Text className="text-[#020617] font-heading font-bold text-2xl leading-[30px]">
+                {mode === "login" ? "Bienvenido" : "Crear cuenta"}
+              </Text>
+              <Text className="text-[#475569] font-body text-sm leading-[20px] mt-1">
+                {mode === "login" ? "Accede a tu cuenta segura" : "Regístrate para comenzar tu experiencia"}
+              </Text>
+            </View>
           </View>
 
-          <Text style={styles.title}>{mode === "login" ? "Bienvenido de vuelta" : "Crear cuenta"}</Text>
-          <Text style={styles.subtitle}>
-            {mode === "login" ? "Accede a tu cuenta segura" : "Regístrate para comenzar tu experiencia"}
-          </Text>
-
-          <View style={styles.segmentedWrap}>
+          <View className="flex-row rounded-[17px] border border-[#CBD5E1] bg-[#F8FAFC] p-1 gap-1">
             <Pressable
-              style={[styles.segmentBtn, mode === "login" && styles.segmentBtnActive]}
+              className={`flex-1 min-h-[42px] rounded-[13px] items-center justify-center ${mode === "login" ? "bg-white border border-[#CBD5E1]" : ""}`}
               onPress={() => setMode("login")}
             >
-              <Text style={[styles.segmentText, mode === "login" && styles.segmentTextActive]}>
+              <Text className={`font-body text-sm ${mode === "login" ? "text-[#020617] font-bold" : "text-[#64748B] font-semibold"}`}>
                 Iniciar sesión
               </Text>
             </Pressable>
 
             <Pressable
-              style={[styles.segmentBtn, mode === "register" && styles.segmentBtnActive]}
+              className={`flex-1 min-h-[42px] rounded-[13px] items-center justify-center ${mode === "register" ? "bg-white border border-[#CBD5E1]" : ""}`}
               onPress={() => setMode("register")}
             >
-              <Text style={[styles.segmentText, mode === "register" && styles.segmentTextActive]}>
+              <Text className={`font-body text-sm ${mode === "register" ? "text-[#020617] font-bold" : "text-[#64748B] font-semibold"}`}>
                 Registrarse
               </Text>
             </Pressable>
@@ -168,8 +172,8 @@ export default function AuthScreen() {
 
           {mode === "login" ? (
             <>
-              <View style={styles.fieldWrap}>
-                <Text style={styles.label}>Correo electrónico</Text>
+              <View className="gap-2">
+                <Text className={fieldLabel}>Correo electrónico</Text>
                 <TextInput
                   value={email}
                   onChangeText={setEmail}
@@ -177,13 +181,13 @@ export default function AuthScreen() {
                   placeholderTextColor="#64748B"
                   keyboardType="email-address"
                   autoCapitalize="none"
-                  style={styles.input}
+                  className={textInput}
                 />
               </View>
 
-              <View style={styles.fieldWrap}>
-                <Text style={styles.label}>Contraseña</Text>
-                <View style={styles.passwordWrap}>
+              <View className="gap-2">
+                <Text className={fieldLabel}>Contraseña</Text>
+                <View className="min-h-[52px] rounded-2xl border border-[#CBD5E1] bg-[#F8FAFC] px-[14px] flex-row items-center gap-2">
                   <TextInput
                     value={password}
                     onChangeText={setPassword}
@@ -191,42 +195,38 @@ export default function AuthScreen() {
                     placeholderTextColor="#64748B"
                     secureTextEntry={!showPassword}
                     autoCapitalize="none"
-                    style={styles.passwordInput}
+                    className="flex-1 text-[#020617] font-body text-sm py-0"
                   />
                   <Pressable onPress={() => setShowPassword((prev) => !prev)} hitSlop={10}>
-                    <Text style={styles.passwordToggle}>{showPassword ? "Ocultar" : "Ver"}</Text>
+                    <Text className="text-[#5B9BD5] font-body text-sm font-semibold">{showPassword ? "Ocultar" : "Ver"}</Text>
                   </Pressable>
                 </View>
               </View>
 
               <Pressable
-                style={styles.forgotWrap}
+                className="items-center -mt-0.5"
                 onPress={() => router.push("/(public)/forgot-password" as any)}
               >
-                <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
+                <Text className="text-[#5B9BD5] font-body text-[15px] font-medium">¿Olvidaste tu contraseña?</Text>
               </Pressable>
 
               <Pressable
-                style={[styles.primaryBtn, loginDisabled && styles.primaryBtnDisabled]}
+                className={`${primaryBtn} ${loginDisabled ? "opacity-[0.65]" : ""}`}
                 onPress={handleLogin}
                 disabled={loginDisabled}
               >
-                <Text style={styles.primaryBtnText}>{loading ? "Ingresando..." : "Iniciar sesión"}</Text>
+                <Text className={primaryBtnText}>{loading ? "Ingresando..." : "Iniciar sesión"}</Text>
               </Pressable>
 
-              <View style={styles.dividerRow}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>o</Text>
-                <View style={styles.dividerLine} />
-              </View>
+              {divider}
               {GOOGLE_WEB_CLIENT_ID ? (
                 <GoogleButton loading={loading} onPress={handleGoogleAuth} />
               ) : null}
             </>
           ) : (
             <>
-              <View style={styles.fieldWrap}>
-                <Text style={styles.label}>Correo electrónico</Text>
+              <View className="gap-2">
+                <Text className={fieldLabel}>Correo electrónico</Text>
                 <TextInput
                   value={registerEmail}
                   onChangeText={setRegisterEmail}
@@ -234,491 +234,37 @@ export default function AuthScreen() {
                   placeholderTextColor="#64748B"
                   keyboardType="email-address"
                   autoCapitalize="none"
-                  style={styles.input}
+                  className={textInput}
                 />
               </View>
 
-              <View style={styles.fieldWrap}>
-                <Text style={styles.label}>País</Text>
-                <Pressable style={styles.countryFullBtn} onPress={() => setCountryModalVisible(true)}>
-                  <Text style={styles.countryBtnText}>
-                    {selectedCountry.name}
-                  </Text>
-                  <Ionicons name="chevron-down" size={16} color="#475569" />
-                </Pressable>
-              </View>
-
-              <Text style={styles.registerHelp}>
-                Te enviaremos un código OTP a {normalizedRegisterEmail || "tu correo"} para validar tu cuenta.
-              </Text>
-
-              <Pressable style={styles.termsRow} onPress={() => setAcceptedTerms((prev) => !prev)}>
-                <View style={[styles.checkbox, acceptedTerms && styles.checkboxActive]} />
-                <Text style={styles.termsText}>
-                  Acepto los{" "}
-                  <Text style={styles.termsLink} onPress={() => router.push("/terms" as any)}>
-                    Términos y Condiciones
-                  </Text>
-                  .
-                </Text>
-              </Pressable>
-
               <Pressable
-                style={[styles.primaryBtn, registerDisabled && styles.primaryBtnDisabled]}
+                className={`${primaryBtn} ${registerDisabled ? "opacity-[0.65]" : ""}`}
                 onPress={handleRegister}
                 disabled={registerDisabled}
               >
-                <Text style={styles.primaryBtnText}>{loading ? "Enviando..." : "Continuar"}</Text>
+                <Text className={primaryBtnText}>{loading ? "Enviando..." : "Continuar"}</Text>
               </Pressable>
 
-              <View style={styles.dividerRow}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>o</Text>
-                <View style={styles.dividerLine} />
-              </View>
+              {divider}
               {GOOGLE_WEB_CLIENT_ID ? (
                 <GoogleButton loading={loading} onPress={handleGoogleAuth} />
               ) : null}
+
+              <Pressable
+                className="flex-row items-center justify-center gap-2 min-h-[52px] rounded-2xl border border-[#CBD5E1] bg-white mt-1"
+                onPress={() => router.push("/(public)/professional-register" as any)}
+              >
+                <Ionicons name="briefcase-outline" size={18} color="#5B9BD5" />
+                <Text className="text-[#334155] font-body text-sm font-medium">¿Eres profesional?</Text>
+                <Text className="text-[#5B9BD5] font-body text-sm font-bold">Regístrate aquí</Text>
+              </Pressable>
             </>
           )}
 
-          <Pressable
-            style={styles.professionalCta}
-            onPress={() => router.push("/(public)/professional-register" as any)}
-          >
-            <Text style={styles.professionalText}>Soy profesional · Crear cuenta profesional</Text>
-          </Pressable>
-          <Pressable onPress={() => router.push("/terms" as any)}>
-            <Text style={styles.legalLink}>Términos y Condiciones</Text>
-          </Pressable>
-
-          {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+          {errorMessage ? <Text className="text-[#DC2626] font-body text-xs text-center">{errorMessage}</Text> : null}
         </View>
       </View>
-
-      <Modal
-        visible={countryModalVisible}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setCountryModalVisible(false)}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={() => setCountryModalVisible(false)}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Selecciona país</Text>
-
-            <ScrollView style={styles.countryList} showsVerticalScrollIndicator={false}>
-              {COUNTRIES_LATAM.map((country) => {
-                const active = country.code === selectedCountry.code;
-
-                return (
-                  <Pressable
-                    key={country.code}
-                    style={[styles.countryItem, active && styles.countryItemActive]}
-                    onPress={() => {
-                      setSelectedCountry(country);
-                      setCountryModalVisible(false);
-                    }}
-                  >
-                    <Text style={[styles.countryName, active && styles.countryNameActive]}>
-                      {country.name}
-                    </Text>
-                    <Text style={[styles.countryCode, active && styles.countryNameActive]}>
-                      +{country.dialCode}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
-        </Pressable>
-      </Modal>
     </AppScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: appTheme.colors.background,
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 18,
-  },
-
-  card: {
-    borderRadius: 20,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 18,
-    gap: 12,
-  },
-
-  iconWrap: {
-    width: 50,
-    height: 50,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#5B9BD5",
-  },
-
-  title: {
-    color: appTheme.colors.text,
-    fontFamily: appTheme.fonts.heading,
-    fontWeight: "700",
-    fontSize: 24,
-    lineHeight: 31,
-  },
-
-  subtitle: {
-    color: "#475569",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 16,
-    lineHeight: 22,
-  },
-
-  segmentedWrap: {
-    flexDirection: "row",
-    borderRadius: 17,
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
-    backgroundColor: "#F8FAFC",
-    padding: 4,
-    gap: 4,
-  },
-
-  segmentBtn: {
-    flex: 1,
-    minHeight: 42,
-    borderRadius: 13,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  segmentBtnActive: {
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
-  },
-
-  segmentText: {
-    color: "#64748B",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-
-  segmentTextActive: {
-    color: appTheme.colors.text,
-    fontWeight: "700",
-  },
-
-  fieldWrap: {
-    gap: 8,
-  },
-
-  label: {
-    color: appTheme.colors.text,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 15,
-    fontWeight: "600",
-  },
-
-  input: {
-    minHeight: 52,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
-    backgroundColor: "#F8FAFC",
-    paddingHorizontal: 14,
-    color: appTheme.colors.text,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 14,
-  },
-
-  phoneRow: {
-    flexDirection: "row",
-    gap: 8,
-    alignItems: "center",
-  },
-
-  countryBtn: {
-    minHeight: 52,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
-    backgroundColor: "#F8FAFC",
-    paddingHorizontal: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-
-  countryBtnText: {
-    color: appTheme.colors.text,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 14,
-    fontWeight: "700",
-  },
-
-  countryFullBtn: {
-    minHeight: 52,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
-    backgroundColor: "#F8FAFC",
-    paddingHorizontal: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-
-  phoneInput: {
-    flex: 1,
-    minHeight: 52,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
-    backgroundColor: "#F8FAFC",
-    paddingHorizontal: 14,
-    color: appTheme.colors.text,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 14,
-  },
-
-  passwordWrap: {
-    minHeight: 52,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
-    backgroundColor: "#F8FAFC",
-    paddingHorizontal: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-
-  passwordInput: {
-    flex: 1,
-    color: appTheme.colors.text,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 14,
-    paddingVertical: 0,
-  },
-
-  passwordToggle: {
-    color: appTheme.colors.primary,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-
-  forgotWrap: {
-    alignItems: "center",
-    marginTop: -2,
-  },
-
-  forgotText: {
-    color: appTheme.colors.primary,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 15,
-    fontWeight: "500",
-  },
-
-  primaryBtn: {
-    minHeight: 54,
-    borderRadius: 18,
-    backgroundColor: appTheme.colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  primaryBtnDisabled: {
-    opacity: 0.65,
-  },
-
-  primaryBtnText: {
-    color: "#FFFFFF",
-    fontFamily: appTheme.fonts.heading,
-    fontSize: 17,
-    fontWeight: "700",
-  },
-
-  dividerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginTop: -2,
-  },
-
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: appTheme.colors.border,
-  },
-
-  dividerText: {
-    color: "#64748B",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-
-  googleBtn: {
-    minHeight: 52,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-    gap: 10,
-  },
-
-  googleDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: appTheme.colors.primary,
-  },
-
-  googleText: {
-    color: appTheme.colors.text,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-
-  registerHelp: {
-    color: "#475569",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  termsRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-  },
-  checkbox: {
-    marginTop: 2,
-    width: 16,
-    height: 16,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
-    backgroundColor: "#FFFFFF",
-  },
-  checkboxActive: {
-    backgroundColor: appTheme.colors.primary,
-    borderColor: appTheme.colors.primary,
-  },
-  termsText: {
-    flex: 1,
-    color: appTheme.colors.textMuted,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  termsLink: {
-    color: appTheme.colors.primary,
-    fontWeight: "700",
-  },
-
-  professionalCta: {
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#B7D9C5",
-    backgroundColor: "#F4FAF6",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 2,
-    paddingHorizontal: 10,
-  },
-
-  professionalText: {
-    color: appTheme.colors.success,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 13,
-    textAlign: "center",
-    fontWeight: "700",
-  },
-  legalLink: {
-    color: appTheme.colors.textMuted,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 12,
-    textAlign: "center",
-    textDecorationLine: "underline",
-  },
-
-  errorText: {
-    color: appTheme.colors.danger,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 12,
-    textAlign: "center",
-  },
-
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(15, 23, 42, 0.35)",
-    justifyContent: "center",
-    paddingHorizontal: 20,
-  },
-
-  modalCard: {
-    borderRadius: 18,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
-    maxHeight: "70%",
-    padding: 14,
-  },
-
-  modalTitle: {
-    color: appTheme.colors.text,
-    fontFamily: appTheme.fonts.heading,
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 10,
-  },
-
-  countryList: {
-    maxHeight: 380,
-  },
-
-  countryItem: {
-    minHeight: 44,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-
-  countryItemActive: {
-    backgroundColor: "#EEF5FF",
-  },
-
-  countryName: {
-    color: appTheme.colors.text,
-    fontFamily: appTheme.fonts.body,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-
-  countryCode: {
-    color: "#64748B",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 14,
-    fontWeight: "700",
-  },
-
-  countryNameActive: {
-    color: appTheme.colors.primary,
-  },
-});
-
