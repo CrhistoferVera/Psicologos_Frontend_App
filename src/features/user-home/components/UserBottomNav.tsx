@@ -20,9 +20,8 @@ const items: Item[] = [
   { key: "profile",  label: "Perfil",   icon: User,          route: "/(user)/profile",  match: "/profile" },
 ];
 
-const PRIMARY  = appTheme.colors.primary; // #5B9BD5
-const INACTIVE = "#6B7280";
-const PILL_BG  = "rgba(91,155,213,0.28)";
+const PRIMARY  = "#FFFFFF"; // color de la pestaña activa (igual que el nav de profesional)
+const INACTIVE = "#9CA3AF";
 
 function isActive(pathname: string, match: string) {
   if (match === "/home") return pathname === "/home" || pathname === "/";
@@ -58,19 +57,20 @@ export default function UserBottomNav() {
             className="flex-1 items-center pt-2 pb-1.5"
             onPress={() => !active && navigate(item.route)}
           >
-            {/* píldora de fondo cuando activo */}
+            {/* línea indicadora arriba cuando activo */}
             <View
               style={{
                 position: "absolute",
-                top: 6,
-                width: 52,
-                height: 30,
+                top: 0,
+                width: 30,
+                height: 3,
                 borderRadius: 99,
-                backgroundColor: active ? PILL_BG : "transparent",
+                backgroundColor: PRIMARY,
+                opacity: active ? 1 : 0,
               }}
             />
 
-            <Icon size={active ? 27 : 30} color={color} />
+            <Icon size={26} color={color} />
 
             <Text
               className="text-[10px] font-semibold mt-0.5"
@@ -78,34 +78,10 @@ export default function UserBottomNav() {
             >
               {item.label}
             </Text>
-
-            {/* punto indicador */}
-            <View
-              style={{
-                width: 4,
-                height: 4,
-                borderRadius: 99,
-                marginTop: 2,
-                backgroundColor: active ? PRIMARY : "transparent",
-              }}
-            />
           </Pressable>
         );
       })}
 
-      {/* FAB de referidos */}
-      <Pressable
-        className="absolute right-3 -top-3.5 w-8 h-8 rounded-full items-center justify-center"
-        style={{
-          backgroundColor: appTheme.colors.success,
-          borderWidth: 2,
-          borderColor: "#18181b",
-          elevation: 4,
-        }}
-        onPress={() => navigate("/(user)/referrals")}
-      >
-        <Gift size={14} color="#FFFFFF" />
-      </Pressable>
     </View>
   );
 }

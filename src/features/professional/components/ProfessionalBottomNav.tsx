@@ -8,20 +8,21 @@ type NavItem = {
   key: string;
   label: string;
   route: string;
+  match: string; // pathname sin grupo para comparar con usePathname()
   icon: any;
 };
 
 const professionalAccent = "#FFFFFF";
 
 const items: NavItem[] = [
-  { key: "dashboard", label: "Dashboard", route: "/(professional)/dashboard", icon: LayoutDashboard },
-  { key: "bookings", label: "Agenda", route: "/(professional)/bookings", icon: WalletCards },
-  { key: "messages", label: "Mensajes", route: "/(professional)/messages", icon: MessageCircle },
-  { key: "profile", label: "Perfil", route: "/(professional)/profile", icon: UserRoundCog },
+  { key: "dashboard", label: "Dashboard", route: "/(professional)/dashboard", match: "/dashboard", icon: LayoutDashboard },
+  { key: "bookings", label: "Agenda", route: "/(professional)/bookings", match: "/bookings", icon: WalletCards },
+  { key: "messages", label: "Mensajes", route: "/(professional)/messages", match: "/messages", icon: MessageCircle },
+  { key: "profile", label: "Perfil", route: "/(professional)/profile", match: "/profile", icon: UserRoundCog },
 ];
 
-function isActive(pathname: string, route: string) {
-  return pathname === route || pathname.startsWith(`${route}/`);
+function isActive(pathname: string, match: string) {
+  return pathname === match || pathname.startsWith(`${match}/`);
 }
 
 export default function ProfessionalBottomNav() {
@@ -33,7 +34,7 @@ export default function ProfessionalBottomNav() {
     <View style={[styles.wrap, { paddingBottom: insets.bottom > 0 ? insets.bottom : 10 }]}>
       {items.map((item) => {
         const Icon = item.icon;
-        const active = isActive(pathname, item.route);
+        const active = isActive(pathname, item.match);
         return (
           <Pressable key={item.key} style={styles.item} onPress={() => router.push(item.route as any)}>
             <View style={[styles.activeLine, { opacity: active ? 1 : 0 }]} />
