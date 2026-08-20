@@ -98,6 +98,10 @@ export default function ProfessionalProfileScreen() {
             sessionEndsAt: null,
             reason: 'UNKNOWN',
             message: 'No se pudo validar el acceso de comunicacion.',
+            clientJoinedAt: null,
+            professionalJoinedAt: null,
+            noShowType: null,
+            refundWindowExpiresAt: null,
           });
         } finally {
           setCommunicationLoading(false);
@@ -134,6 +138,10 @@ export default function ProfessionalProfileScreen() {
             sessionEndsAt: null,
             reason: 'UNKNOWN',
             message: 'No se pudo validar el acceso de comunicacion.',
+            clientJoinedAt: null,
+            professionalJoinedAt: null,
+            noShowType: null,
+            refundWindowExpiresAt: null,
           });
         }
       } finally {
