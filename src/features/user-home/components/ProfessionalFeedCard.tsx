@@ -1,10 +1,10 @@
+import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import {
   ActivityIndicator,
   Image,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -13,6 +13,7 @@ import { appTheme } from "../../../theme/appTheme";
 import type { CommunicationAccess } from "../../../api/communication";
 import type { Professional } from "../../professionals/types";
 import { useUserRegion } from "../../../hooks/useUserRegion";
+import SpecialtiesModal from "./SpecialtiesModal";
 
 type ImmediateData = {
   priceBob: number;
@@ -44,7 +45,6 @@ export default function ProfessionalFeedCard({
   onChatPress,
   chatLoading = false,
   communicationAccess = null,
-  communicationAccessLoading = false,
   mode = 'normal',
   immediateData,
   onImmediatePress,
@@ -56,10 +56,13 @@ export default function ProfessionalFeedCard({
       ? { uri: professional.avatar }
       : NO_IMAGE;
 
+  const [showSpecialties, setShowSpecialties] = useState(false);
+
   const { isBolivian } = useUserRegion();
   const username = professional.username ? `@${professional.username}` : null;
   const bio = professional.bio?.trim() || null;
   const canCommunicate = communicationAccess?.allowed === true;
+  const hiddenSpecialties = Math.max(0, professional.specialties.length - 2);
 
   const lowestSessionPrice =
     (isBolivian ? professional.lowestSessionPriceBob : professional.lowestSessionPriceUsd) ?? null;
@@ -69,29 +72,10 @@ export default function ProfessionalFeedCard({
     return isBolivian ? `Bs. ${amount}` : `${amount} USD`;
   }
 
-  const communicationHint = communicationAccessLoading
-    ? "Validando acceso..."
-    : canCommunicate
-    ? `Sesión activa hasta ${formatSessionTime(communicationAccess?.sessionEndsAt)}`
-    : "Reserva una sesión para habilitar el chat.";
-
-  function formatSessionTime(iso: string | null | undefined) {
-    if (!iso) return "--:--";
-    const parsed = new Date(iso);
-    if (Number.isNaN(parsed.getTime())) return "--:--";
-    return parsed.toLocaleTimeString("es-BO", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
-  }
-
   return (
-    <Pressable
-      style={[styles.card, { height: cardHeight }]}
-      onPress={onProfilePress}
-      android_ripple={null}
-    >
+    // La tarjeta no navega: solo el avatar, el nombre y el boton de agendar
+    // llevan al perfil, para no disparar la navegacion con cualquier toque.
+    <View style={[styles.card, { height: cardHeight }]}>
       <Image source={bgSource} style={StyleSheet.absoluteFill} resizeMode="cover" />
       <View style={styles.overlay} />
 
@@ -129,11 +113,14 @@ export default function ProfessionalFeedCard({
 
       <View style={styles.infoPanel}>
         <View style={styles.nameRow}>
-          <Image
-            source={professional.avatar ? { uri: professional.avatar } : NO_IMAGE}
-            style={styles.miniAvatar}
-          />
-          <View style={{ flex: 1 }}>
+          <Pressable onPress={onProfilePress} hitSlop={6}>
+            <Image
+              source={professional.avatar ? { uri: professional.avatar } : NO_IMAGE}
+              style={styles.miniAvatar}
+            />
+          </Pressable>
+
+          <Pressable style={{ flex: 1 }} onPress={onProfilePress} hitSlop={6}>
             <Text style={styles.name} numberOfLines={1}>
               {professional.name}
             </Text>
@@ -142,21 +129,24 @@ export default function ProfessionalFeedCard({
                 {username}
               </Text>
             ) : null}
-          </View>
+          </Pressable>
         </View>
 
         {professional.specialties.length > 0 && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.specialtiesRow}
-          >
-            {professional.specialties.slice(0, 4).map((s) => (
-              <View key={s} style={styles.chip}>
-                <Text style={styles.chipText}>{s}</Text>
-              </View>
-            ))}
-          </ScrollView>
+          <View style={styles.specialtiesRow}>
+            <Text style={styles.specialtiesText} numberOfLines={1}>
+              {professional.specialties.slice(0, 2).join(" · ")}
+            </Text>
+            {hiddenSpecialties > 0 ? (
+              <Pressable
+                style={styles.specialtiesMoreBtn}
+                hitSlop={6}
+                onPress={() => setShowSpecialties(true)}
+              >
+                <Text style={styles.specialtiesMoreText}>+{hiddenSpecialties}</Text>
+              </Pressable>
+            ) : null}
+          </View>
         )}
 
         {professional.languages && professional.languages.length > 0 && (
@@ -204,44 +194,61 @@ export default function ProfessionalFeedCard({
             ) : null}
             <Pressable
               style={styles.immediateBtn}
-              onPress={(e) => { e.stopPropagation?.(); onImmediatePress?.(); }}
+              onPress={() => onImmediatePress?.()}
             >
               <Ionicons name="flash" size={16} color="#FFFFFF" />
               <Text style={styles.immediateBtnText}>Recibir atención ahora</Text>
             </Pressable>
           </>
         ) : (
-          <>
+          <View style={styles.actionsRow}>
             <Pressable
-              style={styles.scheduleBtn}
-              onPress={(e) => { e.stopPropagation?.(); onProfilePress(); }}
+              style={[styles.scheduleBtn, !professional.isOnline && styles.scheduleBtnDisabled]}
+              onPress={onProfilePress}
+              disabled={!professional.isOnline}
             >
-              <Ionicons name="calendar-outline" size={16} color="#FFFFFF" />
-              <Text style={styles.scheduleBtnText}>Agendar sesión</Text>
+              <Ionicons
+                name="calendar-outline"
+                size={16}
+                color={professional.isOnline ? "#FFFFFF" : "#94A3B8"}
+              />
+              <Text
+                style={[
+                  styles.scheduleBtnText,
+                  !professional.isOnline && styles.scheduleBtnTextDisabled,
+                ]}
+              >
+                Agendar sesión
+              </Text>
             </Pressable>
 
-            <Pressable
-              style={[styles.chatBtn, (!canCommunicate || chatLoading) && styles.chatBtnDisabled]}
-              onPress={(e) => { e.stopPropagation?.(); onChatPress(); }}
-              disabled={chatLoading || !canCommunicate}
-            >
-              {chatLoading ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <>
-                  <Ionicons name="chatbubble-outline" size={16} color="#FFFFFF" />
-                  <Text style={styles.chatBtnText}>Chatear</Text>
-                </>
-              )}
-            </Pressable>
-
-            <Text style={[styles.communicationHint, canCommunicate && styles.communicationHintAllowed]}>
-              {communicationHint}
-            </Text>
-          </>
+            {/* El chat solo se muestra cuando hay una sesión que lo habilita:
+                un boton permanentemente apagado solo agregaba ruido. */}
+            {canCommunicate ? (
+              <Pressable
+                style={styles.chatIconBtn}
+                onPress={onChatPress}
+                disabled={chatLoading}
+              >
+                {chatLoading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Ionicons name="chatbubble-outline" size={19} color="#FFFFFF" />
+                )}
+              </Pressable>
+            ) : null}
+          </View>
         )}
       </View>
-    </Pressable>
+
+      <SpecialtiesModal
+        visible={showSpecialties}
+        onClose={() => setShowSpecialties(false)}
+        professionalName={professional.name}
+        avatarUrl={professional.avatar}
+        specialties={professional.specialties}
+      />
+    </View>
   );
 }
 
@@ -348,17 +355,25 @@ const styles = StyleSheet.create({
   },
   specialtiesRow: {
     flexDirection: "row",
-    gap: 6,
+    alignItems: "center",
+    gap: 8,
   },
-  chip: {
-    backgroundColor: "rgba(91,155,213,0.30)",
+  specialtiesText: {
+    flexShrink: 1,
+    color: "#BFDBFE",
+    fontFamily: appTheme.fonts.body,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  specialtiesMoreBtn: {
+    backgroundColor: "rgba(91,155,213,0.28)",
     borderWidth: 1,
     borderColor: "rgba(91,155,213,0.50)",
     borderRadius: 99,
-    paddingHorizontal: 11,
-    paddingVertical: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
   },
-  chipText: {
+  specialtiesMoreText: {
     color: "#D6EAFF",
     fontFamily: appTheme.fonts.body,
     fontSize: 12,
@@ -370,14 +385,26 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
   },
+  actionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 6,
+  },
   scheduleBtn: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 7,
     backgroundColor: appTheme.colors.primary,
-    borderRadius: 99,
-    paddingVertical: 13,
+    borderRadius: 16,
+    paddingVertical: 15,
+  },
+  scheduleBtnDisabled: {
+    backgroundColor: "#334155",
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.25)",
   },
   scheduleBtnText: {
     color: "#FFFFFF",
@@ -385,34 +412,18 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
   },
-  chatBtn: {
-    flexDirection: "row",
+  scheduleBtnTextDisabled: {
+    color: "#94A3B8",
+  },
+  chatIconBtn: {
+    width: 52,
+    height: 52,
     alignItems: "center",
     justifyContent: "center",
-    gap: 7,
-    backgroundColor: "rgba(91,155,213,0.30)",
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.12)",
     borderWidth: 1,
-    borderColor: "rgba(91,155,213,0.55)",
-    borderRadius: 99,
-    paddingVertical: 11,
-  },
-  chatBtnDisabled: {
-    opacity: 0.45,
-  },
-  chatBtnText: {
-    color: "#FFFFFF",
-    fontFamily: appTheme.fonts.heading,
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  communicationHint: {
-    color: "#FDE68A",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 11,
-    textAlign: "center",
-  },
-  communicationHintAllowed: {
-    color: "#BBF7D0",
+    borderColor: "rgba(255,255,255,0.22)",
   },
   langsRow: {
     flexDirection: "row",
@@ -519,8 +530,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 7,
     backgroundColor: "#DC2626",
-    borderRadius: 99,
-    paddingVertical: 13,
+    borderRadius: 16,
+    paddingVertical: 15,
+    marginTop: 6,
   },
   immediateBtnText: {
     color: "#FFFFFF",

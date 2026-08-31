@@ -117,6 +117,9 @@ export async function getProfessionals(options: GetProfessionalsOptions = {}): P
   if (specialty && specialty.trim().length > 0 && specialty !== "Todos") {
     params.specialty = specialty.trim();
   }
+  if (search && search.trim().length > 0) {
+    params.search = search.trim();
+  }
 
   const response = await tryGet<ListResponse>("/professionals/public", params);
 
