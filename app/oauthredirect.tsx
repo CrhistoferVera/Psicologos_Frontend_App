@@ -77,6 +77,7 @@ export default function OAuthRedirectScreen() {
 
         const response = await loginWithGoogle(idToken);
         const role = response.user.role;
+        const activeMode = response.user.activeMode;
 
         if (role === "ADMIN") {
           await logout();
@@ -86,7 +87,8 @@ export default function OAuthRedirectScreen() {
 
         await setSession(response.access_token, response.user);
 
-        if (role === "ANFITRIONA" || role === "PROFESSIONAL") {
+        // Enruta por el modo activo del toggle (fallback al rol legacy).
+        if ((role === "ANFITRIONA" || role === "PROFESSIONAL") && activeMode !== "USER") {
           router.replace("/(professional)/dashboard");
         } else {
           router.replace("/(user)/home");

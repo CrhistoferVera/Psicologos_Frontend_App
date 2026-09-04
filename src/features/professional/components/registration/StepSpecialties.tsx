@@ -1,8 +1,8 @@
 import { Text, View } from "react-native";
 import AppChip from "../../../../components/ui/AppChip";
-import type { ProfessionalRegister } from "../../hooks/useProfessionalRegister";
+import type { SpecialtiesStepData } from "./stepProps";
 
-export default function StepSpecialties({ reg }: { reg: ProfessionalRegister }) {
+export default function StepSpecialties({ reg }: { reg: SpecialtiesStepData }) {
   return (
     <View className="gap-3">
       <Text className="text-[#020617] font-heading text-lg font-bold">Especialidades</Text>

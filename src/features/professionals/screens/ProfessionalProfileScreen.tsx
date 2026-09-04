@@ -791,7 +791,7 @@ export default function ProfessionalProfileScreen() {
                           <Text style={styles.educationDesc}>{entry.description}</Text>
                         ) : null}
                         {entry.photoUrl ? (
-                          <Pressable onPress={() => setViewer({ images: [entry.photoUrl!], index: 0 })}>
+                          <Pressable onPress={() => setViewer({ images: [{ id: entry.id, ImageUrl: entry.photoUrl!, resourceType: 'image' } as Environment], index: 0 })}>
                             <Image source={{ uri: entry.photoUrl }} style={styles.educationPhoto} />
                           </Pressable>
                         ) : null}

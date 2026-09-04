@@ -134,6 +134,47 @@ export async function completeProfessionalRegistration(payload: ProfessionalRegi
   return response.data;
 }
 
+type UpgradeFileAsset = { uri: string; name: string; type: string };
+
+export type UpgradeToProfessionalPayload = {
+  username: string;
+  bio?: string;
+  dateOfBirth: string;
+  cedula: string;
+  idDoc?: UpgradeFileAsset;
+  kycVideo?: UpgradeFileAsset;
+  kycSelfie?: UpgradeFileAsset;
+  matricula?: UpgradeFileAsset;
+  tituloProfesional?: UpgradeFileAsset;
+};
+
+// Convierte la cuenta YA autenticada en profesional (sin recrear email/nombre/
+// contraseña: ya viven en la cuenta). El backend pone role/activeMode = PROFESSIONAL.
+export async function upgradeToProfessional(payload: UpgradeToProfessionalPayload) {
+  const form = new FormData();
+  form.append("username", payload.username);
+  if (payload.bio) form.append("bio", payload.bio);
+  form.append("dateOfBirth", payload.dateOfBirth);
+  form.append("cedula", payload.cedula);
+
+  const files: [keyof UpgradeToProfessionalPayload, UpgradeFileAsset | undefined][] = [
+    ["idDoc", payload.idDoc],
+    ["kycVideo", payload.kycVideo],
+    ["kycSelfie", payload.kycSelfie],
+    ["matricula", payload.matricula],
+    ["tituloProfesional", payload.tituloProfesional],
+  ];
+  for (const [field, asset] of files) {
+    if (asset) form.append(field as string, { uri: asset.uri, name: asset.name, type: asset.type } as any);
+  }
+
+  const response = await apiClient.post("/professionals/me/upgrade", form, {
+    headers: { "Content-Type": "multipart/form-data" },
+    timeout: 120000,
+  });
+  return response.data;
+}
+
 export async function getMyProfessionalProfile(): Promise<ProfessionalProfile> {
   const response = await apiClient.get("/professionals/me/profile");
   const data = response.data;
@@ -234,7 +275,7 @@ export async function getProfessionalSpecialtiesCatalog(): Promise<SpecialtyCata
       slug: item.slug ? String(item.slug) : undefined,
     }));
   } catch (error: any) {
-    if (![401, 404].includes(error?.response?.status)) throw error;
+    if (![401, 403, 404].includes(error?.response?.status)) throw error;
     const response = await apiClient.get("/specialties/public");
     const list = Array.isArray(response.data) ? response.data : [];
     return list.map((item: any) => ({

@@ -6,6 +6,7 @@ import ProfileHero from "../components/ProfileHero";
 import QuickAccessCard from "../components/QuickAccessCard";
 import AccountDataCard from "../components/AccountDataCard";
 import LogoutButton from "../components/LogoutButton";
+import ModeToggle from "../../../components/ModeToggle";
 
 export default function UserProfileScreen() {
   const router = useRouter();
@@ -43,6 +44,8 @@ export default function UserProfileScreen() {
           avatarUrl={avatarUrl}
           initials={initials}
         />
+
+        <ModeToggle />
 
         <QuickAccessCard />
 

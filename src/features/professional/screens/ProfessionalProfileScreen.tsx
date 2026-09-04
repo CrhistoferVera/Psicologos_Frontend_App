@@ -15,6 +15,7 @@ import EducationCard from "../components/profile/EducationCard";
 import EducationFormModal from "../components/profile/EducationFormModal";
 import EnvironmentsCard from "../components/profile/EnvironmentsCard";
 import PublicViewModal from "../components/profile/PublicViewModal";
+import ModeToggle from "../../../components/ModeToggle";
 
 export default function ProfessionalProfileScreen() {
   const p = useProfessionalProfile();
@@ -40,6 +41,10 @@ export default function ProfessionalProfileScreen() {
         {p.error ? (
           <Text className="text-[#DC2626] font-body text-xs text-center px-3.5">{p.error}</Text>
         ) : null}
+
+        <View className="mx-3.5">
+          <ModeToggle />
+        </View>
 
         <LanguagesCard
           languages={p.languages}

@@ -1,8 +1,8 @@
 import { Text, View } from "react-native";
-import type { ProfessionalRegister } from "../../hooks/useProfessionalRegister";
+import type { KycStepData } from "./stepProps";
 import UploadCard from "./UploadCard";
 
-export default function StepKyc({ reg }: { reg: ProfessionalRegister }) {
+export default function StepKyc({ reg }: { reg: KycStepData }) {
   return (
     <View className="gap-3">
       <Text className="text-[#020617] font-heading text-lg font-bold">Verificación de identidad</Text>

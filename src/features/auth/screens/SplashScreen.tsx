@@ -6,16 +6,22 @@ import { useAuth } from "../../../context/AuthContext";
 
 export default function SplashScreen() {
   const router = useRouter();
-  const { isHydrated, user } = useAuth();
+  const { isHydrated, user, activeMode, capabilities } = useAuth();
 
   useEffect(() => {
     if (!isHydrated) return;
 
     const timer = setTimeout(() => {
       if (user) {
-        if (user.role === "ADMIN") {
+        const isAdmin = capabilities.isAdmin || user.role === "ADMIN";
+        const canProfessional =
+          capabilities.isProfessional ||
+          user.role === "ANFITRIONA" ||
+          user.role === "PROFESSIONAL";
+
+        if (isAdmin) {
           router.replace("/(public)/admin-only");
-        } else if (user.role === "ANFITRIONA" || user.role === "PROFESSIONAL") {
+        } else if (activeMode === "PROFESSIONAL" && canProfessional) {
           router.replace("/(professional)/dashboard");
         } else {
           router.replace("/(user)/home");
@@ -26,7 +32,7 @@ export default function SplashScreen() {
     }, 1200);
 
     return () => clearTimeout(timer);
-  }, [isHydrated, user, router]);
+  }, [isHydrated, user, activeMode, capabilities, router]);
 
   return (
     <View style={styles.container}>

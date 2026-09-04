@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { AppState, Platform } from "react-native";
-import { getProfile } from "../services/auth";
-import type { User } from "../services/auth";
+import { getProfile, getMyMode, switchActiveMode } from "../services/auth";
+import type { User, ModeContext, ActiveMode, UserCapabilities } from "../services/auth";
 import { getMyBookings } from "../api/bookings";
 import { getProfessionalBookings } from "../api/sessionOfferings";
 import {
@@ -24,12 +24,24 @@ import {
   syncActiveSessionNotification,
 } from "../services/notifications";
 
+const DEFAULT_CAPABILITIES: UserCapabilities = {
+  isClient: false,
+  isProfessional: false,
+  isAdmin: false,
+};
+
 type AuthContextValue = {
   accessToken: string | null;
   user: User | null;
   isHydrated: boolean;
+  // Modo activo del toggle + capacidades de la cuenta (para pintar el switch).
+  activeMode: ActiveMode;
+  capabilities: UserCapabilities;
+  professionalReviewStatus: string | null;
   hydrate: () => Promise<void>;
   setSession: (token: string, user: User) => Promise<void>;
+  refreshMode: () => Promise<void>;
+  switchMode: (mode: ActiveMode) => Promise<ModeContext>;
   logout: () => Promise<void>;
 };
 
@@ -74,11 +86,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [accessToken, setAccessTokenState] = useState<string | null>(null);
   const [user, setUserState] = useState<User | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [mode, setMode] = useState<ModeContext | null>(null);
 
   const clearSessionState = useCallback(async () => {
     await Promise.all([removeAccessToken(), removeUser(), removeTempToken()]);
     setAccessTokenState(null);
     setUserState(null);
+    setMode(null);
+  }, []);
+
+  const refreshMode = useCallback(async () => {
+    try {
+      const ctx = await getMyMode();
+      setMode(ctx);
+    } catch {
+      // Silencioso: si falla, se mantiene el último modo conocido.
+    }
+  }, []);
+
+  const switchMode = useCallback(async (next: ActiveMode) => {
+    const ctx = await switchActiveMode(next);
+    setMode(ctx);
+    // Reflejar el nuevo modo en el user persistido.
+    setUserState((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, activeMode: ctx.activeMode };
+      void setUser(updated);
+      return updated;
+    });
+    return ctx;
   }, []);
 
   const hydrate = useCallback(async () => {
@@ -206,9 +242,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [accessToken, user?.id, user?.role]);
 
+  // Carga el contexto de modo (activeMode + capacidades) cuando hay sesión.
+  useEffect(() => {
+    if (!accessToken || !user?.id) {
+      setMode(null);
+      return;
+    }
+    void refreshMode();
+  }, [accessToken, user?.id, refreshMode]);
+
+  const activeMode: ActiveMode = (mode?.activeMode ??
+    (user?.activeMode as ActiveMode | undefined) ??
+    "USER") as ActiveMode;
+  const capabilities = mode?.capabilities ?? DEFAULT_CAPABILITIES;
+  const professionalReviewStatus = mode?.professionalReviewStatus ?? null;
+
   const value = useMemo(
-    () => ({ accessToken, user, isHydrated, hydrate, setSession, logout }),
-    [accessToken, user, isHydrated, hydrate, setSession, logout],
+    () => ({
+      accessToken,
+      user,
+      isHydrated,
+      activeMode,
+      capabilities,
+      professionalReviewStatus,
+      hydrate,
+      setSession,
+      refreshMode,
+      switchMode,
+      logout,
+    }),
+    [
+      accessToken,
+      user,
+      isHydrated,
+      activeMode,
+      capabilities,
+      professionalReviewStatus,
+      hydrate,
+      setSession,
+      refreshMode,
+      switchMode,
+      logout,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

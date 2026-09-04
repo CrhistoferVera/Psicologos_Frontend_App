@@ -11,7 +11,7 @@ export default function UserLayout() {
     pathname.includes("/professionals/") ||
     pathname.includes("/bookings/new") ||
     pathname.includes("/bookings/payment/");
-  const { user, isHydrated } = useAuth();
+  const { user, isHydrated, capabilities } = useAuth();
 
   if (!isHydrated) {
     return <View style={{ flex: 1, backgroundColor: appTheme.colors.background }} />;
@@ -21,10 +21,10 @@ export default function UserLayout() {
     return <Redirect href="/(public)/auth" />;
   }
 
-  if (user.role !== "USER") {
-    const isProfessional = user.role === "PROFESSIONAL" || user.role === "ANFITRIONA";
-    if (isProfessional) return <Redirect href="/(professional)/dashboard" />;
-    if (user.role === "ADMIN") return <Redirect href="/(public)/admin-only" />;
+  // El área de usuario/cliente es accesible para cualquier cuenta no-admin
+  // (incluidos los profesionales que operan como cliente). Solo se expulsa al admin.
+  if (capabilities.isAdmin || user.role === "ADMIN") {
+    return <Redirect href="/(public)/admin-only" />;
   }
 
   return (

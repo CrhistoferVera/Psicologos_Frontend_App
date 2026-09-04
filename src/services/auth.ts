@@ -10,12 +10,41 @@ export type User = {
   firstName: string | null;
   lastName: string | null;
   role: string;
+  // Modo seleccionado en la UI (el toggle del perfil). No otorga permisos.
+  activeMode?: string;
   isProfileComplete: boolean;
   isActive?: boolean;
   createdAt?: string;
   updatedAt?: string;
   lastLogin?: string | null;
 };
+
+export type ActiveMode = "USER" | "PROFESSIONAL";
+
+export type UserCapabilities = {
+  isClient: boolean;
+  isProfessional: boolean;
+  isAdmin: boolean;
+};
+
+export type ModeContext = {
+  activeMode: ActiveMode;
+  capabilities: UserCapabilities;
+  professionalReviewStatus: string | null;
+};
+
+// Contexto del toggle: modo activo + capacidades (decide si mostrar el switch).
+export async function getMyMode() {
+  return apiFetch<ModeContext>("/users/me/mode", { method: "GET" });
+}
+
+// Cambia el modo (usuario <-> profesional). El backend valida la capacidad.
+export async function switchActiveMode(mode: ActiveMode) {
+  return apiFetch<ModeContext>("/users/me/active-mode", {
+    method: "PATCH",
+    body: JSON.stringify({ mode }),
+  });
+}
 
 export type SendOtpResponse = { message: string };
 

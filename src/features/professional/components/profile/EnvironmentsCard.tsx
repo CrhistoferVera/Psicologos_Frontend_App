@@ -179,6 +179,7 @@ export default function EnvironmentsCard() {
   useEffect(() => {
     getEnvironments()
       .then(setEnvironments)
+      .catch(() => setEnvironments([]))
       .finally(() => setLoading(false));
   }, []);
 

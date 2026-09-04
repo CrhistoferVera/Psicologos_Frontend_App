@@ -4,7 +4,7 @@ import { useAuth } from "../src/context/AuthContext";
 import { appTheme } from "../src/theme/appTheme";
 
 export default function Home() {
-  const { user, isHydrated } = useAuth();
+  const { user, isHydrated, activeMode, capabilities } = useAuth();
 
   if (!isHydrated) {
     return (
@@ -15,8 +15,16 @@ export default function Home() {
   }
 
   if (user) {
-    if (user.role === "ADMIN") return <Redirect href="/(public)/admin-only" />;
-    if (user.role === "ANFITRIONA" || user.role === "PROFESSIONAL") return <Redirect href="/(professional)/dashboard" />;
+    const isAdmin = capabilities.isAdmin || user.role === "ADMIN";
+    // Fallback al rol legacy para enrutar sin parpadeo mientras carga el modo.
+    const canProfessional =
+      capabilities.isProfessional || user.role === "PROFESSIONAL" || user.role === "ANFITRIONA";
+
+    if (isAdmin) return <Redirect href="/(public)/admin-only" />;
+    // Se enruta por el modo activo del toggle, no por el rol.
+    if (activeMode === "PROFESSIONAL" && canProfessional) {
+      return <Redirect href="/(professional)/dashboard" />;
+    }
     return <Redirect href="/(user)/home" />;
   }
 

@@ -28,10 +28,11 @@ export default function AuthScreen() {
   const router = useRouter();
   const { setSession, logout } = useAuth();
 
-  function navigateByRole(role: string) {
+  // Enruta por el modo activo del toggle (con fallback al rol legacy).
+  function navigateByRole(role: string, activeMode?: string) {
     if (role === "ADMIN") {
       router.replace("/(public)/admin-only");
-    } else if (role === "ANFITRIONA" || role === "PROFESSIONAL") {
+    } else if ((role === "ANFITRIONA" || role === "PROFESSIONAL") && activeMode !== "USER") {
       router.replace("/(professional)/dashboard");
     } else {
       router.replace("/(user)/home");
@@ -52,7 +53,7 @@ export default function AuthScreen() {
         return;
       }
       await setSession(response.access_token, response.user);
-      navigateByRole(response.user.role);
+      navigateByRole(response.user.role, response.user.activeMode);
     } catch (error: any) {
       const message = error?.message ?? "Intenta nuevamente.";
       setErrorMessage(message);
@@ -97,7 +98,7 @@ export default function AuthScreen() {
         return;
       }
       await setSession(result.access_token, result.user);
-      navigateByRole(result.user.role);
+      navigateByRole(result.user.role, result.user.activeMode);
     } catch (error: any) {
       if (isErrorWithCode(error)) {
         if (error.code === statusCodes.SIGN_IN_CANCELLED) return;
