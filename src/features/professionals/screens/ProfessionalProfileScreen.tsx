@@ -4,14 +4,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   Alert,
+  Animated,
+  Dimensions,
+  FlatList,
   Image,
   Modal,
   Pressable,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { Video, ResizeMode } from 'expo-av';
 import AppCard from '../../../components/ui/AppCard';
 import AppScreen from '../../../components/ui/AppScreen';
 import { getMyChats } from '../../../api/messages';
@@ -32,8 +37,121 @@ import type { Professional } from '../types';
 import { useCallManager } from '../../../context/CallContext';
 import { useSessionRemaining } from '../../../hooks/useSessionRemaining';
 import { formatRemainingMinText } from '../../../utils/sessionTime';
+import { getEnvironmentsByProfessionalId } from '../../professional/api/environments';
+import type { Environment } from '../../../types/environment.type';
 
 type TabKey = 'info' | 'reviews';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+
+function ImageViewer({
+  images,
+  initialIndex,
+  onClose,
+}: {
+  images: Environment[];
+  initialIndex: number;
+  onClose: () => void;
+}) {
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const flatListRef = useRef<FlatList>(null);
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, { toValue: 1, duration: 220, useNativeDriver: true }).start();
+    setTimeout(() => {
+      flatListRef.current?.scrollToIndex({ index: initialIndex, animated: false });
+    }, 50);
+  }, []);
+
+  function handleClose() {
+    Animated.timing(fadeAnim, { toValue: 0, duration: 180, useNativeDriver: true }).start(onClose);
+  }
+
+  return (
+    <Modal visible transparent animationType="none" onRequestClose={handleClose}>
+      <StatusBar hidden />
+      <Animated.View style={{ flex: 1, backgroundColor: '#000', opacity: fadeAnim }}>
+        <View
+          style={{
+            position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
+            flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+            paddingHorizontal: 16, paddingTop: 52, paddingBottom: 12,
+          }}
+        >
+          <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>
+            {currentIndex + 1} / {images.length}
+          </Text>
+          <Pressable
+            onPress={handleClose}
+            hitSlop={12}
+            style={{
+              width: 36, height: 36, borderRadius: 18,
+              backgroundColor: 'rgba(255,255,255,0.12)',
+              alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <Ionicons name="close" size={20} color="#fff" />
+          </Pressable>
+        </View>
+
+        <FlatList
+          ref={flatListRef}
+          data={images}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(item) => item.id}
+          initialScrollIndex={initialIndex}
+          getItemLayout={(_, index) => ({ length: SCREEN_WIDTH, offset: SCREEN_WIDTH * index, index })}
+          onMomentumScrollEnd={(e) => {
+            setCurrentIndex(Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH));
+          }}
+          renderItem={({ item, index }) => (
+            <View style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT, justifyContent: 'center' }}>
+              {item.resourceType === 'video' ? (
+                <Video
+                  source={{ uri: item.ImageUrl }}
+                  style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT * 0.75 }}
+                  resizeMode={ResizeMode.CONTAIN}
+                  useNativeControls
+                  shouldPlay={index === currentIndex}
+                />
+              ) : (
+                <Image
+                  source={{ uri: item.ImageUrl }}
+                  style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT * 0.75 }}
+                  resizeMode="contain"
+                />
+              )}
+            </View>
+          )}
+        />
+
+        {images.length > 1 && (
+          <View
+            style={{
+              position: 'absolute', bottom: 40, left: 0, right: 0,
+              flexDirection: 'row', justifyContent: 'center', gap: 6,
+            }}
+          >
+            {images.map((_, i) => (
+              <View
+                key={i}
+                style={{
+                  width: i === currentIndex ? 18 : 6,
+                  height: 6, borderRadius: 3,
+                  backgroundColor: i === currentIndex ? '#fff' : 'rgba(255,255,255,0.35)',
+                }}
+              />
+            ))}
+          </View>
+        )}
+      </Animated.View>
+    </Modal>
+  );
+}
 
 export default function ProfessionalProfileScreen() {
   const router = useRouter();
@@ -44,7 +162,7 @@ export default function ProfessionalProfileScreen() {
 
   const [professional, setProfessional] = useState<Professional | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [viewer, setViewer] = useState<{ images: Environment[]; index: number } | null>(null);
   const [offerings, setOfferings] = useState<ProfessionalSessionOffering[]>([]);
   const [offeringsError, setOfferingsError] = useState<string | null>(null);
   const [offeringsLoading, setOfferingsLoading] = useState(true);
@@ -58,6 +176,9 @@ export default function ProfessionalProfileScreen() {
   // Reviews state
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [environments, setEnvironments] = useState<Environment[]>([]);
+  const [envsExpanded, setEnvsExpanded] = useState(false);
+  const [envsContainerWidth, setEnvsContainerWidth] = useState(0);
 
   // Review modal state
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -85,6 +206,10 @@ export default function ProfessionalProfileScreen() {
         setProfessional(profile);
         setOfferings(sessions);
         setOfferingsError(null);
+
+        getEnvironmentsByProfessionalId(profile.id)
+          .then(setEnvironments)
+          .catch(() => setEnvironments([]));
 
         try {
           setCommunicationLoading(true);
@@ -190,7 +315,7 @@ export default function ProfessionalProfileScreen() {
       setPendingReviewBookingId(communicationAccess.bookingId);
       setShowReviewModal(true);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [communicationAccess?.bookingId]);
 
   const { remainingMs: sessionRemainingMs, isExpired: sessionExpired } = useSessionRemaining(
@@ -211,7 +336,7 @@ export default function ProfessionalProfileScreen() {
       setPendingReviewBookingId(communicationAccess.bookingId);
       setShowReviewModal(true);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionExpired]);
 
   const canCommunicateByAccess = communicationAccess?.allowed === true;
@@ -366,15 +491,13 @@ export default function ProfessionalProfileScreen() {
   return (
     <AppScreen scroll contentPadding={0}>
       <View style={styles.page}>
-        {/* Full-screen photo viewer */}
-        <Modal visible={!!selectedPhoto} transparent animationType="fade" onRequestClose={() => setSelectedPhoto(null)}>
-          <Pressable style={styles.photoViewerOverlay} onPress={() => setSelectedPhoto(null)}>
-            <Image source={{ uri: selectedPhoto ?? '' }} style={styles.photoViewerImage} resizeMode="contain" />
-            <Pressable style={styles.photoViewerClose} onPress={() => setSelectedPhoto(null)}>
-              <Ionicons name="close" size={22} color="#FFFFFF" />
-            </Pressable>
-          </Pressable>
-        </Modal>
+        {viewer && (
+          <ImageViewer
+            images={viewer.images}
+            initialIndex={viewer.index}
+            onClose={() => setViewer(null)}
+          />
+        )}
 
         {/* Review modal */}
         <Modal visible={showReviewModal} transparent animationType="fade">
@@ -668,13 +791,81 @@ export default function ProfessionalProfileScreen() {
                           <Text style={styles.educationDesc}>{entry.description}</Text>
                         ) : null}
                         {entry.photoUrl ? (
-                          <Pressable onPress={() => setSelectedPhoto(entry.photoUrl!)}>
+                          <Pressable onPress={() => setViewer({ images: [entry.photoUrl!], index: 0 })}>
                             <Image source={{ uri: entry.photoUrl }} style={styles.educationPhoto} />
                           </Pressable>
                         ) : null}
                       </View>
                     </View>
                   ))}
+                </View>
+              </AppCard>
+            ) : null}
+
+            {environments.length > 0 ? (
+              <AppCard>
+                <Text style={styles.blockTitle}>Ambiente de trabajo</Text>
+                <View
+                  onLayout={(e) => setEnvsContainerWidth(e.nativeEvent.layout.width)}
+                >
+                  {envsContainerWidth > 0 && (() => {
+                    const GAP = 8;
+                    const imgSize = (envsContainerWidth - GAP * 2) / 3;
+                    const LIMIT = 6;
+                    const visible = envsExpanded ? environments : environments.slice(0, LIMIT);
+                    const hasMore = environments.length > LIMIT;
+                    return (
+                      <>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: GAP, marginTop: 8 }}>
+                          {visible.map((env, index) => (
+                            <Pressable
+                              key={env.id}
+                              style={{ width: imgSize, height: imgSize }}
+                              onPress={() => setViewer({ images: visible, index })}
+                            >
+                              {env.resourceType === 'video' ? (
+                                <Video
+                                  source={{ uri: env.ImageUrl }}
+                                  style={{ width: imgSize, height: imgSize, borderRadius: 10 }}
+                                  resizeMode={ResizeMode.COVER}
+                                  isMuted
+                                />
+                              ) : (
+                                <Image
+                                  source={{ uri: env.ImageUrl }}
+                                  style={{ width: imgSize, height: imgSize, borderRadius: 10 }}
+                                  resizeMode="cover"
+                                />
+                              )}
+                              {env.resourceType === 'video' && (
+                                <View style={{
+                                  position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                                  alignItems: 'center', justifyContent: 'center', borderRadius: 10,
+                                }}>
+                                  <Ionicons name="play-circle" size={28} color="rgba(255,255,255,0.85)" />
+                                </View>
+                              )}
+                            </Pressable>
+                          ))}
+                        </View>
+                        {hasMore && (
+                          <Pressable
+                            onPress={() => setEnvsExpanded((prev) => !prev)}
+                            style={styles.envsMoreBtn}
+                          >
+                            <Text style={styles.envsMoreText}>
+                              {envsExpanded ? 'Ver menos' : `Ver más · ${environments.length - LIMIT} fotos`}
+                            </Text>
+                            <Ionicons
+                              name={envsExpanded ? 'chevron-up' : 'chevron-down'}
+                              size={14}
+                              color="#5B9BD5"
+                            />
+                          </Pressable>
+                        )}
+                      </>
+                    );
+                  })()}
                 </View>
               </AppCard>
             ) : null}
@@ -1284,6 +1475,22 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginTop: 8,
     resizeMode: 'cover',
+  },
+  envsMoreBtn: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#F0F6FF',
+  },
+  envsMoreText: {
+    color: '#5B9BD5',
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: appTheme.fonts.body,
   },
   langCardHeader: {
     flexDirection: 'row',

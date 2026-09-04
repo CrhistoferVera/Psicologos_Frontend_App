@@ -7,7 +7,7 @@ export interface DepositResponse {
     paymentMethodId: string;
     imageUrl: string;
     status: DepositStatus;
-    createdAt: string;
+    createdaAt: string;
 }
 
 export interface CreateDepositRequest {

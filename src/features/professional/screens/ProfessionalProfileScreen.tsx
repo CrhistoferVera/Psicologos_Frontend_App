@@ -13,6 +13,7 @@ import SpecialtiesCard from "../components/profile/SpecialtiesCard";
 import AvailabilityCard from "../components/profile/AvailabilityCard";
 import EducationCard from "../components/profile/EducationCard";
 import EducationFormModal from "../components/profile/EducationFormModal";
+import EnvironmentsCard from "../components/profile/EnvironmentsCard";
 import PublicViewModal from "../components/profile/PublicViewModal";
 
 export default function ProfessionalProfileScreen() {
@@ -108,6 +109,8 @@ export default function ProfessionalProfileScreen() {
           onCancel={() => p.setShowEduModal(false)}
           onSave={() => void p.saveEduEntry()}
         />
+
+        <EnvironmentsCard />
 
         <PublicViewModal
           visible={p.showPublicView}
