@@ -71,7 +71,7 @@ export default function ProfessionalImmediateCareScreen() {
       ? parseInt(activeForMinutesCustom, 10)
       : activeForMinutes;
 
-    if (!parsedPrice || parsedPrice <= 0) return Alert.alert('Error', 'Ingresa un precio válido.');
+    if (Number.isNaN(parsedPrice) || parsedPrice < 0) return Alert.alert('Error', 'Ingresa un precio válido (0 = gratis).');
     if (!duration || duration <= 0) return Alert.alert('Error', 'Ingresa una duración válida.');
     if (!resolvedActiveFor || resolvedActiveFor <= 0) return Alert.alert('Error', 'Ingresa un tiempo activo válido.');
 

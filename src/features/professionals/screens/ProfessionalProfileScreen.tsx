@@ -577,7 +577,7 @@ export default function ProfessionalProfileScreen() {
                 source={
                   professional.avatar
                     ? { uri: professional.avatar }
-                    : require('../../../../assets/no_image.jpg')
+                    : require('../../../../assets/no_image.webp')
                 }
                 style={styles.avatar}
               />

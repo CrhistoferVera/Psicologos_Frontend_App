@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "expo-router";
 import { Image, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AppButton from "../../../components/ui/AppButton";
 import AppScreen from "../../../components/ui/AppScreen";
 import { appTheme } from "../../../theme/appTheme";
@@ -12,31 +13,32 @@ const slides = [
     title: "Encuentra al profesional ideal",
     description:
       "Busca por especialidad y elige al profesional que mejor se adapte a tu situación.",
-      image: require("../../../../assets/onboarding-1.jpeg"),
+      image: require("../../../../assets/onboarding-1.webp"),
   },
   {
     title: "Atención inmediata cuando lo necesitas",
     description:
       "Conecta con especialistas listos para acompañarte en los momentos difíciles.",
-      image: require("../../../../assets/onboarding-2.jpeg"),
+      image: require("../../../../assets/onboarding-2.webp"),
   },
   {
     title: "Especialistas que te acompañan",
     description:
       "Profesionales clínicos con experiencia en ansiedad, duelo, depresión y más.",
-      image: require("../../../../assets/onboarding-3.jpeg"),
+      image: require("../../../../assets/onboarding-3.webp"),
   },
   {
     title: "Terapia adaptada a ti",
     description:
       "Cada proceso es único: encuentra el enfoque que mejor se ajusta a tus necesidades.",
-      image: require("../../../../assets/onboarding-4.jpeg"),
+      image: require("../../../../assets/onboarding-4.webp"),
   },
 ];
 
 export default function OnboardingScreen() {
   const [step, setStep] = useState(0);
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const current = useMemo(() => slides[step], [step]);
 
   useEffect(() => {
@@ -48,9 +50,9 @@ export default function OnboardingScreen() {
 
   return (
     <AppScreen>
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingBottom: insets.bottom + 12 }]}>
         <View style={styles.imageContainer}>
-          <Image source={current.image} style={styles.hero} resizeMode="contain" />
+          <Image source={current.image} style={styles.hero} resizeMode="cover" />
         </View>
 
         <View style={styles.textContent}>
@@ -67,6 +69,7 @@ export default function OnboardingScreen() {
         <AppButton
           title="Continuar"
           onPress={() => router.replace("/(public)/auth")}
+          textStyle={{ fontFamily: "Sora-SemiBold" }}
         />
       </View>
     </AppScreen>
@@ -81,11 +84,11 @@ const styles = StyleSheet.create({
   },
 
   imageContainer: {
+    flex: 1,
     width: "100%",
-    aspectRatio: 1,
     borderRadius: appTheme.radius.xl,
     overflow: "hidden",
-    backgroundColor: "#EEF4FB",
+    backgroundColor: "#FFFFFF",
   },
 
   hero: {
@@ -100,8 +103,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 30,
     color: appTheme.colors.text,
-    fontFamily: appTheme.fonts.heading,
-    fontWeight: "700",
+    fontFamily: "Sora-Bold",
     lineHeight: 36,
   },
 
@@ -109,7 +111,7 @@ const styles = StyleSheet.create({
     color: "#475569",
     fontSize: 16,
     lineHeight: 24,
-    fontFamily: appTheme.fonts.body,
+    fontFamily: "Sora-Regular",
   },
 
   dots: {

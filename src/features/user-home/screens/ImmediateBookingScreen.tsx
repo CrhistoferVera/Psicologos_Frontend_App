@@ -22,7 +22,7 @@ import {
 import { getMyBooking, getBookingQrStatus, type BookingPaymentInitResponse } from '../../../api/bookings';
 import { useUserRegion } from '../../../hooks/useUserRegion';
 
-const NO_IMAGE = require('../../../../assets/no_image.jpg');
+const NO_IMAGE = require('../../../../assets/no_image.webp');
 
 type ScreenState = 'idle' | 'paying' | 'qr' | 'confirmed' | 'expired';
 

@@ -20,7 +20,7 @@ export default function IdentityCard({
     <View className="flex-row items-center gap-3 px-3.5 py-2.5 border-b border-[#DEE6F1]">
       <View className="w-[78px] h-[78px] rounded-[22px] bg-[#E2E8F0] relative">
         <Image
-          source={avatarUrl ? { uri: avatarUrl } : require("../../../../../assets/no_image.jpg")}
+          source={avatarUrl ? { uri: avatarUrl } : require("../../../../../assets/no_image.webp")}
           className="w-full h-full rounded-[22px]"
         />
         <Pressable

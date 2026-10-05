@@ -1,4 +1,4 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text, ViewStyle } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextStyle, ViewStyle } from "react-native";
 import { appTheme } from "../../theme/appTheme";
 
 type Variant = "primary" | "secondary" | "ghost";
@@ -10,6 +10,7 @@ type Props = {
   disabled?: boolean;
   variant?: Variant;
   style?: ViewStyle;
+  textStyle?: TextStyle;
 };
 
 export default function AppButton({
@@ -19,6 +20,7 @@ export default function AppButton({
   disabled = false,
   variant = "primary",
   style,
+  textStyle,
 }: Props) {
   const isDisabled = disabled || loading;
   const variantStyle = stylesByVariant[variant];
@@ -37,7 +39,7 @@ export default function AppButton({
       {loading ? (
         <ActivityIndicator color={variant === "primary" ? "#FFFFFF" : appTheme.colors.primary} />
       ) : (
-        <Text style={[styles.label, variantStyle.label]}>{title}</Text>
+        <Text style={[styles.label, variantStyle.label, textStyle]}>{title}</Text>
       )}
     </Pressable>
   );

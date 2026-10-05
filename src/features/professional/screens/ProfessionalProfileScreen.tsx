@@ -15,6 +15,8 @@ import EducationCard from "../components/profile/EducationCard";
 import EducationFormModal from "../components/profile/EducationFormModal";
 import EnvironmentsCard from "../components/profile/EnvironmentsCard";
 import PublicViewModal from "../components/profile/PublicViewModal";
+import ChargeVerificationCard from "../components/profile/ChargeVerificationCard";
+import VerificationStatusCard from "../components/profile/VerificationStatusCard";
 import ModeToggle from "../../../components/ModeToggle";
 
 export default function ProfessionalProfileScreen() {
@@ -31,7 +33,7 @@ export default function ProfessionalProfileScreen() {
           avatarUrl={p.avatarUrl}
           displayName={p.displayName}
           roleSubtitle={p.visibleSpecialties[0] ?? "Psicología clínica"}
-          isVerified={p.user?.isActive}
+          isVerified={p.reviewStatus === "APPROVED"}
           onPickAvatar={p.pickAvatar}
         />
 
@@ -45,6 +47,22 @@ export default function ProfessionalProfileScreen() {
         <View className="mx-3.5">
           <ModeToggle />
         </View>
+
+        {!p.loading ? (
+          <View className="mx-3.5 gap-2.5">
+            <VerificationStatusCard
+              reviewStatus={p.reviewStatus}
+              canCharge={p.canCharge}
+              verificationDocType={p.verificationDocType}
+            />
+            <ChargeVerificationCard
+              canCharge={p.canCharge}
+              chargeVerificationPending={p.chargeVerificationPending}
+              verificationDocType={p.verificationDocType}
+              onSubmitted={p.reloadProfile}
+            />
+          </View>
+        ) : null}
 
         <LanguagesCard
           languages={p.languages}
@@ -129,7 +147,7 @@ export default function ProfessionalProfileScreen() {
           specialties={p.selectedSpecialtyNames}
           isOnline={p.isOnline}
           languages={p.languages}
-          isVerified={p.user?.isActive}
+          isVerified={p.reviewStatus === "APPROVED"}
         />
 
         <View className="mx-3.5">

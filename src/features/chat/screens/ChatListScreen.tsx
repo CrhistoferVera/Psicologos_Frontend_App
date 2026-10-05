@@ -114,7 +114,7 @@ export default function ChatListScreen() {
             >
               <View style={styles.avatarWrap}>
                 <Image
-                  source={item.otherUserAvatar ? { uri: item.otherUserAvatar } : require("../../../../assets/no_image.jpg")}
+                  source={item.otherUserAvatar ? { uri: item.otherUserAvatar } : require("../../../../assets/no_image.webp")}
                   style={styles.avatar}
                 />
               </View>

@@ -369,7 +369,7 @@ export default function ChatDetailScreen() {
         </Pressable>
 
         <Image
-          source={professionalAvatar ? { uri: professionalAvatar } : require("../../../../assets/no_image.jpg")}
+          source={professionalAvatar ? { uri: professionalAvatar } : require("../../../../assets/no_image.webp")}
           style={styles.avatar}
         />
 
@@ -546,7 +546,7 @@ export default function ChatDetailScreen() {
               <View style={[styles.messageRow, mine ? styles.messageRowMine : styles.messageRowTheirs]}>
                 {!mine ? (
                   <Image
-                    source={professionalAvatar ? { uri: professionalAvatar } : require("../../../../assets/no_image.jpg")}
+                    source={professionalAvatar ? { uri: professionalAvatar } : require("../../../../assets/no_image.webp")}
                     style={styles.bubbleAvatar}
                   />
                 ) : null}

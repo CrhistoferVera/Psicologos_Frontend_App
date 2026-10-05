@@ -25,6 +25,11 @@ export type ProfessionalProfile = {
     sun?: string;
     [key: string]: unknown;
   } | null;
+  // Estado de cobro: CI => canCharge false hasta que suba y verifiquemos su título.
+  canCharge?: boolean;
+  verificationDocType?: VerificationDocType | null;
+  chargeVerificationPending?: boolean;
+  hasTitulo?: boolean;
 };
 
 export type ProfessionalPriceInput = {
@@ -53,6 +58,10 @@ export type ProfessionalChatItem = {
 
 export type KycFileAsset = { uri: string; name: string; type: string };
 
+// Documento con el que el profesional se verifica (elige 1). CI => solo sesiones
+// gratuitas; TITULO o MATRICULA => puede cobrar dentro de la app.
+export type VerificationDocType = "CI" | "TITULO" | "MATRICULA";
+
 export type ProfessionalRegisterPayload = {
   tempToken: string;
   firstName: string;
@@ -66,11 +75,9 @@ export type ProfessionalRegisterPayload = {
   cedula: string;
   referralCode?: string;
   country: string;
-  idDoc?: KycFileAsset;
   kycVideo?: KycFileAsset;
-  kycSelfie?: KycFileAsset;
-  matricula?: KycFileAsset;
-  tituloProfesional?: KycFileAsset;
+  verificationDocType: VerificationDocType;
+  verificationDoc?: KycFileAsset;
 };
 
 export type RegistrationProgress = {

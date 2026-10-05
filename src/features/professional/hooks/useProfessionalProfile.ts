@@ -51,6 +51,14 @@ export function useProfessionalProfile() {
   const [languages, setLanguages] = useState<string[]>([]);
   const [showLangModal, setShowLangModal] = useState(false);
 
+  // Estado de cobro (CI => no cobra hasta subir y verificar su título).
+  const [canCharge, setCanCharge] = useState(false);
+  const [verificationDocType, setVerificationDocType] = useState<string | null>(null);
+  const [chargeVerificationPending, setChargeVerificationPending] = useState(false);
+  // Estado de revisión fresco (se recarga en cada focus) para que el badge
+  // "verificado" refleje al instante si el admin aprueba o rechaza la cuenta.
+  const [reviewStatus, setReviewStatus] = useState<string | null>(null);
+
   const [editingBio, setEditingBio] = useState(false);
   const [editingSpecialties, setEditingSpecialties] = useState(false);
   const [showPublicView, setShowPublicView] = useState(false);
@@ -87,6 +95,10 @@ export function useProfessionalProfile() {
       setCoverUrl(profile.coverUrl ?? null);
       setEducation(Array.isArray(profile.education) ? profile.education : []);
       setLanguages(Array.isArray(profile.languages) ? profile.languages : []);
+      setCanCharge(Boolean(profile.canCharge));
+      setVerificationDocType(profile.verificationDocType ?? null);
+      setChargeVerificationPending(Boolean(profile.chargeVerificationPending));
+      setReviewStatus(profile.reviewStatus ?? null);
 
       const trimmed = specialtiesCatalog.slice(0, 48).map((item) => ({ id: item.id, name: item.name }));
       setCatalog(trimmed);
@@ -426,5 +438,12 @@ export function useProfessionalProfile() {
 
     handleSave,
     handleLogout,
+
+    // Cobro / verificación de título
+    canCharge,
+    verificationDocType,
+    chargeVerificationPending,
+    reviewStatus,
+    reloadProfile: loadProfile,
   };
 }

@@ -11,7 +11,7 @@ type Props = {
   specialties: string[];
 };
 
-const NO_IMAGE = require("../../../../assets/no_image.jpg");
+const NO_IMAGE = require("../../../../assets/no_image.webp");
 
 export default function SpecialtiesModal({
   visible,

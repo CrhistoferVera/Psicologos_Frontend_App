@@ -41,7 +41,7 @@ export default function ProfessionalCard({ professional, onPress }: Props) {
             source={
               professional.avatar
                 ? { uri: professional.avatar }
-                : require("../../../../assets/no_image.jpg")
+                : require("../../../../assets/no_image.webp")
             }
             className="h-16 w-16 rounded-full bg-slate-200"
           />

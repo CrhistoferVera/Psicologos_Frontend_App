@@ -274,7 +274,7 @@ export default function ProfessionalMessageDetailScreen() {
           <ArrowLeft size={18} color={appTheme.colors.text} />
         </Pressable>
         <Image
-          source={clientAvatar ? { uri: clientAvatar } : require("../../../../assets/no_image.jpg")}
+          source={clientAvatar ? { uri: clientAvatar } : require("../../../../assets/no_image.webp")}
           style={styles.avatar}
         />
         <View style={{ flex: 1 }}>
@@ -342,7 +342,7 @@ export default function ProfessionalMessageDetailScreen() {
               <View style={[styles.messageRow, mine ? styles.messageRowMine : styles.messageRowTheirs]}>
                 {!mine ? (
                   <Image
-                    source={clientAvatar ? { uri: clientAvatar } : require("../../../../assets/no_image.jpg")}
+                    source={clientAvatar ? { uri: clientAvatar } : require("../../../../assets/no_image.webp")}
                     style={styles.bubbleAvatar}
                   />
                 ) : null}

@@ -80,8 +80,8 @@ export default function ProfessionalSessionOfferingsScreen() {
       return;
     }
 
-    if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
-      Alert.alert('Validación', `El precio en ${isBolivian ? 'Bs' : 'USD'} debe ser mayor a 0.`);
+    if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
+      Alert.alert('Validación', `El precio en ${isBolivian ? 'Bs' : 'USD'} no puede ser negativo (0 = sesión gratuita).`);
       return;
     }
 

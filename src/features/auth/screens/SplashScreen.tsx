@@ -37,7 +37,7 @@ export default function SplashScreen() {
   return (
     <View style={styles.container}>
       <Image
-        source={require("../../../../assets/icon.png")}
+        source={require("../../../../assets/logo.webp")}
         style={styles.logo}
         resizeMode="contain"
       />
@@ -69,8 +69,7 @@ const styles = StyleSheet.create({
   title: {
     color: appTheme.colors.text,
     fontSize: 28,
-    fontFamily: appTheme.fonts.heading,
-    fontWeight: "700",
+    fontFamily: "Sora-Bold",
   },
 
   subtitle: {

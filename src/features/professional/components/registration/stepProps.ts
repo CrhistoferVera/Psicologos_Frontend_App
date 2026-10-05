@@ -1,4 +1,5 @@
 import type { FileAsset } from "../../hooks/useKycAssets";
+import type { VerificationDocType } from "../../types";
 
 // Subconjuntos de datos que consumen los steps presentacionales reutilizables.
 // Tanto el flujo de registro (useProfessionalRegister) como el de upgrade
@@ -12,11 +13,9 @@ export type SpecialtiesStepData = {
 
 export type KycStepData = {
   kycVideo: FileAsset | null;
-  idDoc: FileAsset | null;
-  matricula: FileAsset | null;
-  tituloProfesional: FileAsset | null;
   handleRecordFaceVideo: () => void | Promise<void>;
-  handlePickIdDoc: () => void | Promise<void>;
-  handlePickMatricula: () => void | Promise<void>;
-  handlePickTitulo: () => void | Promise<void>;
+  verificationDocType: VerificationDocType | null;
+  setVerificationDocType: (type: VerificationDocType) => void;
+  verificationDoc: FileAsset | null;
+  handlePickVerificationDoc: () => void | Promise<void>;
 };

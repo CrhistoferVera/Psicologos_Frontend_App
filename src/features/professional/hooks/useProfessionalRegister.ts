@@ -1,9 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "expo-router";
 import { Alert } from "react-native";
-import * as DocumentPicker from "expo-document-picker";
-import * as ImagePicker from "expo-image-picker";
-import * as VideoThumbnails from "expo-video-thumbnails";
 import { GoogleSignin, isErrorWithCode, statusCodes } from "@react-native-google-signin/google-signin";
 import { useAuth } from "../../../context/AuthContext";
 import {
@@ -14,11 +11,12 @@ import {
   verifyProfessionalGoogle,
   verifyProfessionalOtp,
 } from "../api/professionalApi";
+import { useKycAssets, type FileAsset } from "./useKycAssets";
 
 export const TOTAL_STEPS = 5;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export type FileAsset = { uri: string; name: string; type: string };
+export type { FileAsset };
 
 export function useProfessionalRegister() {
   const router = useRouter();
@@ -51,11 +49,7 @@ export function useProfessionalRegister() {
   const [specialtiesCatalog, setSpecialtiesCatalog] = useState<{ id: string; name: string }[]>([]);
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([]);
 
-  const [idDoc, setIdDoc] = useState<FileAsset | null>(null);
-  const [kycVideo, setKycVideo] = useState<FileAsset | null>(null);
-  const [kycSelfie, setKycSelfie] = useState<FileAsset | null>(null);
-  const [matricula, setMatricula] = useState<FileAsset | null>(null);
-  const [tituloProfesional, setTituloProfesional] = useState<FileAsset | null>(null);
+  const kyc = useKycAssets(setError);
 
   useEffect(() => {
     if (step !== 3 || specialtiesCatalog.length > 0) return;
@@ -123,6 +117,11 @@ export function useProfessionalRegister() {
     }
     if (currentStep === 3) {
       if (selectedSpecialties.length === 0) return "Selecciona al menos una especialidad.";
+    }
+    if (currentStep === 4) {
+      if (!kyc.kycVideo) return "Graba el video de rostro.";
+      if (!kyc.verificationDocType) return "Selecciona el tipo de documento a verificar.";
+      if (!kyc.verificationDoc) return "Adjunta el documento de verificación.";
     }
     return null;
   }
@@ -197,57 +196,6 @@ export function useProfessionalRegister() {
     }
   }
 
-  async function pickDocument(setter: (asset: FileAsset) => void, errorMsg: string, fallbackName: string) {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ["image/*", "application/pdf"],
-        copyToCacheDirectory: true,
-      });
-      if (result.canceled) return;
-      const asset = result.assets?.[0];
-      if (!asset) return;
-      setter({ uri: asset.uri, name: asset.name ?? fallbackName, type: asset.mimeType ?? "application/octet-stream" });
-    } catch {
-      setError(errorMsg);
-    }
-  }
-
-  const handlePickIdDoc = () => pickDocument(setIdDoc, "No se pudo seleccionar el documento.", "id-doc");
-  const handlePickMatricula = () => pickDocument(setMatricula, "No se pudo seleccionar la matrícula.", "matricula");
-  const handlePickTitulo = () => pickDocument(setTituloProfesional, "No se pudo seleccionar el título.", "titulo");
-
-  async function handleRecordFaceVideo() {
-    try {
-      const permission = await ImagePicker.requestCameraPermissionsAsync();
-      if (!permission.granted) {
-        Alert.alert("Permiso requerido", "Necesitamos acceso a tu cámara para grabar el video.");
-        return;
-      }
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: "videos",
-        videoMaxDuration: 10,
-        quality: 0.7,
-        allowsEditing: false,
-      });
-      if (result.canceled) return;
-      const asset = result.assets?.[0];
-      if (!asset?.uri) return;
-
-      setKycVideo({ uri: asset.uri, name: "kyc_video.mp4", type: "video/mp4" });
-
-      try {
-        const thumb = await VideoThumbnails.getThumbnailAsync(asset.uri, { time: 500 });
-        setKycSelfie({ uri: thumb.uri, name: "kyc_selfie.jpg", type: "image/jpeg" });
-      } catch {
-        // Thumbnail extraction failed — face comparison will be SKIPPED on backend
-      }
-
-      Alert.alert("Video grabado", "Video de rostro registrado correctamente.");
-    } catch {
-      setError("No se pudo grabar el video.");
-    }
-  }
-
   function handleContinue() {
     const validationError = validateStep(step);
     if (validationError) {
@@ -269,11 +217,13 @@ export function useProfessionalRegister() {
   }
 
   async function handleSubmit() {
-    const validationError = validateStep(3);
-    if (validationError) {
-      setError(validationError);
-      setStep(3);
-      return;
+    for (const s of [3, 4] as const) {
+      const validationError = validateStep(s);
+      if (validationError) {
+        setError(validationError);
+        setStep(s);
+        return;
+      }
     }
     if (!tempToken) {
       setError("No hay token de verificación. Repite la verificación OTP.");
@@ -302,11 +252,9 @@ export function useProfessionalRegister() {
         cedula: cedula.trim(),
         country: professionalCountry,
         referralCode: referralCode.trim() || undefined,
-        idDoc: idDoc ?? undefined,
-        kycVideo: kycVideo ?? undefined,
-        kycSelfie: kycSelfie ?? undefined,
-        matricula: matricula ?? undefined,
-        tituloProfesional: tituloProfesional ?? undefined,
+        kycVideo: kyc.kycVideo ?? undefined,
+        verificationDocType: kyc.verificationDocType!,
+        verificationDoc: kyc.verificationDoc ?? undefined,
       });
 
       await setSession(registration.access_token, registration.user);
@@ -365,19 +313,17 @@ export function useProfessionalRegister() {
     specialtiesCatalog,
     selectedSpecialties,
     toggleSpecialty,
-    idDoc,
-    kycVideo,
-    matricula,
-    tituloProfesional,
+    kycVideo: kyc.kycVideo,
+    handleRecordFaceVideo: kyc.handleRecordFaceVideo,
+    verificationDocType: kyc.verificationDocType,
+    setVerificationDocType: kyc.setVerificationDocType,
+    verificationDoc: kyc.verificationDoc,
+    handlePickVerificationDoc: kyc.handlePickVerificationDoc,
     currentStepTitle,
     selectedSpecialtyNames,
     handleSendOtp,
     handleVerifyOtp,
     handleGoogleVerify,
-    handlePickIdDoc,
-    handleRecordFaceVideo,
-    handlePickMatricula,
-    handlePickTitulo,
     handleContinue,
     handleBack,
     handleSubmit,

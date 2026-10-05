@@ -4,72 +4,45 @@ import { Ionicons } from "@expo/vector-icons";
 import { appTheme } from "../../../../theme/appTheme";
 
 type Props = {
-  isBolivian: boolean;
+  isBolivian?: boolean;
   paying: boolean;
   onPayQr: () => void;
-  onPayStripe: () => void;
+  // SANAMENTE: Stripe oculto. Se mantiene opcional por compatibilidad con los
+  // llamadores, pero ya no se renderiza (solo QR para todos).
+  onPayStripe?: () => void;
 };
 
-export function CheckoutPayMethod({ isBolivian, paying, onPayQr, onPayStripe }: Props) {
+export function CheckoutPayMethod({ paying, onPayQr }: Props) {
   return (
     <View style={styles.wrap}>
       <Text style={styles.label}>Método de pago</Text>
 
-      {isBolivian ? (
-        <Pressable
-          style={[styles.btn, paying && styles.disabled]}
-          disabled={paying}
-          onPress={onPayQr}
+      <Pressable
+        style={[styles.btn, paying && styles.disabled]}
+        disabled={paying}
+        onPress={onPayQr}
+      >
+        <LinearGradient
+          colors={["#0EA5E9", "#0284C7"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.gradient}
         >
-          <LinearGradient
-            colors={["#0EA5E9", "#0284C7"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.gradient}
-          >
-            <View style={styles.iconWrap}>
-              <Ionicons name="qr-code" size={22} color="#0EA5E9" />
-            </View>
-            <View style={styles.textWrap}>
-              <Text style={styles.title}>
-                {paying ? "Generando QR..." : "Pagar con QR Baneco"}
-              </Text>
-              <Text style={styles.sub}>Escanea y paga al instante</Text>
-            </View>
-            {paying
-              ? <ActivityIndicator size="small" color="#FFFFFF" />
-              : <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
-            }
-          </LinearGradient>
-        </Pressable>
-      ) : (
-        <Pressable
-          style={[styles.btn, paying && styles.disabled]}
-          disabled={paying}
-          onPress={onPayStripe}
-        >
-          <LinearGradient
-            colors={["#7C3AED", "#635BFF"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.gradient}
-          >
-            <View style={styles.iconWrap}>
-              <Ionicons name="card" size={22} color="#635BFF" />
-            </View>
-            <View style={styles.textWrap}>
-              <Text style={styles.title}>
-                {paying ? "Procesando..." : "Pagar con Stripe"}
-              </Text>
-              <Text style={styles.sub}>Tarjeta, Apple Pay y más</Text>
-            </View>
-            {paying
-              ? <ActivityIndicator size="small" color="#FFFFFF" />
-              : <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
-            }
-          </LinearGradient>
-        </Pressable>
-      )}
+          <View style={styles.iconWrap}>
+            <Ionicons name="qr-code" size={22} color="#0EA5E9" />
+          </View>
+          <View style={styles.textWrap}>
+            <Text style={styles.title}>
+              {paying ? "Generando QR..." : "Pagar con QR Baneco"}
+            </Text>
+            <Text style={styles.sub}>Escanea y paga al instante</Text>
+          </View>
+          {paying
+            ? <ActivityIndicator size="small" color="#FFFFFF" />
+            : <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+          }
+        </LinearGradient>
+      </Pressable>
 
       <View style={styles.securityRow}>
         <Ionicons name="shield-checkmark" size={14} color={appTheme.colors.success} />

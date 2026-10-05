@@ -1,6 +1,7 @@
 ﻿import "../global.css";
 import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useFonts } from "expo-font";
 import { Alert, BackHandler, Platform, View } from "react-native";
 import * as ScreenCapture from "expo-screen-capture";
 import * as WebBrowser from "expo-web-browser";
@@ -60,6 +61,15 @@ function ScreenCaptureGuard() {
 }
 
 export default function Layout() {
+  // Carga Sora (pesos reales) para probarla (por ahora solo en el título del login).
+  const [fontsLoaded] = useFonts({
+    "Sora-Regular": require("../assets/fonts/Sora-Regular.ttf"),
+    "Sora-SemiBold": require("../assets/fonts/Sora-SemiBold.ttf"),
+    "Sora-Bold": require("../assets/fonts/Sora-Bold.ttf"),
+  });
+
+  if (!fontsLoaded) return null;
+
   return (
     <StripeProviderWrapper>
       <VersionGuard>

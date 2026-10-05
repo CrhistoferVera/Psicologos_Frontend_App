@@ -1,6 +1,12 @@
 import { Pressable, Text, View } from "react-native";
 import type { ProfessionalUpgrade } from "../../hooks/useProfessionalUpgrade";
 
+const DOC_LABELS: Record<string, string> = {
+  CI: "Carnet de identidad (solo gratis)",
+  TITULO: "Título en provisión nacional",
+  MATRICULA: "Matrícula profesional",
+};
+
 export default function StepUpgradeSummary({ reg }: { reg: ProfessionalUpgrade }) {
   return (
     <View className="gap-3">
@@ -11,9 +17,9 @@ export default function StepUpgradeSummary({ reg }: { reg: ProfessionalUpgrade }
           Especialidades: {reg.selectedSpecialtyNames.join(", ") || "Sin seleccionar"}
         </Text>
         <Text className="text-[#020617] font-body text-[13px]">Video de rostro: {reg.kycVideo ? "Grabado" : "Pendiente"}</Text>
-        <Text className="text-[#020617] font-body text-[13px]">Documento de identidad: {reg.idDoc ? "Adjunto" : "Pendiente"}</Text>
-        <Text className="text-[#020617] font-body text-[13px]">Matrícula profesional: {reg.matricula ? "Adjunta" : "Pendiente"}</Text>
-        <Text className="text-[#020617] font-body text-[13px]">Título profesional: {reg.tituloProfesional ? "Adjunto" : "No adjuntado"}</Text>
+        <Text className="text-[#020617] font-body text-[13px]">
+          Documento: {DOC_LABELS[reg.verificationDocType ?? ""] ?? "Sin seleccionar"} · {reg.verificationDoc ? "Adjunto" : "Pendiente"}
+        </Text>
       </View>
 
       <Pressable className="flex-row items-start gap-2" onPress={() => reg.setAcceptedTerms((prev) => !prev)}>
@@ -28,7 +34,7 @@ export default function StepUpgradeSummary({ reg }: { reg: ProfessionalUpgrade }
       </Pressable>
 
       <Text className="text-[#475569] font-body text-xs leading-[18px]">
-        Al enviar, tu perfil quedará en revisión KYC. El equipo cotejará el video con tu documento antes de aprobar tu modo profesional.
+        Al enviar, tu perfil quedará en revisión KYC. El equipo validará tu documento antes de aprobar tu modo profesional.
       </Text>
     </View>
   );

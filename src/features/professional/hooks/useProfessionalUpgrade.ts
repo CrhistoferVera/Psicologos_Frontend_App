@@ -83,6 +83,11 @@ export function useProfessionalUpgrade() {
     if (currentStep === 2) {
       if (selectedSpecialties.length === 0) return "Selecciona al menos una especialidad.";
     }
+    if (currentStep === 3) {
+      if (!kyc.kycVideo) return "Graba el video de rostro.";
+      if (!kyc.verificationDocType) return "Selecciona el tipo de documento a verificar.";
+      if (!kyc.verificationDoc) return "Adjunta el documento de verificación.";
+    }
     return null;
   }
 
@@ -107,7 +112,7 @@ export function useProfessionalUpgrade() {
   }
 
   async function handleSubmit() {
-    for (const s of [1, 2] as const) {
+    for (const s of [1, 2, 3] as const) {
       const validationError = validateStep(s);
       if (validationError) {
         setError(validationError);
@@ -129,11 +134,9 @@ export function useProfessionalUpgrade() {
         bio: bio.trim() || undefined,
         dateOfBirth: dateOfBirth.trim(),
         cedula: cedula.trim(),
-        idDoc: kyc.idDoc ?? undefined,
         kycVideo: kyc.kycVideo ?? undefined,
-        kycSelfie: kyc.kycSelfie ?? undefined,
-        matricula: kyc.matricula ?? undefined,
-        tituloProfesional: kyc.tituloProfesional ?? undefined,
+        verificationDocType: kyc.verificationDocType!,
+        verificationDoc: kyc.verificationDoc ?? undefined,
       });
 
       try {
@@ -178,13 +181,11 @@ export function useProfessionalUpgrade() {
     currentStepTitle,
     // KYC (para reutilizar StepKyc / resumen)
     kycVideo: kyc.kycVideo,
-    idDoc: kyc.idDoc,
-    matricula: kyc.matricula,
-    tituloProfesional: kyc.tituloProfesional,
     handleRecordFaceVideo: kyc.handleRecordFaceVideo,
-    handlePickIdDoc: kyc.handlePickIdDoc,
-    handlePickMatricula: kyc.handlePickMatricula,
-    handlePickTitulo: kyc.handlePickTitulo,
+    verificationDocType: kyc.verificationDocType,
+    setVerificationDocType: kyc.setVerificationDocType,
+    verificationDoc: kyc.verificationDoc,
+    handlePickVerificationDoc: kyc.handlePickVerificationDoc,
     handleContinue,
     handleBack,
     handleSubmit,

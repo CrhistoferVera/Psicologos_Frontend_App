@@ -36,7 +36,7 @@ type Props = {
   onImmediatePress?: () => void;
 };
 
-const NO_IMAGE = require("../../../../assets/no_image.jpg");
+const NO_IMAGE = require("../../../../assets/no_image.webp");
 
 export default function ProfessionalFeedCard({
   professional,

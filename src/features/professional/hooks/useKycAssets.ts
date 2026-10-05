@@ -2,38 +2,18 @@ import { useState } from "react";
 import { Alert } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
-import * as VideoThumbnails from "expo-video-thumbnails";
+import type { VerificationDocType } from "../types";
 
 export type FileAsset = { uri: string; name: string; type: string };
 
-// Hook reutilizable para los 5 archivos de KYC (documento, video de rostro,
-// selfie derivado, matrícula, título) + sus selectores. Lo comparten los flujos
-// de registro y de upgrade profesional para no duplicar la lógica de captura.
+// Hook reutilizable para el KYC: un VIDEO de rostro (obligatorio) + UN documento a
+// elegir (CI / TITULO / MATRICULA). El tipo elegido define si podrá cobrar
+// (TITULO/MATRICULA) o solo ofrecer sesiones gratuitas (CI). Lo comparten los
+// flujos de registro y de upgrade profesional.
 export function useKycAssets(onError: (msg: string) => void) {
-  const [idDoc, setIdDoc] = useState<FileAsset | null>(null);
   const [kycVideo, setKycVideo] = useState<FileAsset | null>(null);
-  const [kycSelfie, setKycSelfie] = useState<FileAsset | null>(null);
-  const [matricula, setMatricula] = useState<FileAsset | null>(null);
-  const [tituloProfesional, setTituloProfesional] = useState<FileAsset | null>(null);
-
-  async function pickDocument(setter: (asset: FileAsset) => void, errorMsg: string, fallbackName: string) {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ["image/*", "application/pdf"],
-        copyToCacheDirectory: true,
-      });
-      if (result.canceled) return;
-      const asset = result.assets?.[0];
-      if (!asset) return;
-      setter({ uri: asset.uri, name: asset.name ?? fallbackName, type: asset.mimeType ?? "application/octet-stream" });
-    } catch {
-      onError(errorMsg);
-    }
-  }
-
-  const handlePickIdDoc = () => pickDocument(setIdDoc, "No se pudo seleccionar el documento.", "id-doc");
-  const handlePickMatricula = () => pickDocument(setMatricula, "No se pudo seleccionar la matrícula.", "matricula");
-  const handlePickTitulo = () => pickDocument(setTituloProfesional, "No se pudo seleccionar el título.", "titulo");
+  const [verificationDocType, setVerificationDocType] = useState<VerificationDocType | null>(null);
+  const [verificationDoc, setVerificationDoc] = useState<FileAsset | null>(null);
 
   async function handleRecordFaceVideo() {
     try {
@@ -53,29 +33,37 @@ export function useKycAssets(onError: (msg: string) => void) {
       if (!asset?.uri) return;
 
       setKycVideo({ uri: asset.uri, name: "kyc_video.mp4", type: "video/mp4" });
-
-      try {
-        const thumb = await VideoThumbnails.getThumbnailAsync(asset.uri, { time: 500 });
-        setKycSelfie({ uri: thumb.uri, name: "kyc_selfie.jpg", type: "image/jpeg" });
-      } catch {
-        // Sin thumbnail: la comparación facial se SALTA en el backend.
-      }
-
       Alert.alert("Video grabado", "Video de rostro registrado correctamente.");
     } catch {
       onError("No se pudo grabar el video.");
     }
   }
 
+  async function handlePickVerificationDoc() {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["image/*", "application/pdf"],
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled) return;
+      const asset = result.assets?.[0];
+      if (!asset) return;
+      setVerificationDoc({
+        uri: asset.uri,
+        name: asset.name ?? "documento",
+        type: asset.mimeType ?? "application/octet-stream",
+      });
+    } catch {
+      onError("No se pudo seleccionar el documento.");
+    }
+  }
+
   return {
-    idDoc,
     kycVideo,
-    kycSelfie,
-    matricula,
-    tituloProfesional,
-    handlePickIdDoc,
-    handlePickMatricula,
-    handlePickTitulo,
     handleRecordFaceVideo,
+    verificationDocType,
+    setVerificationDocType,
+    verificationDoc,
+    handlePickVerificationDoc,
   };
 }

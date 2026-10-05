@@ -7,7 +7,7 @@ import { createImmediateBooking, type ImmediateProfessional } from '../../../api
 import { pendingPaymentStore } from '../../bookings/stores/pendingPaymentStore';
 import { useUserRegion } from '../../../hooks/useUserRegion';
 
-const NO_IMAGE = require('../../../../assets/no_image.jpg');
+const NO_IMAGE = require('../../../../assets/no_image.webp');
 
 type Props = {
   visible: boolean;

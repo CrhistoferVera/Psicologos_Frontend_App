@@ -62,6 +62,10 @@ function normalizeProfile(raw: any): ProfessionalProfile {
     availability: (raw?.availability as ProfessionalAvailability | null) ?? null,
     education: Array.isArray(raw?.education) ? (raw.education as EducationEntry[]) : [],
     languages: Array.isArray(raw?.languages) ? (raw.languages as string[]) : [],
+    canCharge: Boolean(raw?.canCharge ?? false),
+    verificationDocType: (raw?.verificationDocType as ProfessionalProfile["verificationDocType"]) ?? null,
+    chargeVerificationPending: Boolean(raw?.chargeVerificationPending ?? false),
+    hasTitulo: Boolean(raw?.hasTitulo ?? false),
   };
 }
 
@@ -109,22 +113,22 @@ export async function completeProfessionalRegistration(payload: ProfessionalRegi
   form.append("dateOfBirth", payload.dateOfBirth);
   form.append("cedula", payload.cedula);
   form.append("country", payload.country);
+  form.append("verificationDocType", payload.verificationDocType);
   if (payload.referralCode?.trim()) form.append("referralCode", payload.referralCode.trim().toUpperCase());
 
-  if (payload.idDoc) {
-    form.append("idDoc", { uri: payload.idDoc.uri, name: payload.idDoc.name, type: payload.idDoc.type } as any);
-  }
   if (payload.kycVideo) {
-    form.append("kycVideo", { uri: payload.kycVideo.uri, name: payload.kycVideo.name, type: payload.kycVideo.type } as any);
+    form.append("kycVideo", {
+      uri: payload.kycVideo.uri,
+      name: payload.kycVideo.name,
+      type: payload.kycVideo.type,
+    } as any);
   }
-  if (payload.kycSelfie) {
-    form.append("kycSelfie", { uri: payload.kycSelfie.uri, name: payload.kycSelfie.name, type: payload.kycSelfie.type } as any);
-  }
-  if (payload.matricula) {
-    form.append("matricula", { uri: payload.matricula.uri, name: payload.matricula.name, type: payload.matricula.type } as any);
-  }
-  if (payload.tituloProfesional) {
-    form.append("tituloProfesional", { uri: payload.tituloProfesional.uri, name: payload.tituloProfesional.name, type: payload.tituloProfesional.type } as any);
+  if (payload.verificationDoc) {
+    form.append("verificationDoc", {
+      uri: payload.verificationDoc.uri,
+      name: payload.verificationDoc.name,
+      type: payload.verificationDoc.type,
+    } as any);
   }
 
   const response = await apiClient.post("/auth/complete-professional-registration", form, {
@@ -141,11 +145,9 @@ export type UpgradeToProfessionalPayload = {
   bio?: string;
   dateOfBirth: string;
   cedula: string;
-  idDoc?: UpgradeFileAsset;
   kycVideo?: UpgradeFileAsset;
-  kycSelfie?: UpgradeFileAsset;
-  matricula?: UpgradeFileAsset;
-  tituloProfesional?: UpgradeFileAsset;
+  verificationDocType: "CI" | "TITULO" | "MATRICULA";
+  verificationDoc?: UpgradeFileAsset;
 };
 
 // Convierte la cuenta YA autenticada en profesional (sin recrear email/nombre/
@@ -156,16 +158,21 @@ export async function upgradeToProfessional(payload: UpgradeToProfessionalPayloa
   if (payload.bio) form.append("bio", payload.bio);
   form.append("dateOfBirth", payload.dateOfBirth);
   form.append("cedula", payload.cedula);
+  form.append("verificationDocType", payload.verificationDocType);
 
-  const files: [keyof UpgradeToProfessionalPayload, UpgradeFileAsset | undefined][] = [
-    ["idDoc", payload.idDoc],
-    ["kycVideo", payload.kycVideo],
-    ["kycSelfie", payload.kycSelfie],
-    ["matricula", payload.matricula],
-    ["tituloProfesional", payload.tituloProfesional],
-  ];
-  for (const [field, asset] of files) {
-    if (asset) form.append(field as string, { uri: asset.uri, name: asset.name, type: asset.type } as any);
+  if (payload.kycVideo) {
+    form.append("kycVideo", {
+      uri: payload.kycVideo.uri,
+      name: payload.kycVideo.name,
+      type: payload.kycVideo.type,
+    } as any);
+  }
+  if (payload.verificationDoc) {
+    form.append("verificationDoc", {
+      uri: payload.verificationDoc.uri,
+      name: payload.verificationDoc.name,
+      type: payload.verificationDoc.type,
+    } as any);
   }
 
   const response = await apiClient.post("/professionals/me/upgrade", form, {
@@ -179,6 +186,25 @@ export async function getMyProfessionalProfile(): Promise<ProfessionalProfile> {
   const response = await apiClient.get("/professionals/me/profile");
   const data = response.data;
   return normalizeProfile(data);
+}
+
+// Un profesional verificado con CI sube su título o matrícula para habilitar el cobro.
+export async function submitChargeVerification(
+  file: { uri: string; name: string; type: string },
+  kind: "titulo" | "matricula" = "titulo",
+) {
+  const field = kind === "matricula" ? "matricula" : "tituloProfesional";
+  const form = new FormData();
+  form.append(field, { uri: file.uri, name: file.name, type: file.type } as any);
+  const response = await apiClient.post("/professionals/me/charge-verification", form, {
+    headers: { "Content-Type": "multipart/form-data" },
+    timeout: 120000,
+  });
+  return response.data as {
+    message: string;
+    chargeVerificationPending: boolean;
+    canCharge: boolean;
+  };
 }
 
 export async function getMyProfessionalReviewStatus(): Promise<ProfessionalReviewStatusResponse> {

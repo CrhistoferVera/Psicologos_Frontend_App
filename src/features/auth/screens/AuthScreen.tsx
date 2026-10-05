@@ -119,14 +119,21 @@ export default function AuthScreen() {
   const loginDisabled = !email.trim() || !password || loading;
   const registerDisabled = !emailRegex.test(normalizedRegisterEmail) || loading;
 
-  const fieldLabel = "text-[#020617] font-body text-[15px] font-semibold";
-  const textInput = "min-h-[52px] rounded-2xl border border-[#CBD5E1] bg-[#F8FAFC] px-[14px] text-[#020617] font-body text-sm";
+  // Sora en todo este formulario (se migrará a global más adelante).
+  const sora = {
+    regular: { fontFamily: "Sora-Regular" },
+    semibold: { fontFamily: "Sora-SemiBold" },
+    bold: { fontFamily: "Sora-Bold" },
+  } as const;
+
+  const fieldLabel = "text-[#020617] text-[15px]";
+  const textInput = "min-h-[52px] rounded-2xl border border-[#CBD5E1] bg-[#F8FAFC] px-[14px] text-[#020617] text-sm";
   const primaryBtn = "min-h-[54px] rounded-[18px] bg-[#5B9BD5] items-center justify-center";
-  const primaryBtnText = "text-white font-heading text-[17px] font-bold";
+  const primaryBtnText = "text-white text-[17px]";
   const divider = (
     <View className="flex-row items-center gap-2.5 -mt-0.5">
       <View className="flex-1 h-px bg-[#CBD5E1]" />
-      <Text className="text-[#64748B] font-body text-sm font-semibold">o</Text>
+      <Text className="text-[#64748B] text-sm" style={sora.semibold}>o</Text>
       <View className="flex-1 h-px bg-[#CBD5E1]" />
     </View>
   );
@@ -137,15 +144,18 @@ export default function AuthScreen() {
         <View className="min-h-[620px] rounded-[20px] bg-white border border-[#CBD5E1] px-4 py-[18px] justify-between gap-3">
           <View className="flex-row items-center gap-4">
             <Image
-              source={require("../../../../assets/icon.png")}
+              source={require("../../../../assets/logo.webp")}
               className="w-20 h-20 rounded-2xl"
               resizeMode="contain"
             />
             <View className="flex-1">
-              <Text className="text-[#020617] font-heading font-bold text-2xl leading-[30px]">
+              <Text
+                className="text-[#020617] text-2xl leading-[30px]"
+                style={{ fontFamily: "Sora-Bold" }}
+              >
                 {mode === "login" ? "Bienvenido" : "Crear cuenta"}
               </Text>
-              <Text className="text-[#475569] font-body text-sm leading-[20px] mt-1">
+              <Text className="text-[#475569] text-sm leading-[20px] mt-1" style={sora.regular}>
                 {mode === "login" ? "Accede a tu cuenta segura" : "Regístrate para comenzar tu experiencia"}
               </Text>
             </View>
@@ -156,7 +166,10 @@ export default function AuthScreen() {
               className={`flex-1 min-h-[42px] rounded-[13px] items-center justify-center ${mode === "login" ? "bg-white border border-[#CBD5E1]" : ""}`}
               onPress={() => setMode("login")}
             >
-              <Text className={`font-body text-sm ${mode === "login" ? "text-[#020617] font-bold" : "text-[#64748B] font-semibold"}`}>
+              <Text
+                className={`text-sm ${mode === "login" ? "text-[#020617]" : "text-[#64748B]"}`}
+                style={{ fontFamily: "Sora-SemiBold" }}
+              >
                 Iniciar sesión
               </Text>
             </Pressable>
@@ -165,7 +178,10 @@ export default function AuthScreen() {
               className={`flex-1 min-h-[42px] rounded-[13px] items-center justify-center ${mode === "register" ? "bg-white border border-[#CBD5E1]" : ""}`}
               onPress={() => setMode("register")}
             >
-              <Text className={`font-body text-sm ${mode === "register" ? "text-[#020617] font-bold" : "text-[#64748B] font-semibold"}`}>
+              <Text
+                className={`text-sm ${mode === "register" ? "text-[#020617]" : "text-[#64748B]"}`}
+                style={{ fontFamily: "Sora-SemiBold" }}
+              >
                 Registrarse
               </Text>
             </Pressable>
@@ -174,7 +190,7 @@ export default function AuthScreen() {
           {mode === "login" ? (
             <>
               <View className="gap-2">
-                <Text className={fieldLabel}>Correo electrónico</Text>
+                <Text className={fieldLabel} style={sora.semibold}>Correo electrónico</Text>
                 <TextInput
                   value={email}
                   onChangeText={setEmail}
@@ -183,11 +199,12 @@ export default function AuthScreen() {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   className={textInput}
+                  style={sora.regular}
                 />
               </View>
 
               <View className="gap-2">
-                <Text className={fieldLabel}>Contraseña</Text>
+                <Text className={fieldLabel} style={sora.semibold}>Contraseña</Text>
                 <View className="min-h-[52px] rounded-2xl border border-[#CBD5E1] bg-[#F8FAFC] px-[14px] flex-row items-center gap-2">
                   <TextInput
                     value={password}
@@ -196,10 +213,11 @@ export default function AuthScreen() {
                     placeholderTextColor="#64748B"
                     secureTextEntry={!showPassword}
                     autoCapitalize="none"
-                    className="flex-1 text-[#020617] font-body text-sm py-0"
+                    className="flex-1 text-[#020617] text-sm py-0"
+                    style={sora.regular}
                   />
                   <Pressable onPress={() => setShowPassword((prev) => !prev)} hitSlop={10}>
-                    <Text className="text-[#5B9BD5] font-body text-sm font-semibold">{showPassword ? "Ocultar" : "Ver"}</Text>
+                    <Text className="text-[#5B9BD5] text-sm" style={sora.semibold}>{showPassword ? "Ocultar" : "Ver"}</Text>
                   </Pressable>
                 </View>
               </View>
@@ -208,7 +226,7 @@ export default function AuthScreen() {
                 className="items-center -mt-0.5"
                 onPress={() => router.push("/(public)/forgot-password" as any)}
               >
-                <Text className="text-[#5B9BD5] font-body text-[15px] font-medium">¿Olvidaste tu contraseña?</Text>
+                <Text className="text-[#5B9BD5] text-[15px]" style={sora.regular}>¿Olvidaste tu contraseña?</Text>
               </Pressable>
 
               <Pressable
@@ -216,7 +234,7 @@ export default function AuthScreen() {
                 onPress={handleLogin}
                 disabled={loginDisabled}
               >
-                <Text className={primaryBtnText}>{loading ? "Ingresando..." : "Iniciar sesión"}</Text>
+                <Text className={primaryBtnText} style={sora.bold}>{loading ? "Ingresando..." : "Iniciar sesión"}</Text>
               </Pressable>
 
               {divider}
@@ -227,7 +245,7 @@ export default function AuthScreen() {
           ) : (
             <>
               <View className="gap-2">
-                <Text className={fieldLabel}>Correo electrónico</Text>
+                <Text className={fieldLabel} style={sora.semibold}>Correo electrónico</Text>
                 <TextInput
                   value={registerEmail}
                   onChangeText={setRegisterEmail}
@@ -236,6 +254,7 @@ export default function AuthScreen() {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   className={textInput}
+                  style={sora.regular}
                 />
               </View>
 
@@ -244,7 +263,7 @@ export default function AuthScreen() {
                 onPress={handleRegister}
                 disabled={registerDisabled}
               >
-                <Text className={primaryBtnText}>{loading ? "Enviando..." : "Continuar"}</Text>
+                <Text className={primaryBtnText} style={sora.bold}>{loading ? "Enviando..." : "Continuar"}</Text>
               </Pressable>
 
               {divider}
@@ -253,17 +272,22 @@ export default function AuthScreen() {
               ) : null}
 
               <Pressable
-                className="flex-row items-center justify-center gap-2 min-h-[52px] rounded-2xl border border-[#CBD5E1] bg-white mt-1"
+                className="flex-row items-center gap-3 min-h-[58px] rounded-2xl border-[1.5px] border-[#5B9BD5] bg-[#EAF2FB] px-4 mt-1 active:opacity-80"
                 onPress={() => router.push("/(public)/professional-register" as any)}
               >
-                <Ionicons name="briefcase-outline" size={18} color="#5B9BD5" />
-                <Text className="text-[#334155] font-body text-sm font-medium">¿Eres profesional?</Text>
-                <Text className="text-[#5B9BD5] font-body text-sm font-bold">Regístrate aquí</Text>
+                <View className="w-10 h-10 rounded-full bg-[#5B9BD5] items-center justify-center">
+                  <Ionicons name="briefcase" size={20} color="#FFFFFF" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-[#1E3A5F] text-[15px]" style={sora.bold}>¿Eres profesional?</Text>
+                  <Text className="text-[#5B9BD5] text-xs" style={sora.semibold}>Regístrate y ofrece tus sesiones</Text>
+                </View>
+                <Ionicons name="arrow-forward-circle" size={24} color="#5B9BD5" />
               </Pressable>
             </>
           )}
 
-          {errorMessage ? <Text className="text-[#DC2626] font-body text-xs text-center">{errorMessage}</Text> : null}
+          {errorMessage ? <Text className="text-[#DC2626] text-xs text-center" style={sora.regular}>{errorMessage}</Text> : null}
         </View>
       </View>
     </AppScreen>
