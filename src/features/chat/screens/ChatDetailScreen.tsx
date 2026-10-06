@@ -28,8 +28,9 @@ import { formatRemainingMinText } from "../../../utils/sessionTime";
 import { activeChatRef, professionalChatScreenRef } from "../../../services/notifications";
 import { getHomeRouteByRole, safeBack } from "../../../utils/navigation";
 import { NoShowBanner } from "../../bookings/components/NoShowBanner";
-import { RefundRequestBanner } from "../../bookings/components/RefundRequestBanner";
-import type { NoShowType, RefundRequestResult } from "../../../api/bookings";
+// REEMBOLSOS DESHABILITADOS: banner de reembolso comentado.
+// import { RefundRequestBanner } from "../../bookings/components/RefundRequestBanner";
+import type { NoShowType } from "../../../api/bookings";
 import { apiMarkBookingJoined } from "../../../api/bookings";
 import { apiGetConfig } from "../../../api/userClient";
 
@@ -471,6 +472,7 @@ export default function ChatDetailScreen() {
         />
       ) : null}
 
+      {/* REEMBOLSOS DESHABILITADOS: banner de solicitud de reembolso por no-show comentado.
       {user?.role === "USER" &&
         !refundRequested &&
         (() => {
@@ -511,6 +513,7 @@ export default function ChatDetailScreen() {
           return null;
         })()
       }
+      */}
 
       <KeyboardAvoidingView
         style={styles.chatBody}

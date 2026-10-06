@@ -18,6 +18,7 @@ import PublicViewModal from "../components/profile/PublicViewModal";
 import ChargeVerificationCard from "../components/profile/ChargeVerificationCard";
 import VerificationStatusCard from "../components/profile/VerificationStatusCard";
 import ModeToggle from "../../../components/ModeToggle";
+import { openSupportWhatsApp } from "../../../utils/support";
 
 export default function ProfessionalProfileScreen() {
   const p = useProfessionalProfile();
@@ -153,6 +154,15 @@ export default function ProfessionalProfileScreen() {
         <View className="mx-3.5">
           <AppButton title="Guardar cambios" onPress={p.handleSave} loading={p.saving} />
         </View>
+
+        <Pressable
+          className="mx-3.5 min-h-[48px] rounded-[14px] border border-[#BBE9CC] bg-[#E7F9EE] flex-row items-center justify-center gap-2 active:bg-[#D3F3E0]"
+          accessibilityRole="button"
+          onPress={() => void openSupportWhatsApp()}
+        >
+          <Ionicons name="logo-whatsapp" size={18} color="#25D366" />
+          <Text className="text-[#15803D] font-body text-[15px] font-bold">Soporte</Text>
+        </Pressable>
 
         <Pressable
           className="mx-3.5 min-h-[48px] rounded-[14px] border border-[#F5CACA] bg-[#FFF4F4] flex-row items-center justify-center gap-2 active:bg-[#FDE8E8]"

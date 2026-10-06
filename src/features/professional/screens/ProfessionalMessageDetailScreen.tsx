@@ -16,6 +16,7 @@ import { ArrowLeft } from "lucide-react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../../context/AuthContext";
+import { useCallManager } from "../../../context/CallContext";
 import { appTheme } from "../../../theme/appTheme";
 import { getMessages, markConversationAsRead, sendMessageToUser, type Message } from "../../../api/messages";
 import { getCommunicationAccess, type CommunicationAccess } from "../../../api/communication";
@@ -65,6 +66,8 @@ export default function ProfessionalMessageDetailScreen() {
   const insets = useSafeAreaInsets();
   const listRef = useRef<FlatList<MessageUI>>(null);
   const { onNewMessage } = useSocket(user?.id);
+  const { startOutgoingCall } = useCallManager();
+  const [requestingCall, setRequestingCall] = useState<"CALL" | "VIDEO_CALL" | null>(null);
 
   const conversationId = Array.isArray(params.id) ? params.id[0] : params.id ?? "";
   const clientIdRaw = Array.isArray(params.clientId) ? params.clientId[0] : params.clientId;
@@ -260,6 +263,29 @@ export default function ProfessionalMessageDetailScreen() {
     }
   }
 
+  async function handleStartCall(callType: "CALL" | "VIDEO_CALL") {
+    if (requestingCall || !clientId) return;
+    if (!canSendMessages) {
+      setError(
+        sessionExpired
+          ? "La sesion termino."
+          : communicationAccess?.message ?? "Las llamadas estan disponibles solo durante una sesion activa.",
+      );
+      return;
+    }
+    try {
+      setRequestingCall(callType);
+      await startOutgoingCall({
+        receiverId: clientId,
+        receiverName: clientName,
+        receiverAvatar: clientAvatar || null,
+        callType,
+      });
+    } finally {
+      setRequestingCall(null);
+    }
+  }
+
   const showEmpty = useMemo(() => !loading && messages.length === 0 && !error, [loading, messages.length, error]);
   const communicationHint = communicationLoading
     ? "Validando acceso a comunicacion..."
@@ -289,17 +315,26 @@ export default function ProfessionalMessageDetailScreen() {
             <Text style={styles.sub}>Conversacion</Text>
           )}
         </View>
+
+        <Pressable
+          style={[styles.callBtn, (!canSendMessages || requestingCall !== null) && styles.callBtnDisabled]}
+          onPress={() => handleStartCall("CALL")}
+          disabled={!canSendMessages || requestingCall !== null}
+        >
+          <Ionicons name="call" size={18} color={appTheme.colors.success} />
+        </Pressable>
+        <Pressable
+          style={[styles.callBtn, (!canSendMessages || requestingCall !== null) && styles.callBtnDisabled]}
+          onPress={() => handleStartCall("VIDEO_CALL")}
+          disabled={!canSendMessages || requestingCall !== null}
+        >
+          <Ionicons name="videocam" size={18} color={appTheme.colors.primary} />
+        </Pressable>
       </View>
 
       {error ? (
         <View style={styles.errorWrap}>
           <Text style={styles.errorText}>{error}</Text>
-        </View>
-      ) : null}
-
-      {hasActiveSessionNow ? (
-        <View style={styles.callFlowBanner}>
-          <Text style={styles.callFlowBannerText}>Espera a que el cliente inicie la llamada o videollamada.</Text>
         </View>
       ) : null}
 
@@ -457,22 +492,16 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontWeight: "600",
   },
-  callFlowBanner: {
-    marginHorizontal: 12,
-    marginTop: 8,
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    backgroundColor: "#ECFDF5",
-    borderWidth: 1,
-    borderColor: "#BBF7D0",
+  callBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#EEF2F7",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  callFlowBannerText: {
-    color: "#166534",
-    fontFamily: appTheme.fonts.body,
-    fontSize: 12,
-    textAlign: "center",
-    fontWeight: "600",
+  callBtnDisabled: {
+    opacity: 0.4,
   },
   chatBody: {
     flex: 1,

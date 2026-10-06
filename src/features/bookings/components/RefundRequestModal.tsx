@@ -17,7 +17,13 @@ import {
   type ClientPayoutAccount,
   type RefundMethod,
 } from "../../../api/payoutAccounts";
-import { requestRefund, type RefundRequestResult } from "../../../api/bookings";
+// REEMBOLSOS DESHABILITADOS: este modal ya no se usa (su render está comentado
+// en las pantallas). Se deja inerte: tipo local y requestRefund stub para no
+// depender de los exports de reembolso ya comentados en api/bookings.
+type RefundRequestResult = any;
+async function requestRefund(_bookingId: string, _accountId: string): Promise<RefundRequestResult> {
+  throw new Error("Reembolsos deshabilitados.");
+}
 
 type Props = {
   visible: boolean;

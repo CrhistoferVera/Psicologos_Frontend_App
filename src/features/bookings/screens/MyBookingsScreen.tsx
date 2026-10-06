@@ -15,9 +15,9 @@ import {
   type Booking,
   type BookingRescheduleRequest,
   type BookingRescheduleRequestStatus,
-  type RefundRequestResult,
 } from '../../../api/bookings';
-import { RefundRequestBanner } from '../components/RefundRequestBanner';
+// REEMBOLSOS DESHABILITADOS: banner de reembolso comentado.
+// import { RefundRequestBanner } from '../components/RefundRequestBanner';
 import { useAuth } from '../../../context/AuthContext';
 import { appTheme } from '../../../theme/appTheme';
 import { formatMoneyByCurrency } from '../../../utils/money';
@@ -98,7 +98,8 @@ export default function MyBookingsScreen() {
   const [modalReason, setModalReason] = useState('');
   const [creatingRequest, setCreatingRequest] = useState(false);
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
-  const [refundedBookingIds, setRefundedBookingIds] = useState<Set<string>>(new Set());
+  // REEMBOLSOS DESHABILITADOS: estado de reembolsos comentado.
+  // const [refundedBookingIds, setRefundedBookingIds] = useState<Set<string>>(new Set());
 
   async function load(isRefresh = false) {
     if (isRefresh) setRefreshing(true);
@@ -324,6 +325,34 @@ export default function MyBookingsScreen() {
                   <Ionicons name="chevron-forward" size={14} color={appTheme.colors.primary} />
                 </View>
 
+                {(booking.status === 'CONFIRMED' ||
+                  booking.status === 'COMPLETED' ||
+                  booking.status === 'NO_SHOW') &&
+                booking.professional?.id ? (
+                  <Pressable
+                    style={styles.chatBtn}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/(user)/chats/[id]',
+                        params: {
+                          id: booking.professional!.id,
+                          conversationId: '',
+                          professionalId: booking.professional!.id,
+                          professionalName:
+                            `${booking.professional?.firstName ?? ''} ${booking.professional?.lastName ?? ''}`.trim() ||
+                            booking.professional?.professionalProfile?.username ||
+                            'Profesional',
+                          professionalAvatar: booking.professional?.professionalProfile?.avatarUrl ?? '',
+                        },
+                      } as any)
+                    }
+                  >
+                    <Ionicons name="chatbubble-ellipses-outline" size={16} color="#FFFFFF" />
+                    <Text style={styles.chatBtnText}>Chatear con el profesional</Text>
+                  </Pressable>
+                ) : null}
+
+                {/* REEMBOLSOS DESHABILITADOS: banner de solicitud de reembolso por no-show comentado.
                 {booking.status === 'NO_SHOW' &&
                   (booking.noShowType === 'PROFESSIONAL' || booking.noShowType === 'BOTH') && (() => {
                     const windowActive =
@@ -358,6 +387,7 @@ export default function MyBookingsScreen() {
                     }
                     return null;
                   })()}
+                */}
 
                 <View style={styles.rescheduleWrap}>
                   <Text style={styles.rescheduleTitle}>Reprogramar cita</Text>
@@ -526,6 +556,22 @@ const styles = StyleSheet.create({
   cardActionText: {
     color: appTheme.colors.primary,
     fontSize: 12,
+    fontFamily: appTheme.fonts.body,
+    fontWeight: '700',
+  },
+  chatBtn: {
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: 12,
+    backgroundColor: appTheme.colors.primary,
+    paddingVertical: 11,
+  },
+  chatBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
     fontFamily: appTheme.fonts.body,
     fontWeight: '700',
   },

@@ -310,23 +310,24 @@ export async function reportNoShow(bookingId: string): Promise<NoShowReportResul
   return res.data;
 }
 
-export type RefundRequestResult = {
-  id: string;
-  bookingId: string;
-  amountBob: number;
-  amountUsd: number;
-  percentage: number;
-  status: 'PENDING';
-  requestedAt: string;
-};
-
-export async function requestRefund(
-  bookingId: string,
-  clientPayoutAccountId: string,
-): Promise<RefundRequestResult> {
-  const res = await apiClient.post<RefundRequestResult>(`/bookings/${bookingId}/request-refund`, {
-    clientPayoutAccountId,
-  });
-  return res.data;
-}
+// REEMBOLSOS DESHABILITADOS: tipo y endpoint de reembolso comentados.
+// export type RefundRequestResult = {
+//   id: string;
+//   bookingId: string;
+//   amountBob: number;
+//   amountUsd: number;
+//   percentage: number;
+//   status: 'PENDING';
+//   requestedAt: string;
+// };
+//
+// export async function requestRefund(
+//   bookingId: string,
+//   clientPayoutAccountId: string,
+// ): Promise<RefundRequestResult> {
+//   const res = await apiClient.post<RefundRequestResult>(`/bookings/${bookingId}/request-refund`, {
+//     clientPayoutAccountId,
+//   });
+//   return res.data;
+// }
 

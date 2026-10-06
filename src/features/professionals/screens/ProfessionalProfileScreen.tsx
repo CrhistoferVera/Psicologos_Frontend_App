@@ -475,7 +475,7 @@ export default function ProfessionalProfileScreen() {
     }
   }
 
-  function handleOpenBooking() {
+  function handleOpenBooking(offeringId?: string) {
     if (!professional || openingBooking || !canDetermineRegion) return;
     setOpeningBooking(true);
     router.push({
@@ -483,6 +483,7 @@ export default function ProfessionalProfileScreen() {
       params: {
         professionalId: professional.id,
         professionalName: professional.name,
+        ...(offeringId ? { offeringId } : {}),
       },
     } as any);
     setOpeningBooking(false);
@@ -686,15 +687,6 @@ export default function ProfessionalProfileScreen() {
             <AppCard>
               <View style={styles.sessionsTitleRow}>
                 <Text style={styles.blockTitle}>Sesiones disponibles</Text>
-                {offerings.length > 0 && (
-                  <Pressable
-                    style={[styles.reserveBtn, (!canDetermineRegion || openingBooking) && styles.reserveBtnDisabled]}
-                    onPress={handleOpenBooking}
-                    disabled={!canDetermineRegion || openingBooking}
-                  >
-                    <Text style={styles.reserveBtnText}>Reservar</Text>
-                  </Pressable>
-                )}
               </View>
 
               {offeringsLoading ? (
@@ -704,7 +696,16 @@ export default function ProfessionalProfileScreen() {
               ) : (
                 <View style={styles.offeringsWrap}>
                   {offerings.map((offering) => (
-                    <View key={offering.id} style={styles.offeringCard}>
+                    <Pressable
+                      key={offering.id}
+                      style={({ pressed }) => [
+                        styles.offeringCard,
+                        (!canDetermineRegion || openingBooking) && styles.priceCardDisabled,
+                        pressed && styles.offeringCardPressed,
+                      ]}
+                      onPress={() => handleOpenBooking(offering.id)}
+                      disabled={!canDetermineRegion || openingBooking}
+                    >
                       <View style={{ flex: 1 }}>
                         <Text style={styles.offeringTitle}>{offering.title}</Text>
                         {!!offering.description && (
@@ -721,8 +722,9 @@ export default function ProfessionalProfileScreen() {
                               : formatBob(offering.priceBob)}
                           </Text>
                         )}
+                        <Ionicons name="chevron-forward" size={18} color={appTheme.colors.primary} />
                       </View>
-                    </View>
+                    </Pressable>
                   ))}
                 </View>
               )}
@@ -1343,6 +1345,11 @@ const styles = StyleSheet.create({
     padding: 10,
     flexDirection: 'row',
     gap: 10,
+    alignItems: 'center',
+  },
+  offeringCardPressed: {
+    backgroundColor: '#EEF4FF',
+    borderColor: appTheme.colors.primary,
   },
   offeringTitle: {
     color: appTheme.colors.text,
@@ -1373,21 +1380,6 @@ const styles = StyleSheet.create({
     color: appTheme.colors.primary,
     fontFamily: appTheme.fonts.heading,
     fontSize: 14,
-    fontWeight: '700',
-  },
-  reserveBtn: {
-    borderRadius: 10,
-    backgroundColor: appTheme.colors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  reserveBtnDisabled: {
-    opacity: 0.6,
-  },
-  reserveBtnText: {
-    color: '#FFFFFF',
-    fontFamily: appTheme.fonts.body,
-    fontSize: 12,
     fontWeight: '700',
   },
   errorText: {

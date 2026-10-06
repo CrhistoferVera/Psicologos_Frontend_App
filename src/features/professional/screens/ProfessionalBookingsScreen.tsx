@@ -46,13 +46,14 @@ function statusLabel(status: string) {
   return status;
 }
 
+// La comunicación se habilita apenas la reserva está pagada y confirmada
+// (aunque la sesión no haya iniciado) y permanece activa hasta que termine.
 function isCommunicationActive(booking: ProfessionalBooking, now = new Date()) {
   if (booking.status !== 'CONFIRMED') return false;
   if (booking.paymentStatus !== 'PAID') return false;
-  const start = new Date(booking.scheduledStartAt);
   const end = new Date(booking.scheduledEndAt);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return false;
-  return now >= start && now <= end;
+  if (Number.isNaN(end.getTime())) return false;
+  return now <= end;
 }
 
 function getCommunicationStateLabel(booking: ProfessionalBooking, now = new Date()) {
@@ -67,12 +68,12 @@ function getCommunicationStateLabel(booking: ProfessionalBooking, now = new Date
     return 'Comunicacion bloqueada: reserva no confirmada.';
   }
 
-  if (now < start) {
-    return `Disponible desde ${formatDateTime(booking.scheduledStartAt)}.`;
-  }
-
   if (now > end) {
     return `Sesion finalizada a las ${formatHour(booking.scheduledEndAt)}.`;
+  }
+
+  if (now < start) {
+    return `Chat habilitado. Sesion programada: ${formatDateTime(booking.scheduledStartAt)}.`;
   }
 
   return `Sesion activa hasta ${formatHour(booking.scheduledEndAt)}.`;
@@ -431,7 +432,7 @@ export default function ProfessionalBookingsScreen() {
                     </Text>
                     {activeNow ? (
                       <Text style={styles.callWaitHint}>
-                        Espera a que el cliente inicie la llamada o videollamada.
+                        Abre el chat para enviar mensajes, llamar o videollamar.
                       </Text>
                     ) : null}
 

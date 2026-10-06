@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Text } from "react-native";
 import AppCard from "../../../components/ui/AppCard";
 import { appTheme } from "../../../theme/appTheme";
+import { openSupportWhatsApp } from "../../../utils/support";
 import MenuRow from "./MenuRow";
 
 type MenuItem = {
@@ -11,7 +12,8 @@ type MenuItem = {
   iconBg: string;
   title: string;
   subtitle: string;
-  route: string;
+  route?: string;
+  onPress?: () => void;
 };
 
 const items: MenuItem[] = [
@@ -47,6 +49,14 @@ const items: MenuItem[] = [
     subtitle: "Consulta las condiciones de uso",
     route: "/terms",
   },
+  {
+    icon: "logo-whatsapp",
+    iconColor: "#25D366",
+    iconBg: "#E7F9EE",
+    title: "Soporte",
+    subtitle: "Escríbenos por WhatsApp",
+    onPress: () => void openSupportWhatsApp(),
+  },
 ];
 
 export default function QuickAccessCard() {
@@ -58,13 +68,13 @@ export default function QuickAccessCard() {
 
       {items.map((item) => (
         <MenuRow
-          key={item.route}
+          key={item.route ?? item.title}
           icon={item.icon}
           iconColor={item.iconColor}
           iconBg={item.iconBg}
           title={item.title}
           subtitle={item.subtitle}
-          onPress={() => router.push(item.route as any)}
+          onPress={() => (item.onPress ? item.onPress() : router.push(item.route as any))}
         />
       ))}
     </AppCard>

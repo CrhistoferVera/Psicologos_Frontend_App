@@ -13,9 +13,9 @@ import {
   initBookingPayment,
   type Booking,
   type BookingPaymentInitResponse,
-  type RefundRequestResult,
 } from '../../../api/bookings';
-import { RefundRequestBanner } from '../../bookings/components/RefundRequestBanner';
+// REEMBOLSOS DESHABILITADOS: banner de reembolso comentado.
+// import { RefundRequestBanner } from '../../bookings/components/RefundRequestBanner';
 import { formatBob, formatMoneyByCurrency, formatUsd } from '../../../utils/money';
 import { safeBack } from '../../../utils/navigation';
 import { pendingPaymentStore } from '../stores/pendingPaymentStore';
@@ -82,7 +82,8 @@ export default function BookingPaymentScreen() {
 
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refundDone, setRefundDone] = useState(false);
+  // REEMBOLSOS DESHABILITADOS: estado de reembolso comentado.
+  // const [refundDone, setRefundDone] = useState(false);
   const [initiating, setInitiating] = useState(false);  // generando QR / creando Stripe intent
   const [paying, setPaying] = useState(false);           // sheet de Stripe abierto
   const [paymentData, setPaymentData] = useState<BookingPaymentInitResponse | null>(null);
@@ -314,21 +315,20 @@ export default function BookingPaymentScreen() {
   const isBatchPending = totalSessions > 1;
 
   const noShowBooking = bookings.find((b) => b.status === 'NO_SHOW') ?? null;
-  const refundEligible =
-    noShowBooking != null &&
-    (noShowBooking.noShowType === 'PROFESSIONAL' || noShowBooking.noShowType === 'BOTH');
-
-  const hasRefundAvailable =
-    !refundDone &&
-    refundEligible &&
-    !!noShowBooking?.refundWindowExpiresAt &&
-    new Date(noShowBooking.refundWindowExpiresAt) > new Date();
-
-  const refundExpired =
-    !refundDone &&
-    refundEligible &&
-    !!noShowBooking?.refundWindowExpiresAt &&
-    new Date(noShowBooking.refundWindowExpiresAt) <= new Date();
+  // REEMBOLSOS DESHABILITADOS: cálculos de elegibilidad de reembolso comentados.
+  // const refundEligible =
+  //   noShowBooking != null &&
+  //   (noShowBooking.noShowType === 'PROFESSIONAL' || noShowBooking.noShowType === 'BOTH');
+  // const hasRefundAvailable =
+  //   !refundDone &&
+  //   refundEligible &&
+  //   !!noShowBooking?.refundWindowExpiresAt &&
+  //   new Date(noShowBooking.refundWindowExpiresAt) > new Date();
+  // const refundExpired =
+  //   !refundDone &&
+  //   refundEligible &&
+  //   !!noShowBooking?.refundWindowExpiresAt &&
+  //   new Date(noShowBooking.refundWindowExpiresAt) <= new Date();
 
   const headerTitle = allConfirmed
     ? bookings.length > 1 ? 'Reservas confirmadas' : 'Reserva confirmada'
@@ -422,6 +422,7 @@ export default function BookingPaymentScreen() {
               </Text>
             </AppCard>
 
+            {/* REEMBOLSOS DESHABILITADOS: banner y estados de reembolso comentados.
             {hasRefundAvailable && (
               <RefundRequestBanner
                 bookingId={noShowBooking.id}
@@ -452,6 +453,7 @@ export default function BookingPaymentScreen() {
                 </View>
               </AppCard>
             )}
+            */}
           </>
         )}
 

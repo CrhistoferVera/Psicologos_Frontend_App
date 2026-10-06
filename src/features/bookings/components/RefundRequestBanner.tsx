@@ -3,7 +3,10 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { appTheme } from "../../../theme/appTheme";
 import { RefundRequestModal } from "./RefundRequestModal";
-import type { RefundRequestResult } from "../../../api/bookings";
+// REEMBOLSOS DESHABILITADOS: este componente ya no se usa (su render está
+// comentado en las pantallas). Se deja inerte con un tipo local para no
+// depender de los exports de reembolso ya comentados en api/bookings.
+type RefundRequestResult = any;
 
 type Props = {
   bookingId: string;
