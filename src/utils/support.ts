@@ -2,7 +2,7 @@ import { Alert, Linking } from 'react-native';
 
 // Número de WhatsApp de soporte (formato internacional, sin "+" ni espacios).
 // Cambiar este valor por el número oficial de soporte.
-export const SUPPORT_WHATSAPP_NUMBER = '59170000000';
+export const SUPPORT_WHATSAPP_NUMBER = '59174048209';
 
 const DEFAULT_SUPPORT_MESSAGE = 'Hola, necesito ayuda con la app de SanaMente.';
 
